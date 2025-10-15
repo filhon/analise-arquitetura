@@ -1,30 +1,7 @@
 // Testes para validação de CPF
 
 import { describe, it, expect } from "vitest";
-
-/**
- * Gera um CPF válido com dígitos verificadores corretos
- */
-function generateValidCPF(base: string): string {
-  const clean = base.replace(/\D/g, "").substring(0, 9);
-  let sum = 0;
-  for (let i = 0; i < 9; i++) {
-    sum += parseInt(clean.charAt(i)) * (10 - i);
-  }
-  let digit1 = 11 - (sum % 11);
-  if (digit1 >= 10) digit1 = 0;
-
-  sum = 0;
-  const temp = clean + digit1;
-  for (let i = 0; i < 10; i++) {
-    sum += parseInt(temp.charAt(i)) * (11 - i);
-  }
-  let digit2 = 11 - (sum % 11);
-  if (digit2 >= 10) digit2 = 0;
-
-  const fullCpf = clean + digit1 + digit2;
-  return fullCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-}
+import generateValidCPF from "@/utils/cpf";
 
 /**
  * Valida um CPF (copiado de utils/index.ts)

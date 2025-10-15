@@ -15,7 +15,9 @@ import {
   generateId,
   ErrorHandler,
   RealtimeSync,
+  safeParseJSON,
 } from "@/utils";
+import { uploadImage, deleteFileByUrl } from "@/utils/storage";
 import { EventSystem } from "@/utils/events";
 import { DebugLogger } from "@/config/debug";
 
@@ -50,12 +52,9 @@ export class MemberManager {
 
       // 2️⃣ Carregar do localStorage (cache do Firebase)
       const stored = localStorage.getItem(StorageKeys.MEMBERS);
-
-      // ✅ CRÍTICO: Verificar se stored é válido antes de fazer parse
+      // ✅ Use safeParseJSON to avoid throwing on malformed localStorage
       const members =
-        stored && stored !== "undefined" && stored !== "null"
-          ? JSON.parse(stored)
-          : [];
+        (safeParseJSON<Member[]>(stored) as Member[] | null) || [];
 
       // 3️⃣ Atualizar memory cache
       this.cache.set("all-members", members);
@@ -511,19 +510,29 @@ export class MemberManager {
   private async saveMembers(members: Member[]): Promise<void> {
     console.log("[MemberManager] 💾 Iniciando saveMembers...");
 
+    const now = new Date().toISOString();
+    // Garantir lastUpdated para cada membro no momento do save
+    const membersWithTimestamps = members.map((m) => ({
+      ...m,
+      lastUpdated: now,
+    }));
+
     // 1️⃣ Atualizar memory cache (UI imediata)
     console.log("[MemberManager] 1️⃣ Atualizando memory cache...");
-    this.cache.set("all-members", members);
+    this.cache.set("all-members", membersWithTimestamps);
     console.log("[MemberManager] ✅ Memory cache atualizado!");
 
     // 2️⃣ Atualizar localStorage (cache persistente)
     console.log("[MemberManager] 2️⃣ Atualizando localStorage...");
-    localStorage.setItem(StorageKeys.MEMBERS, JSON.stringify(members));
+    localStorage.setItem(
+      StorageKeys.MEMBERS,
+      JSON.stringify(membersWithTimestamps)
+    );
     console.log("[MemberManager] ✅ localStorage atualizado!");
 
     // 3️⃣ Sincronizar com Firebase (SSOT)
     console.log("[MemberManager] 3️⃣ Sincronizando com Firebase...");
-    RealtimeSync.getInstance().syncMembers(members);
+    RealtimeSync.getInstance().syncMembers(membersWithTimestamps as any);
     console.log("[MemberManager] ✅ Sincronização Firebase iniciada!");
   }
 
@@ -556,9 +565,59 @@ export class MemberManager {
         }
       }
 
-      const updatedMember: Member = {
+      // Tratamento especial para photoUrl: se o caller passou uma data URL (base64),
+      // tentar fazer upload para Storage e substituir por URL pública.
+      const processedUpdates: any = { ...updates };
+      try {
+        if (updates.photoUrl && typeof updates.photoUrl === "string") {
+          const val = updates.photoUrl;
+          if (val.startsWith("data:")) {
+            // Converter dataURL para Blob
+            const blob = ((): Blob | null => {
+              try {
+                const arr = val.split(",");
+                const mime =
+                  arr[0].match(/data:(.*);base64/)?.[1] || "image/png";
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                  u8arr[n] = bstr.charCodeAt(n);
+                }
+                return new Blob([u8arr], { type: mime });
+              } catch (err) {
+                console.warn("Falha ao converter dataURL para Blob:", err);
+                return null;
+              }
+            })();
+
+            if (blob instanceof Blob) {
+              try {
+                const url = await uploadImage(
+                  new File([blob], `upload_${Date.now()}.png`)
+                );
+                processedUpdates.photoUrl = url;
+                console.log(
+                  "[MemberManager] Foto enviada para Storage durante updateMember"
+                );
+              } catch (err) {
+                console.warn(
+                  "[MemberManager] Upload para Storage falhou, mantendo base64:",
+                  err
+                );
+                // mantemos processedUpdates.photoUrl = original base64 (updates.photoUrl)
+                processedUpdates.photoUrl = val;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[MemberManager] Erro ao processar photoUrl:", err);
+      }
+
+      let updatedMember: Member = {
         ...oldMember,
-        ...updates,
+        ...processedUpdates,
         id, // Não permite alterar o ID
       };
 
@@ -585,6 +644,37 @@ export class MemberManager {
             "MemberManager.updateMember - limpar cache"
           );
         }
+      }
+
+      // Se o caller solicitou remoção de photoUrl (string vazia), e o membro antigo
+      // possuía uma URL do Storage, tentamos excluir o arquivo (best-effort)
+      try {
+        if (processedUpdates.photoUrl === "") {
+          const oldPhoto = oldMember.photoUrl;
+          if (
+            oldPhoto &&
+            (oldPhoto.startsWith("https://firebasestorage.googleapis.com") ||
+              oldPhoto.startsWith("gs://"))
+          ) {
+            await deleteFileByUrl(oldPhoto).catch((err) =>
+              console.warn(
+                "Falha ao excluir arquivo no Storage during updateMember:",
+                err
+              )
+            );
+          }
+
+          // Criar um novo objeto sem photoUrl
+          const newMember: any = { ...updatedMember } as any;
+          delete newMember.photoUrl;
+          updatedMember = newMember as Member;
+          updatedMembers[index] = updatedMember;
+        }
+      } catch (err) {
+        console.warn(
+          "[MemberManager] Erro ao tentar remover arquivo do Storage:",
+          err
+        );
       }
 
       // Agora sim, salvar
@@ -641,6 +731,28 @@ export class MemberManager {
       }
 
       await this.saveMembers(updatedMembers);
+
+      // Se o membro tinha uma foto armazenada no Firebase Storage, tentar remover o arquivo (best-effort)
+      try {
+        const photo = memberToDelete?.photoUrl;
+        if (
+          photo &&
+          (photo.startsWith("https://firebasestorage.googleapis.com") ||
+            photo.startsWith("gs://"))
+        ) {
+          await deleteFileByUrl(photo).catch((err) =>
+            console.warn(
+              "Falha ao excluir arquivo do Storage durante deleteMember:",
+              err
+            )
+          );
+        }
+      } catch (err) {
+        console.warn(
+          "[MemberManager] Erro ao tentar deletar arquivo do Storage:",
+          err
+        );
+      }
 
       // Remover registro de presença do membro
       try {

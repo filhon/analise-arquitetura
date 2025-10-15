@@ -62,13 +62,14 @@ export class SmartCache<T> {
  */
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
-  wait: number
+  wait: number,
 ): (...args: Parameters<T>) => void {
   let timeout: number;
 
   return (...args: Parameters<T>) => {
-    clearTimeout(timeout);
-    timeout = window.setTimeout(() => func(...args), wait);
+    // Uso de globalThis para funcionar em Node (tests) e navegador
+    globalThis.clearTimeout(timeout as any);
+    timeout = globalThis.setTimeout(() => func(...args), wait) as any;
   };
 }
 
@@ -77,7 +78,7 @@ export function debounce<T extends (...args: any[]) => any>(
  */
 export function throttle<T extends (...args: any[]) => any>(
   func: T,
-  limit: number
+  limit: number,
 ): (...args: Parameters<T>) => void {
   let lastFunc: number;
   let lastRan: number;
@@ -87,16 +88,16 @@ export function throttle<T extends (...args: any[]) => any>(
       func(...args);
       lastRan = Date.now();
     } else {
-      clearTimeout(lastFunc);
-      lastFunc = window.setTimeout(
+      globalThis.clearTimeout(lastFunc as any);
+      lastFunc = globalThis.setTimeout(
         () => {
           if (Date.now() - lastRan >= limit) {
             func(...args);
             lastRan = Date.now();
           }
         },
-        limit - (Date.now() - lastRan)
-      );
+        limit - (Date.now() - lastRan),
+      ) as any;
     }
   };
 }
@@ -243,7 +244,7 @@ export class ArrayUtils {
 
   static groupBy<T, K extends keyof T>(
     array: T[],
-    key: K
+    key: K,
   ): Record<string, T[]> {
     return array.reduce(
       (groups, item) => {
@@ -252,7 +253,7 @@ export class ArrayUtils {
         groups[group].push(item);
         return groups;
       },
-      {} as Record<string, T[]>
+      {} as Record<string, T[]>,
     );
   }
 }
@@ -300,3 +301,20 @@ export class ErrorHandler {
 // Exportar módulos adicionais
 export { EventSystem } from "./events";
 export { RealtimeSync } from "./realtime-sync";
+
+/**
+ * Parse JSON seguro com fallback.
+ * Retorna null em caso de erro ou se o valor for null/undefined/"undefined"/"null".
+ */
+export function safeParseJSON<T = any>(value: string | null): T | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = String(value).trim();
+  if (trimmed === "" || trimmed === "undefined" || trimmed === "null")
+    return null;
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch (e) {
+    ErrorHandler.log(e as Error, "safeParseJSON");
+    return null;
+  }
+}

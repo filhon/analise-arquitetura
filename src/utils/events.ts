@@ -22,7 +22,7 @@ export class EventSystem {
 
   off<T extends EventTypes>(
     event: T,
-    handler: EventHandler<EventMap[T]>
+    handler: EventHandler<EventMap[T]>,
   ): void {
     const handlers = this.listeners.get(event);
     if (handlers) {

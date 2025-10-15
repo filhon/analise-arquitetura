@@ -10,10 +10,16 @@ export interface Member {
   readonly telefone?: string;
   readonly dataNascimento?: string; // formato: YYYY-MM-DD
   readonly dataBatismo?: string; // formato: YYYY-MM-DD
+  /**
+   * Timestamp ISO da última atualização deste registro (SSOT helper)
+   * Usado para resolução simples de conflitos e auditoria.
+   */
+  readonly lastUpdated?: string;
 
   // Campos de candidatura (só usados se candidato !== null)
   readonly candidato?: CandidateRole | null;
   readonly photoUrl?: string;
+  readonly photoThumbUrl?: string;
   readonly votes?: number;
   readonly isElected?: boolean;
 

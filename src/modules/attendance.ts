@@ -41,7 +41,7 @@ export class AttendanceManager {
     } catch (error) {
       ErrorHandler.log(
         error as Error,
-        "AttendanceManager.getAttendanceRecords"
+        "AttendanceManager.getAttendanceRecords",
       );
       return [];
     }
@@ -52,7 +52,7 @@ export class AttendanceManager {
    */
   async markPresence(
     memberId: string,
-    present: boolean
+    present: boolean,
   ): Promise<AsyncResult<AttendanceRecord>> {
     try {
       // Delegar para MemberManager que é SSOT
@@ -104,7 +104,7 @@ export class AttendanceManager {
    * FASE 4.3: Refatorado para delegar para MemberManager (SSOT)
    */
   async togglePresence(
-    memberId: string
+    memberId: string,
   ): Promise<AsyncResult<AttendanceRecord>> {
     try {
       // Delegar completamente para MemberManager
@@ -156,27 +156,27 @@ export class AttendanceManager {
 
       console.log(
         "[AttendanceManager.getAttendanceStats] Total de membros carregados:",
-        members.length
+        members.length,
       );
       console.log(
         "[AttendanceManager.getAttendanceStats] Membros presentes:",
-        presentMembers.length
+        presentMembers.length,
       );
 
       // Apenas Membros Comungantes contam para quórum e estatísticas
       // Não-Comungantes e Visitantes são apenas para registro em ata
       const eligibleMembers = members.filter(
-        (m) => m.tipo === "Membro Comungante"
+        (m) => m.tipo === "Membro Comungante",
       );
 
       console.log(
         "[AttendanceManager.getAttendanceStats] Membros Comungantes elegíveis:",
-        eligibleMembers.length
+        eligibleMembers.length,
       );
 
       const totalMembers = eligibleMembers.length;
       const presentCount = presentMembers.filter(
-        (m) => m.tipo === "Membro Comungante"
+        (m) => m.tipo === "Membro Comungante",
       ).length;
       const absentMembers = totalMembers - presentCount;
       const attendanceRate =
@@ -238,7 +238,7 @@ export class AttendanceManager {
   }
 
   async getMemberAttendance(
-    memberId: string
+    memberId: string,
   ): Promise<AttendanceRecord | null> {
     try {
       const records = await this.getAttendanceRecords();
@@ -285,7 +285,7 @@ export class AttendanceManager {
     } catch (error) {
       ErrorHandler.log(
         error as Error,
-        "AttendanceManager.initializeFromMembers"
+        "AttendanceManager.initializeFromMembers",
       );
       return {
         success: false,
@@ -295,7 +295,7 @@ export class AttendanceManager {
   }
 
   private async saveAttendanceRecords(
-    records: AttendanceRecord[]
+    records: AttendanceRecord[],
   ): Promise<void> {
     // DEPRECATED: Agora os dados estão centralizados em Member
     // Este método permanece apenas para compatibilidade temporária
@@ -337,7 +337,7 @@ export class AttendanceManager {
     } catch (error) {
       ErrorHandler.log(
         error as Error,
-        "AttendanceManager.removeMemberAttendance"
+        "AttendanceManager.removeMemberAttendance",
       );
       return {
         success: false,
@@ -353,7 +353,7 @@ export class AttendanceManager {
       const lowercaseQuery = query.toLowerCase();
 
       return records.filter((record) =>
-        record.memberName.toLowerCase().includes(lowercaseQuery)
+        record.memberName.toLowerCase().includes(lowercaseQuery),
       );
     } catch (error) {
       ErrorHandler.log(error as Error, "AttendanceManager.searchAttendance");
@@ -368,7 +368,7 @@ export class AttendanceManager {
     } catch (error) {
       ErrorHandler.log(
         error as Error,
-        "AttendanceManager.getAttendanceByStatus"
+        "AttendanceManager.getAttendanceByStatus",
       );
       return [];
     }

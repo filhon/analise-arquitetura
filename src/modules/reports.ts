@@ -2,45 +2,12 @@
 
 import type { Candidate, ExportData, ConfigData } from "@/types";
 import { ErrorHandler, Formatter } from "@/utils";
+import generateValidCPF from "@/utils/cpf";
 import { MemberManager } from "./members";
 import { VotingManager } from "./voting";
 import { AttendanceManager } from "./attendance";
 
-/**
- * Gera um CPF válido com dígitos verificadores corretos
- *
- * @param base - String com os 9 primeiros dígitos do CPF (pode conter formatação)
- * @returns CPF completo formatado (XXX.XXX.XXX-XX)
- *
- * @example
- * generateValidCPF("111.444.777") // "111.444.777-35"
- * generateValidCPF("123456789")   // "123.456.789-09"
- */
-function generateValidCPF(base: string): string {
-  // Remove formatação e mantém apenas os primeiros 9 dígitos
-  const clean = base.replace(/\D/g, "").substring(0, 9);
-
-  // Calcula o primeiro dígito verificador
-  let sum = 0;
-  for (let i = 0; i < 9; i++) {
-    sum += parseInt(clean.charAt(i)) * (10 - i);
-  }
-  let digit1 = 11 - (sum % 11);
-  if (digit1 >= 10) digit1 = 0;
-
-  // Calcula o segundo dígito verificador
-  sum = 0;
-  const temp = clean + digit1;
-  for (let i = 0; i < 10; i++) {
-    sum += parseInt(temp.charAt(i)) * (11 - i);
-  }
-  let digit2 = 11 - (sum % 11);
-  if (digit2 >= 10) digit2 = 0;
-
-  // Formata e retorna o CPF completo
-  const fullCpf = clean + digit1 + digit2;
-  return fullCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-}
+// Utiliza a implementação centralizada de geração de CPF em `src/utils/cpf.ts`
 
 export class ReportManager {
   private static instance: ReportManager;
@@ -80,7 +47,7 @@ export class ReportManager {
         pdf,
         results.quorum,
         attendance,
-        currentY
+        currentY,
       );
 
       // Seção de resultados Presbíteros
@@ -88,7 +55,7 @@ export class ReportManager {
         pdf,
         "Presbíteros Eleitos",
         results.presbyteros,
-        currentY
+        currentY,
       );
 
       // Seção de resultados Diáconos
@@ -96,7 +63,7 @@ export class ReportManager {
         pdf,
         "Diáconos Eleitos",
         results.diaconos,
-        currentY
+        currentY,
       );
 
       // Seção de presença detalhada
@@ -142,7 +109,7 @@ export class ReportManager {
     pdf: any,
     quorum: any,
     attendance: any,
-    startY: number
+    startY: number,
   ): number {
     let currentY = startY;
 
@@ -175,7 +142,7 @@ export class ReportManager {
     pdf: any,
     title: string,
     candidates: Candidate[],
-    startY: number
+    startY: number,
   ): number {
     let currentY = startY;
 
@@ -201,7 +168,7 @@ export class ReportManager {
         pdf.text(
           `✓ ${candidate.name} - ${candidate.votes} votos`,
           20,
-          currentY
+          currentY,
         );
         currentY += 6;
       });
@@ -224,7 +191,7 @@ export class ReportManager {
         pdf.text(
           `${candidate.name}: ${candidate.votes} votos${status}`,
           25,
-          currentY
+          currentY,
         );
         currentY += 5;
       });
@@ -235,7 +202,7 @@ export class ReportManager {
 
   private async addAttendanceSection(
     pdf: any,
-    startY: number
+    startY: number,
   ): Promise<number> {
     let currentY = startY;
 
@@ -262,7 +229,7 @@ export class ReportManager {
 
         for (const member of presentMembers) {
           const attendance = await this.attendanceManager.getMemberAttendance(
-            member.id
+            member.id,
           );
           const arrivalTime =
             attendance?.arrivalTime || "Horário não registrado";
@@ -320,7 +287,7 @@ export class ReportManager {
         `Página ${i} de ${pageCount} - Relatório gerado em ${Formatter.date(new Date())}`,
         105,
         285,
-        { align: "center" }
+        { align: "center" },
       );
     }
   }
@@ -390,7 +357,7 @@ export class ReportManager {
   }
 
   async importData(
-    jsonData: string
+    jsonData: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const data: ExportData = JSON.parse(jsonData);
@@ -444,11 +411,10 @@ export class ReportManager {
       "telefone",
     ];
 
-    // Gera CPFs válidos automaticamente usando algoritmo de dígitos verificadores
-    // Testado e validado - ver tests/debug-cpf.js para verificação
-    const cpf1 = generateValidCPF("111.444.777"); // Gera: 111.444.777-35
-    const cpf2 = generateValidCPF("123.456.789"); // Gera: 123.456.789-09
-    const cpf3 = generateValidCPF("987.654.321"); // Gera: 987.654.321-00
+    // Gera CPFs válidos automaticamente usando utilitário centralizado
+    const cpf1 = generateValidCPF("111.444.777");
+    const cpf2 = generateValidCPF("123.456.789");
+    const cpf3 = generateValidCPF("987.654.321");
 
     console.log("[Template CSV] CPFs gerados e validados:", {
       cpf1,

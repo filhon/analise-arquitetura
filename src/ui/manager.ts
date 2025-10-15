@@ -11,6 +11,8 @@ import type {
 } from "@/types";
 import { EventTypes, StorageKeys } from "@/types";
 import { RealtimeSync } from "@/utils";
+import { uploadImage, deleteFileByUrl } from "@/utils/storage";
+import { resizeImage, generateThumbnail } from "@/utils/image";
 
 export class UIManager {
   private static instance: UIManager;
@@ -588,7 +590,11 @@ export class UIManager {
   }
 
   // Event handlers
-  private debounce(key: string, fn: Function, delay: number): void {
+  private debounce(
+    key: string,
+    fn: (...args: any[]) => any,
+    delay: number
+  ): void {
     const existingTimer = this.debounceTimers.get(key);
     if (existingTimer) {
       clearTimeout(existingTimer);
@@ -1556,40 +1562,101 @@ export class UIManager {
       return;
     }
 
-    // Converter para base64
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const photoUrl = e.target?.result as string;
-      const photoPreview = document.getElementById(
-        "candidate-photo-preview"
-      ) as HTMLDivElement;
-      const removePhotoBtn = document.getElementById(
-        "remove-photo-btn"
-      ) as HTMLButtonElement;
+    // Tentar enviar para Firebase Storage se disponível, senão fallback para base64
+    const photoPreview = document.getElementById(
+      "candidate-photo-preview"
+    ) as HTMLDivElement;
+    const removePhotoBtn = document.getElementById(
+      "remove-photo-btn"
+    ) as HTMLButtonElement;
+
+    try {
+      // Gerar imagem redimensionada + thumbnail no cliente
+      const resized = await resizeImage(file, 1024, 0.8);
+      const thumb = await generateThumbnail(file, 120, 0.7);
+
+      // uploadImage lança se Storage não estiver configurado
+      const url = await uploadImage(resized, "photos");
+      const thumbUrl = await uploadImage(thumb, "photos/thumbs");
 
       if (photoPreview) {
-        // Substituir conteúdo por imagem
-        photoPreview.innerHTML = `<img src="${photoUrl}" alt="Foto do candidato" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;" />`;
+        photoPreview.innerHTML = `<img src="${url}" alt="Foto do candidato" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;" />`;
       }
+      if (removePhotoBtn) removePhotoBtn.style.display = "inline-flex";
 
-      if (removePhotoBtn) {
-        removePhotoBtn.style.display = "inline-flex";
-      }
-
-      // Salvar temporariamente no formulário
       const form = document.getElementById("candidate-form") as HTMLFormElement;
       if (form) {
-        form.dataset.photoUrl = photoUrl;
-        console.log("[DEBUG handlePhotoUpload] Foto carregada:", {
-          fileSize: file.size,
+        form.dataset.photoUrl = url;
+        form.dataset.photoThumbUrl = thumbUrl;
+        console.log("[DEBUG handlePhotoUpload] Foto carregada (Storage):", {
+          originalSize: file.size,
+          resizedSize: resized.size,
+          thumbSize: thumb.size,
           fileType: file.type,
-          photoUrlLength: photoUrl.length,
-          photoUrlPreview: photoUrl.substring(0, 50) + "...",
+          photoUrlLength: url.length,
+          photoThumbUrlLength: thumbUrl.length,
         });
       }
-    };
+    } catch (err) {
+      // Fallback: converter para base64 (mantém compatibilidade)
+      console.warn(
+        "Firebase Storage indisponível ou upload falhou, usando base64 fallback",
+        err
+      );
 
-    reader.readAsDataURL(file);
+      // Ler base64 para imagem completa
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const photoUrl = e.target?.result as string;
+
+        // Gerar thumbnail em canvas e converter para base64 também
+        try {
+          const thumbFile = await generateThumbnail(file, 120, 0.7);
+          const thumbBase64 = await new Promise<string>((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result as string);
+            r.onerror = () => rej(new Error("Erro ao gerar base64 do thumb"));
+            r.readAsDataURL(thumbFile);
+          });
+
+          if (photoPreview) {
+            photoPreview.innerHTML = `<img src="${photoUrl}" alt="Foto do candidato" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;" />`;
+          }
+          if (removePhotoBtn) removePhotoBtn.style.display = "inline-flex";
+          const form = document.getElementById(
+            "candidate-form"
+          ) as HTMLFormElement;
+          if (form) {
+            form.dataset.photoUrl = photoUrl;
+            form.dataset.photoThumbUrl = thumbBase64;
+            console.log(
+              "[DEBUG handlePhotoUpload] Foto carregada (base64 fallback):",
+              {
+                fileSize: file.size,
+                fileType: file.type,
+                photoUrlLength: photoUrl.length,
+                photoThumbUrlLength: thumbBase64.length,
+              }
+            );
+          }
+        } catch (thumbErr) {
+          // Se falhar ao gerar thumb, ainda salvar a imagem completa
+          if (photoPreview) {
+            photoPreview.innerHTML = `<img src="${photoUrl}" alt="Foto do candidato" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;" />`;
+          }
+          if (removePhotoBtn) removePhotoBtn.style.display = "inline-flex";
+          const form = document.getElementById(
+            "candidate-form"
+          ) as HTMLFormElement;
+          if (form) {
+            form.dataset.photoUrl = photoUrl;
+            delete form.dataset.photoThumbUrl;
+            console.warn("Falha ao gerar thumbnail em fallback:", thumbErr);
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   }
 
   private handleRemovePhoto(): void {
@@ -1619,8 +1686,28 @@ export class UIManager {
     }
 
     if (form) {
-      // Marcar como removida (string vazia) ao invés de deletar
+      const current = form.dataset.photoUrl;
+      const currentThumb = form.dataset.photoThumbUrl;
+
+      // Se for URL do Firebase Storage, tentar deletar tanto imagem completa quanto thumb
+      const tryDelete = (url?: string) => {
+        if (!url) return;
+        if (
+          url.startsWith("https://firebasestorage.googleapis.com") ||
+          url.startsWith("gs://")
+        ) {
+          deleteFileByUrl(url).catch((err) =>
+            console.warn("Falha ao excluir arquivo no Storage:", err)
+          );
+        }
+      };
+
+      tryDelete(current);
+      tryDelete(currentThumb);
+
+      // Marcar como removida (string vazia) ao invés de deletar dataset
       form.dataset.photoUrl = "";
+      form.dataset.photoThumbUrl = "";
     }
   }
 

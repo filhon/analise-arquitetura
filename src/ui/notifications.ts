@@ -47,7 +47,7 @@ export class NotificationService {
   static show(
     message: string,
     type: NotificationType = "info",
-    options: NotificationOptions = {}
+    options: NotificationOptions = {},
   ): string {
     return NotificationService.getInstance().show(message, type, options);
   }
@@ -55,7 +55,7 @@ export class NotificationService {
   show(
     message: string,
     type: NotificationType = "info",
-    options: NotificationOptions = {}
+    options: NotificationOptions = {},
   ): string {
     const id = `notification-${++this.idCounter}`;
     const defaultOptions: NotificationOptions = {

@@ -11,6 +11,7 @@
 
 import { initializeApp, FirebaseApp } from "firebase/app";
 import { getDatabase, Database } from "firebase/database";
+import { getStorage, FirebaseStorage } from "firebase/storage";
 
 // ⚠️ SUBSTITUA COM SUAS CREDENCIAIS DO FIREBASE
 const firebaseConfig = {
@@ -29,11 +30,20 @@ const isConfigured = !firebaseConfig.apiKey.includes("COLE_AQUI");
 // Inicializar Firebase
 let app: FirebaseApp | null = null;
 let database: Database | null = null;
+let storage: FirebaseStorage | null = null;
 
 if (isConfigured) {
   try {
     app = initializeApp(firebaseConfig);
     database = getDatabase(app);
+    // Inicializar Storage se houver bucket configurado
+    try {
+      storage = getStorage(app);
+      console.log("✅ Firebase Storage inicializado");
+      console.log(`📦 Storage bucket: ${firebaseConfig.storageBucket}`);
+    } catch (err) {
+      console.warn("⚠️ Não foi possível inicializar Firebase Storage:", err);
+    }
     console.log("✅ Firebase inicializado com sucesso!");
     console.log(`📡 Database URL: ${firebaseConfig.databaseURL}`);
   } catch (error) {
@@ -45,5 +55,5 @@ if (isConfigured) {
   console.warn("📚 Veja docs/CONFIGURACAO-FIREBASE-PASSO-A-PASSO.md");
 }
 
-export { app, database, isConfigured };
+export { app, database, storage, isConfigured };
 export default database;

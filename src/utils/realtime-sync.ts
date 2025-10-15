@@ -34,7 +34,7 @@ export class RealtimeSync {
 
     if (!isConfigured) {
       console.warn(
-        "[RealtimeSync] Firebase não configurado - sincronização desabilitada"
+        "[RealtimeSync] Firebase não configurado - sincronização desabilitada",
       );
     }
   }
@@ -45,7 +45,7 @@ export class RealtimeSync {
   enable(): void {
     if (!isConfigured || !database) {
       console.warn(
-        "[RealtimeSync] Não é possível ativar - Firebase não configurado"
+        "[RealtimeSync] Não é possível ativar - Firebase não configurado",
       );
       return;
     }
@@ -85,21 +85,21 @@ export class RealtimeSync {
 
     if (!this.isActive()) {
       console.warn(
-        "[RealtimeSync] ⚠️ Firebase está INATIVO! Sincronização ignorada."
+        "[RealtimeSync] ⚠️ Firebase está INATIVO! Sincronização ignorada.",
       );
       return;
     }
 
     if (!database) {
       console.warn(
-        "[RealtimeSync] ⚠️ Firebase database NÃO INICIALIZADO! Sincronização ignorada."
+        "[RealtimeSync] ⚠️ Firebase database NÃO INICIALIZADO! Sincronização ignorada.",
       );
       return;
     }
 
     try {
       console.log(
-        `[RealtimeSync] 📤 Sincronizando ${members.length} membros para Firebase...`
+        `[RealtimeSync] 📤 Sincronizando ${members.length} membros para Firebase...`,
       );
       const membersRef = ref(database, "members");
       await set(membersRef, {
@@ -108,7 +108,7 @@ export class RealtimeSync {
         timestamp: Date.now(),
       });
       console.log(
-        `[RealtimeSync] ✅ ${members.length} membros sincronizados com sucesso!`
+        `[RealtimeSync] ✅ ${members.length} membros sincronizados com sucesso!`,
       );
     } catch (error) {
       console.error("[RealtimeSync] ❌ ERRO ao sincronizar membros:", error);
@@ -121,7 +121,7 @@ export class RealtimeSync {
    * PADRÃO: Igual ao members - { data, updatedBy, timestamp }
    */
   async syncConfig(
-    config: QuorumConfig | { quorum: QuorumConfig; system?: any }
+    config: QuorumConfig | { quorum: QuorumConfig; system?: any },
   ): Promise<void> {
     if (!this.isActive() || !database) return;
 
@@ -141,7 +141,7 @@ export class RealtimeSync {
     } catch (error) {
       console.error(
         "[RealtimeSync] ✗ Erro ao sincronizar configuração:",
-        error
+        error,
       );
     }
   }
@@ -164,11 +164,43 @@ export class RealtimeSync {
     }
 
     try {
-      // ✅ CORREÇÃO: Ler diretamente de 'members/data' e 'config/data'
-      const [membersSnap, configSnap] = await Promise.all([
-        get(ref(database, "members/data")),
-        get(ref(database, "config/data")),
-      ]);
+      // ✅ CORREÇÃO: Ler diretamente de 'members/data' e 'config/data' com timeout
+      const timeoutMs =
+        Number(import.meta.env.VITE_FIREBASE_LOAD_TIMEOUT) || 3000;
+
+      const promiseGet = async () => {
+        const [membersSnap, configSnap] = await Promise.all([
+          get(ref(database!, "members/data")),
+          get(ref(database!, "config/data")),
+        ]);
+        return { membersSnap, configSnap };
+      };
+
+      const promiseWithTimeout = (p: Promise<any>, ms: number) =>
+        new Promise((resolve, reject) => {
+          const t = setTimeout(() => reject(new Error("timeout")), ms);
+          p.then((res) => {
+            clearTimeout(t);
+            resolve(res);
+          }).catch((err) => {
+            clearTimeout(t);
+            reject(err);
+          });
+        });
+
+      let membersSnap: any;
+      let configSnap: any;
+
+      try {
+        const res = (await promiseWithTimeout(promiseGet(), timeoutMs)) as any;
+        membersSnap = res.membersSnap;
+        configSnap = res.configSnap;
+      } catch (err) {
+        console.warn(
+          `[RealtimeSync] ⚠️ loadInitialState timed out or failed (${String(err)}). Proceeding with local cache.`,
+        );
+        return { members: null, config: null };
+      }
 
       // 🐛 DEBUG: Log do que foi lido
       console.log("[RealtimeSync] 🐛 DEBUG loadInitialState:", {

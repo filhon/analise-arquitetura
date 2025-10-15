@@ -13,7 +13,7 @@ function migrateStorageV2() {
       console.log("[Migration] Removendo storage obsoleto:", obsoleteKey);
       localStorage.removeItem(obsoleteKey);
       console.log(
-        "[Migration] ✓ Storage CANDIDATES removido - agora usa apenas MEMBERS"
+        "[Migration] ✓ Storage CANDIDATES removido - agora usa apenas MEMBERS",
       );
     }
   } catch (error) {
@@ -92,7 +92,7 @@ window.addEventListener("error", (event) => {
   ErrorHandler.log(event.error, "window.error");
   NotificationService.show(
     "Ocorreu um erro inesperado. Verifique o console para mais detalhes.",
-    "error"
+    "error",
   );
 });
 
@@ -100,7 +100,7 @@ window.addEventListener("unhandledrejection", (event) => {
   ErrorHandler.log(new Error(event.reason), "window.unhandledrejection");
   NotificationService.show(
     "Erro em operação assíncrona. Verifique o console para mais detalhes.",
-    "error"
+    "error",
   );
 });
 

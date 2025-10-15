@@ -29,7 +29,7 @@ export function migrateToUnifiedFormat(): {
 
     if (!candidatesRaw) {
       console.log(
-        "[Migration] Nenhum candidato antigo encontrado. Membros já no formato correto."
+        "[Migration] Nenhum candidato antigo encontrado. Membros já no formato correto.",
       );
       return { success: true, migrated: 0, errors: [] };
     }
@@ -50,14 +50,14 @@ export function migrateToUnifiedFormat(): {
     }
 
     console.log(
-      `[Migration] ${allCandidates.length} candidatos encontrados no formato antigo`
+      `[Migration] ${allCandidates.length} candidatos encontrados no formato antigo`,
     );
 
     // 3. Unificar candidatos nos membros correspondentes
     allCandidates.forEach((candidate) => {
       // Tentar encontrar membro correspondente por nome
       const member = members.find(
-        (m: any) => m.nome === candidate.name || m.id === candidate.id
+        (m: any) => m.nome === candidate.name || m.id === candidate.id,
       );
 
       if (member) {
@@ -69,7 +69,7 @@ export function migrateToUnifiedFormat(): {
 
         migrated++;
         console.log(
-          `[Migration] ✓ Migrado: ${member.nome} (${candidate.role})`
+          `[Migration] ✓ Migrado: ${member.nome} (${candidate.role})`,
         );
       } else {
         const error = `Candidato "${candidate.name}" não encontrado como membro`;
@@ -81,7 +81,7 @@ export function migrateToUnifiedFormat(): {
     // 4. Salvar membros atualizados
     localStorage.setItem("MEMBERS", JSON.stringify(members));
     console.log(
-      `[Migration] Membros atualizados salvos (${members.length} total)`
+      `[Migration] Membros atualizados salvos (${members.length} total)`,
     );
 
     // 5. Remover storage antigo de candidatos
@@ -98,7 +98,7 @@ export function migrateToUnifiedFormat(): {
     });
 
     console.log(
-      `[Migration] ✅ Migração concluída: ${migrated} candidatos unificados`
+      `[Migration] ✅ Migração concluída: ${migrated} candidatos unificados`,
     );
 
     return {
@@ -132,18 +132,18 @@ export function needsMigration(): boolean {
 export function autoMigrate(): void {
   if (needsMigration()) {
     console.log(
-      "[Migration] Formato antigo detectado. Executando migração automática..."
+      "[Migration] Formato antigo detectado. Executando migração automática...",
     );
     const result = migrateToUnifiedFormat();
 
     if (result.success) {
       console.log(
-        `[Migration] ✅ Migração automática concluída: ${result.migrated} candidatos`
+        `[Migration] ✅ Migração automática concluída: ${result.migrated} candidatos`,
       );
       if (result.errors.length > 0) {
         console.warn(
           `[Migration] ⚠ ${result.errors.length} avisos:`,
-          result.errors
+          result.errors,
         );
       }
     } else {
