@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sistema de Eleição de Oficiais</title>
+    <meta
+      name="description"
+      content="Sistema profissional para eleição de Presbíteros e Diáconos em igrejas"
+    />
+    <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg" />
+
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1f2937" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Eleição de Oficiais" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    />
+
+    <!-- Google Material Icons -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+    />
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="/assets/css/main.css" />
+  </head>
+  <body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+      <div class="loading-spinner"></div>
+      <p>Inicializando sistema...</p>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app" class="app-container" style="display: none">
+      <!-- Header -->
+      <header class="app-header">
+        <div class="header-content">
+          <h1 class="app-title">
+            <span class="material-icons">how_to_vote</span>
+            Sistema de Eleição de Oficiais
+          </h1>
+          <div class="header-actions">
+            <button
+              id="export-btn"
+              class="btn btn-secondary"
+              title="Exportar dados"
+            >
+              <span class="material-icons md-20">file_download</span>
+              Exportar
+            </button>
+            <button
+              id="import-btn"
+              class="btn btn-secondary"
+              title="Importar dados"
+            >
+              <span class="material-icons md-20">file_upload</span>
+              Importar
+            </button>
+            <button
+              id="report-btn"
+              class="btn btn-primary"
+              title="Gerar relatório PDF"
+            >
+              <span class="material-icons md-20">description</span>
+              Relatório
+            </button>
+            <button
+              id="settings-btn"
+              class="btn btn-icon"
+              title="Configurações"
+            >
+              <span class="material-icons md-24">settings</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Navigation -->
+      <nav class="app-nav">
+        <div class="nav-content">
+          <button class="nav-tab active" data-tab="members">
+            <span class="material-icons md-20">group</span>
+            <span class="nav-tab-text">Membros</span>
+          </button>
+          <button class="nav-tab" data-tab="candidates">
+            <span class="material-icons md-20">person_pin</span>
+            <span class="nav-tab-text">Candidatos</span>
+          </button>
+          <button class="nav-tab" data-tab="voting">
+            <span class="material-icons md-20">how_to_vote</span>
+            <span class="nav-tab-text">Votação</span>
+          </button>
+          <button class="nav-tab" data-tab="attendance">
+            <span class="material-icons md-20">checklist</span>
+            <span class="nav-tab-text">Presença</span>
+          </button>
+          <button class="nav-tab" data-tab="results">
+            <span class="material-icons md-20">bar_chart</span>
+            <span class="nav-tab-text">Resultados</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Main Content -->
+      <main class="app-main">
+        <!-- Members Tab -->
+        <section id="members-tab" class="tab-content active">
+          <div class="section-header">
+            <h2>Gestão de Membros</h2>
+            <div class="section-actions">
+              <button id="download-template" class="btn btn-outline">
+                <span class="material-icons md-20">download</span>
+                Template CSV
+              </button>
+              <button id="import-csv" class="btn btn-primary">
+                <span class="material-icons md-20">upload_file</span>
+                Importar CSV
+              </button>
+              <button id="add-member" class="btn btn-success">
+                <span class="material-icons md-20">person_add</span>
+                Novo Membro
+              </button>
+            </div>
+          </div>
+
+          <div class="search-bar">
+            <input
+              type="text"
+              id="member-search"
+              placeholder="Buscar membros por nome, CPF ou email..."
+              class="search-input"
+            />
+          </div>
+
+          <div class="members-stats">
+            <div class="stat-card">
+              <h3 id="total-members">0</h3>
+              <p>Membros Comungantes</p>
+            </div>
+            <div class="stat-card">
+              <h3 id="present-members">0</h3>
+              <p>Membros Presentes</p>
+            </div>
+            <div class="stat-card">
+              <h3 id="candidate-members">0</h3>
+              <p>Não-Comungantes e Visitantes</p>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table id="members-table" class="data-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Tipo</th>
+                  <th>Candidato</th>
+                  <th>Presente</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="members-tbody">
+                <!-- Dynamic content -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Candidates Tab -->
+        <section id="candidates-tab" class="tab-content">
+          <div class="section-header">
+            <h2>
+              Candidatos
+              <button
+                class="info-icon-btn"
+                data-info="candidates-info"
+                title="Informações"
+              >
+                <span class="material-icons md-20">info</span>
+              </button>
+            </h2>
+            <div class="section-actions">
+              <button id="add-candidate" class="btn btn-success">
+                <span class="material-icons md-20">person_add</span>
+                Novo Candidato
+              </button>
+            </div>
+          </div>
+
+          <!-- Info Tooltip Content (hidden by default) -->
+          <div id="candidates-info" class="info-tooltip" style="display: none">
+            <div class="info-tooltip-content">
+              <h4>Gerenciamento de Candidatos</h4>
+              <p>
+                Gerencie os candidatos a Presbíteros e Diáconos. Adicione fotos,
+                edite informações e visualize os votos. Para realizar a votação,
+                acesse a aba <strong>Votação</strong>.
+              </p>
+            </div>
+          </div>
+
+          <div class="candidates-grid">
+            <div class="candidate-category">
+              <h3>Presbíteros</h3>
+              <div id="presbyteros-list" class="candidates-list">
+                <!-- Dynamic content -->
+              </div>
+            </div>
+            <div class="candidate-category">
+              <h3>Diáconos</h3>
+              <div id="diaconos-list" class="candidates-list">
+                <!-- Dynamic content -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Fullscreen Voting View -->
+        <div id="fullscreen-view" class="fullscreen-voting-view">
+          <button id="exit-fullscreen" class="exit-fullscreen-btn">
+            <span class="material-icons md-36">close</span>
+          </button>
+          <div class="fullscreen-header">
+            <h1 id="fullscreen-role-title">Eleição de Oficiais</h1>
+          </div>
+          <div
+            id="fullscreen-candidates-grid"
+            class="fullscreen-candidates-grid"
+          >
+            <!-- Dynamic content -->
+          </div>
+        </div>
+
+        <!-- Voting Tab -->
+        <section id="voting-tab" class="tab-content">
+          <div class="section-header">
+            <h2>
+              Sistema de Votação
+              <button
+                class="info-icon-btn"
+                data-info="voting-info"
+                title="Informações"
+              >
+                <span class="material-icons md-20">info</span>
+              </button>
+            </h2>
+            <div class="section-actions">
+              <button id="config-quorum" class="btn btn-secondary">
+                <span class="material-icons md-20">settings</span>
+                Configurar Quórum
+              </button>
+            </div>
+          </div>
+
+          <!-- Info Tooltip Content (hidden by default) -->
+          <div id="voting-info" class="info-tooltip" style="display: none">
+            <div class="info-tooltip-content">
+              <h4>Sistema de Votação em Tempo Real</h4>
+              <p>
+                Inicie a projeção em tela cheia clicando em
+                <strong>Projetar</strong> na seção desejada. Os votos são
+                contabilizados em tempo real e sincronizados automaticamente.
+              </p>
+            </div>
+          </div>
+
+          <div class="quorum-status">
+            <div class="quorum-card">
+              <h3>Status do Quórum</h3>
+              <div id="quorum-info">
+                <!-- Dynamic content -->
+              </div>
+            </div>
+          </div>
+
+          <div class="voting-section">
+            <div class="voting-category">
+              <div class="voting-category-header">
+                <h3>Votação para Presbíteros</h3>
+                <button
+                  id="fullscreen-presbyteros"
+                  class="btn btn-primary btn-sm"
+                >
+                  <span class="material-icons md-18">fullscreen</span>
+                  Projetar
+                </button>
+              </div>
+              <div id="voting-presbyteros" class="voting-candidates">
+                <!-- Dynamic content -->
+              </div>
+            </div>
+            <div class="voting-category">
+              <div class="voting-category-header">
+                <h3>Votação para Diáconos</h3>
+                <button id="fullscreen-diaconos" class="btn btn-primary btn-sm">
+                  <span class="material-icons md-18">fullscreen</span>
+                  Projetar
+                </button>
+              </div>
+              <div id="voting-diaconos" class="voting-candidates">
+                <!-- Dynamic content -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Attendance Tab -->
+        <section id="attendance-tab" class="tab-content">
+          <div class="section-header">
+            <h2>Controle de Presença</h2>
+            <div class="section-actions">
+              <button id="mark-all-present" class="btn btn-success">
+                <span class="material-icons md-20">done_all</span>
+                Marcar Todos Presentes
+              </button>
+              <button id="mark-all-absent" class="btn btn-danger">
+                <span class="material-icons md-20">clear_all</span>
+                Marcar Todos Ausentes
+              </button>
+            </div>
+          </div>
+
+          <div class="attendance-stats">
+            <div class="stat-card">
+              <h3 id="attendance-rate">0%</h3>
+              <p>Taxa de Presença</p>
+            </div>
+            <div class="stat-card">
+              <h3 id="attendance-present">0</h3>
+              <p>Presentes</p>
+            </div>
+            <div class="stat-card">
+              <h3 id="attendance-absent">0</h3>
+              <p>Ausentes</p>
+            </div>
+          </div>
+
+          <div class="attendance-search">
+            <input
+              type="text"
+              id="attendance-search"
+              placeholder="Buscar membros por nome, CPF ou e-mail..."
+              class="search-input"
+            />
+          </div>
+
+          <div class="attendance-list" id="attendance-list">
+            <!-- Dynamic content -->
+          </div>
+        </section>
+
+        <!-- Results Tab -->
+        <section id="results-tab" class="tab-content">
+          <div class="section-header">
+            <h2>Resultados da Eleição</h2>
+            <button id="refresh-results" class="btn btn-primary">
+              <span class="material-icons md-20">refresh</span>
+              Atualizar Resultados
+            </button>
+          </div>
+
+          <div class="results-summary">
+            <div class="result-card">
+              <h3>Presbíteros Eleitos</h3>
+              <div id="elected-presbyteros" class="elected-list">
+                <!-- Dynamic content -->
+              </div>
+            </div>
+            <div class="result-card">
+              <h3>Diáconos Eleitos</h3>
+              <div id="elected-diaconos" class="elected-list">
+                <!-- Dynamic content -->
+              </div>
+            </div>
+          </div>
+
+          <div class="detailed-results">
+            <h3>Resultados Detalhados</h3>
+            <div id="detailed-results-content">
+              <!-- Dynamic content -->
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Member Modal -->
+    <div
+      id="member-modal"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="member-modal-title"
+    >
+      <div class="modal-content" role="document">
+        <div class="modal-header">
+          <h3 id="member-modal-title">Adicionar Membro</h3>
+          <button class="modal-close">
+            <span class="material-icons md-20">close</span>
+          </button>
+        </div>
+        <form id="member-form" class="modal-form">
+          <div class="form-group">
+            <label for="member-name">Nome *</label>
+            <input type="text" id="member-name" name="name" required />
+          </div>
+          <div class="form-group">
+            <label for="member-type">Tipo *</label>
+            <select id="member-type" name="type" required>
+              <option value="">Selecione o tipo</option>
+              <option value="Membro Comungante">Membro Comungante</option>
+              <option value="Membro Não-Comungante">
+                Membro Não-Comungante
+              </option>
+              <option value="Visitante">Visitante</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="member-cpf">CPF</label>
+              <input
+                type="text"
+                id="member-cpf"
+                name="cpf"
+                placeholder="000.000.000-00"
+              />
+            </div>
+            <div class="form-group">
+              <label for="member-rg">RG</label>
+              <input
+                type="text"
+                id="member-rg"
+                name="rg"
+                placeholder="00.000.000-0"
+              />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="member-email">Email</label>
+            <input type="email" id="member-email" name="email" />
+          </div>
+          <div class="form-group">
+            <label for="member-phone">Telefone</label>
+            <input
+              type="tel"
+              id="member-phone"
+              name="phone"
+              placeholder="(00) 00000-0000"
+            />
+          </div>
+          <div class="form-group">
+            <label for="member-candidate">Candidato a</label>
+            <select id="member-candidate" name="candidate">
+              <option value="">Não é candidato</option>
+              <option value="Presbítero">Presbítero</option>
+              <option value="Diácono">Diácono</option>
+            </select>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary modal-cancel">
+              Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Candidate Modal -->
+    <div
+      id="candidate-modal"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="candidate-modal-title"
+    >
+      <div class="modal-content" role="document">
+        <div class="modal-header">
+          <h3 id="candidate-modal-title">Novo Candidato</h3>
+          <button class="modal-close">
+            <span class="material-icons md-20">close</span>
+          </button>
+        </div>
+        <form id="candidate-form" class="modal-form">
+          <div class="form-group">
+            <label>Foto do Candidato</label>
+            <div class="photo-upload-container">
+              <div class="photo-preview" id="candidate-photo-preview">
+                <span class="material-icons md-48">person</span>
+              </div>
+              <input
+                type="file"
+                id="candidate-photo"
+                name="photo"
+                accept="image/*"
+                style="display: none"
+              />
+              <button
+                type="button"
+                id="upload-photo-btn"
+                class="btn btn-secondary btn-sm"
+              >
+                <span class="material-icons md-18">upload</span>
+                Escolher Foto
+              </button>
+              <button
+                type="button"
+                id="remove-photo-btn"
+                class="btn btn-danger btn-sm"
+                style="display: none"
+              >
+                <span class="material-icons md-18">delete</span>
+                Remover
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="candidate-member"
+              >Selecione o Membro Comungante *</label
+            >
+            <input
+              type="text"
+              id="member-search-input"
+              placeholder="Buscar membro..."
+              class="form-input"
+            />
+            <select
+              id="candidate-member"
+              name="memberId"
+              required
+              size="5"
+            ></select>
+            <p
+              id="no-members-message"
+              style="display: none; color: var(--danger); margin-top: 0.5rem"
+            >
+              Não há membros disponíveis.
+            </p>
+          </div>
+          <div class="form-group">
+            <label for="candidate-role">Cargo *</label>
+            <select id="candidate-role" name="role" required>
+              <option value="">Selecione o cargo</option>
+              <option value="Presbítero">Presbítero</option>
+              <option value="Diácono">Diácono</option>
+            </select>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary modal-cancel">
+              Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Quorum Config Modal -->
+    <div
+      id="quorum-modal"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="quorum-modal-title"
+    >
+      <div class="modal-content modal-content-large" role="document">
+        <div class="modal-header">
+          <h3>Configurar Regras de Quórum e Votação</h3>
+          <button class="modal-close">
+            <span class="material-icons md-20">close</span>
+          </button>
+        </div>
+        <form id="quorum-form" class="modal-form">
+          <!-- Banner Informativo -->
+          <div class="quorum-info-banner">
+            <span class="material-icons">info</span>
+            <p>
+              Estas configurações definem as regras de quórum mínimo e votos
+              necessários para eleição. Elas afetam todo o sistema de votação.
+            </p>
+          </div>
+
+          <!-- Quórum Mínimo -->
+          <div class="form-section">
+            <h4 class="form-section-title">
+              <span class="material-icons md-20">people</span>
+              Quórum de Presença
+            </h4>
+            <div class="form-group">
+              <label for="minimum-percentage" class="label-with-tooltip">
+                Percentual Mínimo de Presença (%)
+                <button
+                  type="button"
+                  class="tooltip-btn"
+                  title="Percentual mínimo de membros presentes para que a eleição seja válida. Ex: 50% (metade), 33.33% (1/3), 66.67% (2/3). Use decimais para frações."
+                >
+                  <span class="material-icons md-18">help</span>
+                </button>
+              </label>
+              <div class="input-with-preview">
+                <input
+                  type="number"
+                  id="minimum-percentage"
+                  name="minimumPercentage"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  value="50"
+                  required
+                />
+                <span class="input-unit">%</span>
+              </div>
+              <small class="field-hint" id="minimum-percentage-hint">
+                Com 50 membros, é necessário pelo menos 25 presentes
+              </small>
+              <small class="field-hint-example">
+                💡 Exemplos: 50% (metade), 33.33% (1/3), 66.67% (2/3)
+              </small>
+            </div>
+          </div>
+
+          <!-- Votos Necessários -->
+          <div class="form-section">
+            <h4 class="form-section-title">
+              <span class="material-icons md-20">how_to_vote</span>
+              Critério de Eleição
+            </h4>
+            <div class="form-group">
+              <label for="votes-criteria" class="label-with-tooltip">
+                Critério de Aprovação
+                <button
+                  type="button"
+                  class="tooltip-btn"
+                  title="Escolha entre Maioria Simples (50% + 1 voto) ou Percentual Personalizado. Maioria Simples garante que o candidato tenha mais da metade dos votos."
+                >
+                  <span class="material-icons md-18">help</span>
+                </button>
+              </label>
+              <select id="votes-criteria" name="votesCriteria" required>
+                <option value="simple-majority">
+                  Maioria Simples (50% + 1 voto)
+                </option>
+                <option value="custom">Percentual Personalizado</option>
+              </select>
+            </div>
+            <div
+              class="form-group"
+              id="custom-percentage-group"
+              style="display: none"
+            >
+              <label for="votes-percentage" class="label-with-tooltip">
+                Percentual de Votos Necessários (%)
+                <button
+                  type="button"
+                  class="tooltip-btn"
+                  title="Percentual de votos que um candidato precisa receber (sobre os presentes) para ser eleito. Ex: 60% significa que o candidato precisa de 60% dos votos."
+                >
+                  <span class="material-icons md-18">help</span>
+                </button>
+              </label>
+              <div class="input-with-preview">
+                <input
+                  type="number"
+                  id="votes-percentage"
+                  name="votesPercentage"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  value="60"
+                />
+                <span class="input-unit">%</span>
+              </div>
+              <small class="field-hint" id="votes-percentage-hint">
+                Com 45 presentes, cada candidato precisa de 27 votos para ser
+                eleito
+              </small>
+              <small class="field-hint-example">
+                💡 Exemplos: 60% (3/5), 66.67% (2/3), 75% (3/4)
+              </small>
+            </div>
+          </div>
+
+          <!-- Vagas Disponíveis -->
+          <div class="form-section">
+            <h4 class="form-section-title">
+              <span class="material-icons md-20">event_seat</span>
+              Vagas Disponíveis
+            </h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="presbítero-positions" class="label-with-tooltip">
+                  Vagas para Presbíteros
+                  <button
+                    type="button"
+                    class="tooltip-btn"
+                    title="Número de vagas disponíveis para Presbíteros nesta eleição."
+                  >
+                    <span class="material-icons md-18">help</span>
+                  </button>
+                </label>
+                <input
+                  type="number"
+                  id="presbítero-positions"
+                  name="presbiteroPositions"
+                  min="1"
+                  max="20"
+                  value="3"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="diacono-positions" class="label-with-tooltip">
+                  Vagas para Diáconos
+                  <button
+                    type="button"
+                    class="tooltip-btn"
+                    title="Número de vagas disponíveis para Diáconos nesta eleição."
+                  >
+                    <span class="material-icons md-18">help</span>
+                  </button>
+                </label>
+                <input
+                  type="number"
+                  id="diacono-positions"
+                  name="diaconoPositions"
+                  min="1"
+                  max="20"
+                  value="6"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview ao Vivo -->
+          <div class="quorum-preview">
+            <h4 class="preview-title">
+              <span class="material-icons md-20">visibility</span>
+              Preview das Regras
+            </h4>
+            <div class="preview-grid">
+              <div class="preview-item">
+                <span class="preview-label">Quórum Mínimo</span>
+                <span class="preview-value" id="preview-quorum"
+                  >25 membros</span
+                >
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">Votos para Eleição</span>
+                <span class="preview-value" id="preview-votes">27 votos</span>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">Total de Vagas</span>
+                <span class="preview-value" id="preview-positions"
+                  >9 oficiais</span
+                >
+              </div>
+            </div>
+            <div class="preview-note">
+              <span class="material-icons md-18">info</span>
+              <span
+                >Os valores mostrados são baseados nos dados atuais do
+                sistema</span
+              >
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary modal-cancel">
+              Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary">
+              <span class="material-icons md-18">save</span>
+              Salvar Configurações
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div
+      id="settings-modal"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-modal-title"
+    >
+      <div class="modal-content modal-small" role="document">
+        <div class="modal-header">
+          <h3>
+            <span class="material-icons md-24">settings</span>
+            Configurações
+          </h3>
+          <button class="modal-close">
+            <span class="material-icons md-20">close</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="settings-section">
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-icon">
+                  <span class="material-icons md-24">dark_mode</span>
+                </div>
+                <div class="setting-text">
+                  <h4>Modo Noturno</h4>
+                  <p>Ativar tema escuro para reduzir cansaço visual</p>
+                </div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="dark-mode-toggle" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- File Input for CSV Import -->
+    <input
+      type="file"
+      id="csv-file-input"
+      accept=".csv"
+      style="display: none"
+    />
+    <input
+      type="file"
+      id="json-file-input"
+      accept=".json"
+      style="display: none"
+    />
+
+    <!-- Notifications -->
+    <div id="notifications" class="notifications-container"></div>
+
+    <!-- Scripts -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
