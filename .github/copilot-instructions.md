@@ -79,6 +79,25 @@
   - Toggle dark/light mode funcional
   - Preferência salva em localStorage
   - Documentação completa em docs/ALTERACAO-DARK-MODE.md
+- [x] Modificar Projeção para Visualização Apenas
+  - Tela de projeção transformada em interface exclusivamente visual
+  - Removidos todos os controles de interação (botões + / - / reset)
+  - Votos controlados apenas pela aba "Votação"
+  - Sincronização em tempo real mantida para multi-telas
+  - Documentação completa em docs/MODIFICACAO-PROJECAO-VISUALIZACAO-APENAS.md
+- [x] Implementar Design Minimalista na Projeção
+  - Design harmonizado com o sistema (fundo branco, cards consistentes)
+  - Hierarquia visual melhorada (nome > votos)
+  - Fotos proporcionais (120px), botão fechar discreto
+  - Responsividade completa e suporte ao modo escuro
+  - Documentação completa em docs/IMPLEMENTACAO-DESIGN-MINIMALISTA-PROJECAO.md
+- [x] Implementar Controle de Votação por Quórum
+  - Efeito blur nas seções de votação quando quórum insuficiente
+  - Overlay descritivo explicando requisitos de quórum
+  - Desabilitação completa de interações de voto
+  - Validação em tempo real com mudanças de presença
+  - Notificações de aviso ao tentar votar sem quórum
+  - Documentação completa em docs/IMPLEMENTACAO-CONTROLE-VOTACAO-QUORUM.md
 
 ## Arquitetura do Sistema
 

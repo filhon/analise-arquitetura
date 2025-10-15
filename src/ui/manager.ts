@@ -178,7 +178,6 @@ export class UIManager {
       btn.addEventListener("click", this.closeAllModals.bind(this));
     });
 
-
     // Setup form handlers
     document
       .getElementById("member-form")
@@ -203,7 +202,9 @@ export class UIManager {
         }
       });
       // Adiciona listener de teclado para o focus trap
-      modal.addEventListener("keydown", (event) => this.handleFocusTrap(event as KeyboardEvent));
+      modal.addEventListener("keydown", (event) =>
+        this.handleFocusTrap(event as KeyboardEvent)
+      );
     });
   }
 
@@ -1041,9 +1042,11 @@ export class UIManager {
   private handleFocusTrap(event: KeyboardEvent): void {
     if (event.key !== "Tab" || !this.activeModal) return;
 
-    const focusableElements = Array.from(this.activeModal.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    )).filter(el => !el.hasAttribute("disabled") && el.offsetParent !== null);
+    const focusableElements = Array.from(
+      this.activeModal.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
 
     if (focusableElements.length === 0) return;
 
@@ -1621,183 +1624,19 @@ export class UIManager {
             </div>
             <h3 class="fullscreen-candidate-name">${candidate.name}</h3>
             <div class="fullscreen-candidate-votes">${candidate.votes}</div>
-            <div class="fullscreen-vote-controls">
-              <button class="vote-btn vote-btn-add" data-id="${candidate.id}" title="Adicionar voto">
-                <span class="material-icons">add</span>
-              </button>
-              <button class="vote-btn vote-btn-remove" data-id="${candidate.id}" title="Remover voto">
-                <span class="material-icons">remove</span>
-              </button>
-            </div>
-            <button class="vote-btn-reset" data-id="${candidate.id}" title="Resetar votos">
-              <span class="material-icons">refresh</span> Resetar
-            </button>
           </div>
         `;
       })
       .join("");
 
     // Adicionar event listeners
-    this.attachFullscreenEventListeners();
+    this.attachFullscreenSyncListeners();
   }
 
-  private attachFullscreenEventListeners(): void {
-    // Clicar na foto adiciona voto
-    document
-      .querySelectorAll(".fullscreen-candidate-photo")
-      .forEach((photo) => {
-        photo.addEventListener("click", async (e) => {
-          const target = e.currentTarget as HTMLElement;
-          const candidateId = target.dataset.id;
-          if (candidateId) {
-            await this.handleAddVote(candidateId);
-          }
-        });
-      });
-
-    // Botão de adicionar voto
-    document.querySelectorAll(".vote-btn-add").forEach((btn) => {
-      btn.addEventListener("click", async (e) => {
-        const target = e.currentTarget as HTMLElement;
-        const candidateId = target.dataset.id;
-        if (candidateId) {
-          await this.handleAddVote(candidateId);
-        }
-      });
-    });
-
-    // Botão de remover voto
-    document.querySelectorAll(".vote-btn-remove").forEach((btn) => {
-      btn.addEventListener("click", async (e) => {
-        const target = e.currentTarget as HTMLElement;
-        const candidateId = target.dataset.id;
-        if (candidateId) {
-          await this.handleRemoveVote(candidateId);
-        }
-      });
-    });
-
-    // Botão de resetar votos
-    document.querySelectorAll(".vote-btn-reset").forEach((btn) => {
-      btn.addEventListener("click", async (e) => {
-        const target = e.currentTarget as HTMLElement;
-        const candidateId = target.dataset.id;
-        if (candidateId) {
-          await this.handleResetVotes(candidateId);
-        }
-      });
-    });
-  }
-
-  private async handleAddVote(candidateId: string): Promise<void> {
-    const allCandidates = await electionApp.getCandidates();
-    const candidate = allCandidates.find((c) => c.id === candidateId);
-
-    if (!candidate) return;
-
-    // Atualizar votos localmente
-    const updatedCandidates = allCandidates.map((c) =>
-      c.id === candidateId ? { ...c, votes: c.votes + 1 } : c
-    );
-
-    // Salvar sempre no formato OBJECT
-    const candidatesStorage: any = { presbyteros: [], diaconos: [] };
-    candidatesStorage.presbyteros = updatedCandidates.filter(
-      (c) => c.role === "Presbítero"
-    );
-    candidatesStorage.diaconos = updatedCandidates.filter(
-      (c) => c.role === "Diácono"
-    );
-    localStorage.setItem("CANDIDATES", JSON.stringify(candidatesStorage));
-
-    // Limpar cache
-    await electionApp.clearCandidatesCache();
-
-    // Atualizar display
-    const voteDisplay = document.querySelector(
-      `.fullscreen-candidate-card[data-id="${candidateId}"] .fullscreen-candidate-votes`
-    );
-    if (voteDisplay) {
-      voteDisplay.textContent = String(candidate.votes + 1);
-    }
-
-    // Recarregar aba de candidatos em background
-    await this.loadCandidatesData();
-  }
-
-  private async handleRemoveVote(candidateId: string): Promise<void> {
-    const allCandidates = await electionApp.getCandidates();
-    const candidate = allCandidates.find((c) => c.id === candidateId);
-
-    if (!candidate || candidate.votes === 0) return;
-
-    // Atualizar votos localmente
-    const updatedCandidates = allCandidates.map((c) =>
-      c.id === candidateId ? { ...c, votes: Math.max(0, c.votes - 1) } : c
-    );
-
-    // Salvar sempre no formato OBJECT
-    const candidatesStorage: any = { presbyteros: [], diaconos: [] };
-    candidatesStorage.presbyteros = updatedCandidates.filter(
-      (c) => c.role === "Presbítero"
-    );
-    candidatesStorage.diaconos = updatedCandidates.filter(
-      (c) => c.role === "Diácono"
-    );
-    localStorage.setItem("CANDIDATES", JSON.stringify(candidatesStorage));
-
-    // Limpar cache
-    await electionApp.clearCandidatesCache();
-
-    // Atualizar display
-    const voteDisplay = document.querySelector(
-      `.fullscreen-candidate-card[data-id="${candidateId}"] .fullscreen-candidate-votes`
-    );
-    if (voteDisplay) {
-      voteDisplay.textContent = String(Math.max(0, candidate.votes - 1));
-    }
-
-    // Recarregar aba de candidatos em background
-    await this.loadCandidatesData();
-  }
-
-  private async handleResetVotes(candidateId: string): Promise<void> {
-    if (!confirm("Tem certeza que deseja resetar os votos deste candidato?")) {
-      return;
-    }
-
-    const allCandidates = await electionApp.getCandidates();
-
-    // Atualizar votos localmente
-    const updatedCandidates = allCandidates.map((c) =>
-      c.id === candidateId ? { ...c, votes: 0 } : c
-    );
-
-    // Salvar sempre no formato OBJECT
-    const candidatesStorage: any = { presbyteros: [], diaconos: [] };
-    candidatesStorage.presbyteros = updatedCandidates.filter(
-      (c) => c.role === "Presbítero"
-    );
-    candidatesStorage.diaconos = updatedCandidates.filter(
-      (c) => c.role === "Diácono"
-    );
-    localStorage.setItem("CANDIDATES", JSON.stringify(candidatesStorage));
-
-    // Limpar cache
-    await electionApp.clearCandidatesCache();
-
-    // Atualizar display
-    const voteDisplay = document.querySelector(
-      `.fullscreen-candidate-card[data-id="${candidateId}"] .fullscreen-candidate-votes`
-    );
-    if (voteDisplay) {
-      voteDisplay.textContent = "0";
-    }
-
-    // Recarregar aba de candidatos em background
-    await this.loadCandidatesData();
-
-    NotificationService.show("Votos resetados com sucesso", "success");
+  private attachFullscreenSyncListeners(): void {
+    // Apenas configurar sincronização em tempo real
+    // Não há controles de interação na projeção
+    console.log("[UIManager] 🎥 Projeção configurada apenas para visualização");
   }
 
   private async handleRemoveCandidate(
@@ -1841,6 +1680,9 @@ export class UIManager {
 
       // Renderizar status do quórum
       this.renderQuorumStatus(results.quorum);
+
+      // Aplicar/desaplicar blur baseado no status do quórum
+      this.applyQuorumBlur(results.quorum.isValid);
 
       // Separar candidatos por cargo
       const presbyteros = candidates.filter((c) => c.role === "Presbítero");
@@ -1909,6 +1751,65 @@ export class UIManager {
     `;
   }
 
+  private applyQuorumBlur(isQuorumValid: boolean): void {
+    const votingSections = document.querySelectorAll(".voting-category");
+
+    votingSections.forEach((section) => {
+      if (isQuorumValid) {
+        // Remover blur quando quórum é válido
+        section.classList.remove("quorum-blur");
+      } else {
+        // Aplicar blur quando quórum é insuficiente
+        section.classList.add("quorum-blur");
+      }
+    });
+
+    // Mostrar/ocultar mensagem de quórum insuficiente
+    this.toggleQuorumMessage(!isQuorumValid);
+  }
+
+  private toggleQuorumMessage(show: boolean): void {
+    const votingTab = document.getElementById("voting-tab");
+    if (!votingTab) return;
+
+    let messageElement = votingTab.querySelector(
+      ".quorum-insufficient-message"
+    ) as HTMLElement;
+
+    if (show) {
+      if (!messageElement) {
+        // Criar mensagem se não existir
+        messageElement = document.createElement("div");
+        messageElement.className = "quorum-insufficient-message";
+        messageElement.innerHTML = `
+          <div class="info-banner">
+            <div class="info-banner-icon">
+              <span class="material-icons">warning</span>
+            </div>
+            <div class="info-banner-content">
+              <div class="info-banner-title">Quórum Insuficiente</div>
+              <div class="info-banner-text">
+                O número mínimo de membros presentes não foi atingido. A votação está temporariamente bloqueada até que o quórum seja alcançado.
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Inserir após o status do quórum
+        const quorumCard = votingTab.querySelector(".quorum-card");
+        if (quorumCard) {
+          quorumCard.insertAdjacentElement("afterend", messageElement);
+        }
+      }
+      messageElement.style.display = "block";
+    } else {
+      // Ocultar mensagem
+      if (messageElement) {
+        messageElement.style.display = "none";
+      }
+    }
+  }
+
   private renderVotingCards(
     containerId: string,
     candidates: any[],
@@ -1963,13 +1864,13 @@ export class UIManager {
               </div>
             </div>
             <div class="voting-card-actions">
-              <button class="btn-vote btn-vote-decrease" data-candidate-id="${candidate.id}" data-action="decrease">
+              <button class="btn-vote btn-vote-decrease" data-candidate-id="${candidate.id}" data-action="decrease" ${!isQuorumValid ? "disabled" : ""}>
                 <span class="material-icons md-24">remove</span>
               </button>
-              <button class="btn-vote btn-vote-reset" data-candidate-id="${candidate.id}" data-action="reset" title="Resetar votos">
+              <button class="btn-vote btn-vote-reset" data-candidate-id="${candidate.id}" data-action="reset" title="Resetar votos" ${!isQuorumValid ? "disabled" : ""}>
                 <span class="material-icons md-24">refresh</span>
               </button>
-              <button class="btn-vote btn-vote-increase" data-candidate-id="${candidate.id}" data-action="increase">
+              <button class="btn-vote btn-vote-increase" data-candidate-id="${candidate.id}" data-action="increase" ${!isQuorumValid ? "disabled" : ""}>
                 <span class="material-icons md-24">add</span>
               </button>
             </div>
@@ -2005,27 +1906,34 @@ export class UIManager {
     // Renderizar todos os cards (candidatos + vazios)
     container.innerHTML = [...candidateCards, ...emptyCards].join("");
 
-    // Adicionar event listeners aos botões de voto
-    container.querySelectorAll(".btn-vote").forEach((btn) => {
-      btn.addEventListener("click", this.handleVoteAction.bind(this));
-    });
+    // Adicionar event listeners aos botões de voto APENAS se quórum for válido
+    if (isQuorumValid) {
+      container.querySelectorAll(".btn-vote").forEach((btn) => {
+        btn.addEventListener("click", this.handleVoteAction.bind(this));
+      });
 
-    // Adicionar event listeners para clique na foto (adiciona voto)
-    container.querySelectorAll(".voting-card-header").forEach((header) => {
-      const card = header.closest(".voting-card");
-      if (!card?.classList.contains("voting-card-empty")) {
-        header.addEventListener("click", async () => {
-          const increaseBtn = card?.querySelector(
-            ".btn-vote-increase"
-          ) as HTMLElement;
-          if (increaseBtn) {
-            increaseBtn.click();
-          }
-        });
-        // Adicionar cursor pointer para indicar que é clicável
-        (header as HTMLElement).style.cursor = "pointer";
-      }
-    });
+      // Adicionar event listeners para clique na foto (adiciona voto)
+      container.querySelectorAll(".voting-card-header").forEach((header) => {
+        const card = header.closest(".voting-card");
+        if (!card?.classList.contains("voting-card-empty")) {
+          header.addEventListener("click", async () => {
+            const increaseBtn = card?.querySelector(
+              ".btn-vote-increase"
+            ) as HTMLElement;
+            if (increaseBtn) {
+              increaseBtn.click();
+            }
+          });
+          // Adicionar cursor pointer para indicar que é clicável
+          (header as HTMLElement).style.cursor = "pointer";
+        }
+      });
+    } else {
+      // Remover cursor pointer quando quórum é inválido
+      container.querySelectorAll(".voting-card-header").forEach((header) => {
+        (header as HTMLElement).style.cursor = "not-allowed";
+      });
+    }
   }
 
   private async handleVoteAction(e: Event): Promise<void> {
@@ -2037,6 +1945,15 @@ export class UIManager {
     console.log("[UIManager] 🎯 handleVoteAction:", { candidateId, action });
 
     if (!candidateId || !action) return;
+
+    // ✅ Verificar se quórum é válido antes de permitir votação
+    const results = await electionApp.getElectionResults();
+    if (!results.quorum.isValid) {
+      NotificationService.warning(
+        "Não é possível votar enquanto o quórum estiver insuficiente"
+      );
+      return;
+    }
 
     try {
       // 🎥 PROJEÇÃO: Usar métodos específicos sem validação de eleitor

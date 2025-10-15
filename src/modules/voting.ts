@@ -225,7 +225,7 @@ export class VotingManager {
         return {
           success: false,
           error:
-            "Número de votos não pode exceder o número de membros presentes",
+            "Número máximo atingido",
         };
       }
 
