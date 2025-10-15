@@ -14,13 +14,13 @@ import { getDatabase, Database } from "firebase/database";
 
 // ⚠️ SUBSTITUA COM SUAS CREDENCIAIS DO FIREBASE
 const firebaseConfig = {
-  apiKey: "AIzaSyAfyPxvTvE7uLcpg84RU9FHjNtMFY60-WE",
-  authDomain: "sistema-eleicao-igreja.firebaseapp.com",
-  databaseURL: "https://sistema-eleicao-igreja-default-rtdb.firebaseio.com",
-  projectId: "sistema-eleicao-igreja",
-  storageBucket: "sistema-eleicao-igreja.firebasestorage.app",
-  messagingSenderId: "98688924231",
-  appId: "1:98688924231:web:01ddbbbf400393c2838f62",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 // Verificar se as credenciais foram configuradas
