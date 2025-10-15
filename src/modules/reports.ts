@@ -47,7 +47,7 @@ export class ReportManager {
         pdf,
         results.quorum,
         attendance,
-        currentY,
+        currentY
       );
 
       // Seção de resultados Presbíteros
@@ -55,7 +55,7 @@ export class ReportManager {
         pdf,
         "Presbíteros Eleitos",
         results.presbyteros,
-        currentY,
+        currentY
       );
 
       // Seção de resultados Diáconos
@@ -63,7 +63,7 @@ export class ReportManager {
         pdf,
         "Diáconos Eleitos",
         results.diaconos,
-        currentY,
+        currentY
       );
 
       // Seção de presença detalhada
@@ -109,7 +109,7 @@ export class ReportManager {
     pdf: any,
     quorum: any,
     attendance: any,
-    startY: number,
+    startY: number
   ): number {
     let currentY = startY;
 
@@ -142,7 +142,7 @@ export class ReportManager {
     pdf: any,
     title: string,
     candidates: Candidate[],
-    startY: number,
+    startY: number
   ): number {
     let currentY = startY;
 
@@ -168,7 +168,7 @@ export class ReportManager {
         pdf.text(
           `✓ ${candidate.name} - ${candidate.votes} votos`,
           20,
-          currentY,
+          currentY
         );
         currentY += 6;
       });
@@ -191,7 +191,7 @@ export class ReportManager {
         pdf.text(
           `${candidate.name}: ${candidate.votes} votos${status}`,
           25,
-          currentY,
+          currentY
         );
         currentY += 5;
       });
@@ -202,7 +202,7 @@ export class ReportManager {
 
   private async addAttendanceSection(
     pdf: any,
-    startY: number,
+    startY: number
   ): Promise<number> {
     let currentY = startY;
 
@@ -229,7 +229,7 @@ export class ReportManager {
 
         for (const member of presentMembers) {
           const attendance = await this.attendanceManager.getMemberAttendance(
-            member.id,
+            member.id
           );
           const arrivalTime =
             attendance?.arrivalTime || "Horário não registrado";
@@ -287,7 +287,7 @@ export class ReportManager {
         `Página ${i} de ${pageCount} - Relatório gerado em ${Formatter.date(new Date())}`,
         105,
         285,
-        { align: "center" },
+        { align: "center" }
       );
     }
   }
@@ -326,7 +326,7 @@ export class ReportManager {
         config,
         quorum: results.quorum,
         results,
-        exportDate: new Date(),
+        exportDate: new Date().toISOString(),
         version: "3.0.0", // ✅ Versão 3.0 com SSOT
       };
 
@@ -357,7 +357,7 @@ export class ReportManager {
   }
 
   async importData(
-    jsonData: string,
+    jsonData: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const data: ExportData = JSON.parse(jsonData);

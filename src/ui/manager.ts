@@ -20,6 +20,11 @@ export class UIManager {
   // Acessibilidade: Armazena o elemento que abriu o modal
   private lastFocusedElement: HTMLElement | null = null;
   private activeModal: HTMLElement | null = null;
+  // Pending attendance toggle awaiting confirmation
+  private pendingAttendance: {
+    memberId: string;
+    checkbox: HTMLInputElement;
+  } | null = null;
 
   static getInstance(): UIManager {
     if (!UIManager.instance) {
@@ -496,19 +501,13 @@ export class UIManager {
 
     // FASE 7: Usar Member.presente diretamente (SSOT)
     sortedMembers.forEach((member) => {
-      const isPresent = member.presente || false;
-
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${this.escapeHtml(member.nome)}</td>
+        <td>${this.escapeHtml(member.cpf || "-")}</td>
+        <td>${this.escapeHtml(member.email || "-")}</td>
         <td>${member.tipo || "-"}</td>
         <td>${member.candidato || "-"}</td>
-        <td>
-          <label class="toggle-switch">
-            <input type="checkbox" data-member-id="${member.id}" class="attendance-toggle" ${isPresent ? "checked" : ""}>
-            <span class="toggle-slider"></span>
-          </label>
-        </td>
         <td>
           <button class="btn btn-sm btn-secondary" onclick="editMember('${member.id}')" title="Editar">
             <span class="material-icons md-18">edit</span>
@@ -519,11 +518,6 @@ export class UIManager {
         </td>
       `;
       tbody.appendChild(row);
-    });
-
-    // Setup attendance toggles
-    tbody.querySelectorAll(".attendance-toggle").forEach((toggle) => {
-      toggle.addEventListener("change", this.handleAttendanceToggle.bind(this));
     });
   }
 
@@ -632,16 +626,27 @@ export class UIManager {
 
     if (!memberId) return;
 
+    // Se está tentando MARCAR presença (checked === true), solicitar confirmação
+    if (checkbox.checked) {
+      // Reverter visual imediatamente e desabilitar o toggle até confirmação
+      checkbox.checked = false;
+      checkbox.disabled = true;
+
+      // Guardar estado pendente e abrir modal de confirmação
+      this.pendingAttendance = { memberId, checkbox };
+      this.ensureAttendanceConfirmModalExists();
+      this.openAttendanceConfirmModal();
+      // Não prosseguir com markAttendance até confirmação
+      return;
+    }
+
+    // Se está desmarcando presença, processar diretamente
     try {
-      const result = await electionApp.markAttendance(
-        memberId,
-        checkbox.checked
-      );
+      const result = await electionApp.markAttendance(memberId, false);
       if (!result.success) {
         checkbox.checked = !checkbox.checked; // Revert
         NotificationService.error(result.error || "Erro ao atualizar presença");
       } else {
-        // ✅ CORREÇÃO: Atualizar status visual na lista de presença
         const attendanceItem = checkbox.closest(
           ".attendance-item"
         ) as HTMLElement;
@@ -650,19 +655,11 @@ export class UIManager {
         ) as HTMLElement;
 
         if (attendanceItem && statusText) {
-          if (checkbox.checked) {
-            attendanceItem.classList.remove("absent");
-            attendanceItem.classList.add("present");
-            statusText.classList.remove("absent-text");
-            statusText.classList.add("present-text");
-            statusText.textContent = "Presente";
-          } else {
-            attendanceItem.classList.remove("present");
-            attendanceItem.classList.add("absent");
-            statusText.classList.remove("present-text");
-            statusText.classList.add("absent-text");
-            statusText.textContent = "Ausente";
-          }
+          attendanceItem.classList.remove("present");
+          attendanceItem.classList.add("absent");
+          statusText.classList.remove("present-text");
+          statusText.classList.add("absent-text");
+          statusText.textContent = "Ausente";
         }
 
         await this.updateStats();
@@ -670,6 +667,165 @@ export class UIManager {
     } catch (error) {
       checkbox.checked = !checkbox.checked; // Revert
       NotificationService.error("Erro ao atualizar presença");
+    }
+  }
+
+  // Garante que o modal de confirmação para presença exista no DOM
+  private ensureAttendanceConfirmModalExists(): void {
+    if (document.getElementById("attendance-confirm-modal")) return;
+
+    const modalHtml = `
+      <div id="attendance-confirm-modal" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 id="attendance-confirm-title">Confirmar presença</h3>
+            <button class="modal-close" aria-label="Fechar">×</button>
+          </div>
+          <div class="modal-form">
+            <form id="attendance-confirm-form">
+              <div class="form-group">
+                <label for="attendance-cpf-prefix">Digite os 3 primeiros dígitos do CPF</label>
+                <input id="attendance-cpf-prefix" name="cpfPrefix" type="text" maxlength="3" pattern="\\d{3}" required class="form-input" placeholder="Insira os três primeiros dígitos do CPF do membro" />
+                <small class="field-hint">Somente números. Ex: para CPF 123.456.789-00, digite 123</small>
+              </div>
+              <div class="modal-actions">
+                <button type="button" class="btn btn-outline modal-cancel">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Confirmar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+
+    // Re-bind modal close handlers
+    document
+      .querySelectorAll(
+        "#attendance-confirm-modal .modal-close, #attendance-confirm-modal .modal-cancel"
+      )
+      .forEach((btn) => {
+        btn.addEventListener("click", this.closeAllModals.bind(this));
+      });
+
+    const form = document.getElementById(
+      "attendance-confirm-form"
+    ) as HTMLFormElement;
+    form?.addEventListener("submit", this.handleAttendanceConfirm.bind(this));
+  }
+
+  private openAttendanceConfirmModal(): void {
+    this.showModal("attendance-confirm-modal");
+    // Garantir que o campo esteja limpo e com placeholder sempre que o modal abrir
+    const input = document.getElementById(
+      "attendance-cpf-prefix"
+    ) as HTMLInputElement | null;
+    if (input) {
+      input.value = "";
+      input.placeholder = "Insira os três primeiros dígitos do CPF do membro";
+      input.removeAttribute("aria-invalid");
+      // Focar no input após a abertura do modal
+      requestAnimationFrame(() => input.focus());
+    }
+  }
+
+  // Handler do submit do modal: valida os 3 dígitos do CPF e marca presença
+  private async handleAttendanceConfirm(e: Event): Promise<void> {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const input = form.querySelector(
+      "#attendance-cpf-prefix"
+    ) as HTMLInputElement;
+
+    if (!this.pendingAttendance) {
+      this.closeAllModals();
+      return;
+    }
+
+    const { memberId, checkbox } = this.pendingAttendance;
+    const digits = input.value.trim();
+
+    if (!/^[0-9]{3}$/.test(digits)) {
+      NotificationService.error(
+        "Por favor, digite os 3 primeiros dígitos do CPF (somente números)"
+      );
+      input.focus();
+      return;
+    }
+
+    try {
+      // Obter membro para verificar CPF
+      const members = await electionApp.getMembers();
+      const member = members.find((m) => m.id === memberId);
+      if (!member) {
+        NotificationService.error("Membro não encontrado");
+        this.closeAllModals();
+        return;
+      }
+
+      const cpf = (member.cpf || "").replace(/\D/g, "");
+      if (!cpf || cpf.length < 3) {
+        NotificationService.error(
+          "CPF do membro não está cadastrado ou é inválido"
+        );
+        this.closeAllModals();
+        return;
+      }
+
+      const prefix = cpf.substring(0, 3);
+      if (prefix !== digits) {
+        NotificationService.error("Dígitos incorretos");
+        // Reverter checkbox
+        checkbox.checked = false;
+        this.closeAllModals();
+        return;
+      }
+
+      // Prefixo válido — marcar presença
+      const result = await electionApp.markAttendance(memberId, true);
+      if (!result.success) {
+        NotificationService.error(result.error || "Erro ao marcar presença");
+        try {
+          checkbox.checked = false;
+          checkbox.disabled = false;
+        } catch (err) {
+          /* ignore */
+        }
+      } else {
+        // Marcar o checkbox e reabilitá-lo
+        try {
+          checkbox.checked = true;
+          checkbox.disabled = false;
+        } catch (err) {
+          /* ignore */
+        }
+        // Atualizar UI
+        const attendanceItem = checkbox.closest(
+          ".attendance-item"
+        ) as HTMLElement;
+        const statusText = attendanceItem?.querySelector(
+          ".status-text"
+        ) as HTMLElement;
+
+        if (attendanceItem && statusText) {
+          attendanceItem.classList.remove("absent");
+          attendanceItem.classList.add("present");
+          statusText.classList.remove("absent-text");
+          statusText.classList.add("present-text");
+          statusText.textContent = "Presente";
+        }
+
+        await this.updateStats();
+        NotificationService.success("Presença confirmada");
+      }
+    } catch (error) {
+      console.error("Erro ao confirmar presença:", error);
+      NotificationService.error("Erro ao confirmar presença");
+      checkbox.checked = false;
+    } finally {
+      this.pendingAttendance = null;
+      this.closeAllModals();
     }
   }
 
@@ -1122,6 +1278,17 @@ export class UIManager {
     ) as HTMLFormElement;
     if (memberForm && memberForm.dataset.editingId) {
       delete memberForm.dataset.editingId;
+    }
+
+    // Se havia uma ação de presença pendente (modal de confirmação fechado/cancelado), reverter checkbox
+    if (this.pendingAttendance) {
+      try {
+        this.pendingAttendance.checkbox.disabled = false;
+        this.pendingAttendance.checkbox.checked = false;
+      } catch (err) {
+        // ignore
+      }
+      this.pendingAttendance = null;
     }
   }
 
@@ -2192,14 +2359,18 @@ export class UIManager {
     try {
       const results = await electionApp.getElectionResults();
 
-      // Atualizar lista de presbíteros eleitos
+      // Atualizar lista de presbíteros eleitos (apenas candidatos marcados como eleitos)
       const presbyterosList = document.getElementById("elected-presbyteros");
       if (presbyterosList) {
-        if (results.presbyteros.length === 0) {
+        const electedPresbyteros = (results.presbyteros || []).filter(
+          (c: Candidate) => c.isElected
+        );
+
+        if (electedPresbyteros.length === 0) {
           presbyterosList.innerHTML =
             '<p class="empty-message">Nenhum presbítero eleito ainda</p>';
         } else {
-          presbyterosList.innerHTML = results.presbyteros
+          presbyterosList.innerHTML = electedPresbyteros
             .map(
               (candidate: Candidate) => `
               <div class="elected-item">
@@ -2213,14 +2384,18 @@ export class UIManager {
         }
       }
 
-      // Atualizar lista de diáconos eleitos
+      // Atualizar lista de diáconos eleitos (apenas candidatos marcados como eleitos)
       const diaconosList = document.getElementById("elected-diaconos");
       if (diaconosList) {
-        if (results.diaconos.length === 0) {
+        const electedDiaconos = (results.diaconos || []).filter(
+          (c: Candidate) => c.isElected
+        );
+
+        if (electedDiaconos.length === 0) {
           diaconosList.innerHTML =
             '<p class="empty-message">Nenhum diácono eleito ainda</p>';
         } else {
-          diaconosList.innerHTML = results.diaconos
+          diaconosList.innerHTML = electedDiaconos
             .map(
               (candidate: Candidate) => `
               <div class="elected-item">
@@ -2289,6 +2464,24 @@ export class UIManager {
       }
 
       console.log("[UIManager] ✓ Resultados carregados");
+
+      // Inicializar/atualizar charts (import dinâmico para evitar carregar em testes)
+      try {
+        if (typeof window !== "undefined") {
+          const chartsMod = await import("./charts");
+          await chartsMod.initCharts();
+          const attendanceStats = await electionApp.getAttendanceStats();
+          await chartsMod.updateCharts(results, {
+            totalMembers: attendanceStats.totalMembers,
+            presentMembers: attendanceStats.presentMembers,
+          });
+        }
+      } catch (chartErr) {
+        console.warn(
+          "[UIManager] Não foi possível inicializar os charts:",
+          chartErr
+        );
+      }
     } catch (error) {
       console.error("[UIManager] Erro ao carregar resultados:", error);
       NotificationService.error("Erro ao carregar resultados da eleição");

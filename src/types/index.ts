@@ -64,43 +64,43 @@ export type VoterMember = Required<Pick<Member, "jaVotou" | "votedFor">> &
 
 /**
  * @deprecated USE CandidateMember type instead
- * Esta interface será removida na Fase 8 da refatoração
- * Mantida apenas para compatibilidade temporária
+ * Esta interface foi transformada em type alias na Fase 8 da refatoração
+ * Mantida como alias apenas para compatibilidade temporária
  */
-export interface Candidate {
+export type Candidate = {
   readonly id: string;
   readonly name: string;
   readonly role: CandidateRole;
   readonly photoUrl?: string;
   readonly votes: number;
   readonly isElected: boolean;
-}
+};
 
 /**
  * @deprecated USE Member.presente, Member.horarioChegada directly
  * AttendanceRecord agora é derivado de Member
- * Esta interface será removida na Fase 8 da refatoração
+ * Esta interface foi transformada em type alias na Fase 8 da refatoração
  * Mantida apenas para compatibilidade temporária
  */
-export interface AttendanceRecord {
+export type AttendanceRecord = {
   readonly memberId: string;
   readonly memberName: string;
   readonly present: boolean;
   readonly arrivalTime: string | null;
   readonly timestamp: Date;
-}
+};
 
 /**
  * @deprecated USE Member.votes directly
  * VotingData agora é armazenado em Member.votes
- * Esta interface será removida na Fase 8 da refatoração
+ * Esta interface foi transformada em type alias na Fase 8 da refatoração
  * Mantida apenas para compatibilidade temporária
  */
-export interface VotingData {
+export type VotingData = {
   readonly candidateId: string;
   readonly votes: number;
   readonly lastUpdated: Date;
-}
+};
 
 export interface QuorumConfig {
   readonly minimumPercentage: number;
@@ -155,14 +155,22 @@ export interface ImportResult {
 /**
  * FASE 8: ExportData simplificado usando SSOT
  * Members contém todos os dados (candidatura, votos, presença)
+ *
+ * Observação: este payload é usado para exportação/backup e precisa ser
+ * serializável para JSON. Por isso `exportDate` é armazenado como string
+ * ISO (YYYY-MM-DDTHH:mm:ss.sssZ). O campo `results` é opcional para
+ * permitir exports parciais onde os resultados podem ser recalculados pelo
+ * importador. `source` identifica a origem do export (ex: 'SSOT' ou nome da
+ * ferramenta).
  */
 export interface ExportData {
   readonly members: Member[]; // ✅ SSOT - contém tudo
   readonly config: ConfigData; // ✅ Configurações do sistema
   readonly quorum: QuorumData; // Status do quórum no momento do export
-  readonly results: ElectionResults; // Resultados calculados
-  readonly exportDate: Date;
+  readonly results?: ElectionResults; // Resultados calculados (opcional)
+  readonly exportDate: string; // ISO string (ex: new Date().toISOString())
   readonly version: string;
+  readonly source?: string; // opcional - origem do export
 }
 
 // Enums
