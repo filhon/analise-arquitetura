@@ -237,56 +237,6 @@ export class AttendanceManager {
     }
   }
 
-  async markAllPresent(): Promise<AsyncResult<AttendanceRecord[]>> {
-    try {
-      const members = await this.memberManager.getMembers();
-      const results: AttendanceRecord[] = [];
-
-      for (const member of members) {
-        const result = await this.markPresence(member.id, true);
-        if (result.success && result.data) {
-          results.push(result.data);
-        }
-      }
-
-      return {
-        success: true,
-        data: results,
-      };
-    } catch (error) {
-      ErrorHandler.log(error as Error, "AttendanceManager.markAllPresent");
-      return {
-        success: false,
-        error: "Erro interno ao marcar todos como presentes",
-      };
-    }
-  }
-
-  async markAllAbsent(): Promise<AsyncResult<AttendanceRecord[]>> {
-    try {
-      const members = await this.memberManager.getMembers();
-      const results: AttendanceRecord[] = [];
-
-      for (const member of members) {
-        const result = await this.markPresence(member.id, false);
-        if (result.success && result.data) {
-          results.push(result.data);
-        }
-      }
-
-      return {
-        success: true,
-        data: results,
-      };
-    } catch (error) {
-      ErrorHandler.log(error as Error, "AttendanceManager.markAllAbsent");
-      return {
-        success: false,
-        error: "Erro interno ao marcar todos como ausentes",
-      };
-    }
-  }
-
   async getMemberAttendance(
     memberId: string
   ): Promise<AttendanceRecord | null> {

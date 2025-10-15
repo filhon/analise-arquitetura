@@ -2487,3 +2487,145 @@ body.dark-mode tbody tr:hover {
     linear-gradient(var(--elevation-01dp), var(--elevation-01dp)),
     var(--bg-primary);
 }
+
+/* ===== ATTENDANCE LIST STYLES ===== */
+
+/* Attendance List Container */
+.attendance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Attendance Items Container */
+.attendance-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Individual Attendance Item */
+.attendance-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  background: var(--bg-primary);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.attendance-item:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
+.attendance-item.present {
+  border-left: 4px solid var(--success-color);
+  background: linear-gradient(
+    135deg,
+    rgba(5, 150, 105, 0.02),
+    var(--bg-primary)
+  );
+}
+
+.attendance-item.absent {
+  border-left: 4px solid var(--gray-300);
+}
+
+/* Attendance Info */
+.attendance-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.attendance-name {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.attendance-type {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Attendance Controls */
+.attendance-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+/* Attendance Status */
+.attendance-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 80px;
+}
+
+.status-text {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.present-text {
+  color: var(--success-color);
+}
+
+.absent-text {
+  color: var(--text-secondary);
+}
+
+/* Dark Mode Styles for Attendance */
+body.dark-mode .attendance-item.present {
+  background: linear-gradient(
+    135deg,
+    rgba(76, 175, 80, 0.05),
+    var(--bg-primary)
+  );
+  border-left-color: var(--success-color);
+}
+
+body.dark-mode .attendance-item.absent {
+  border-left-color: var(--border-color);
+}
+
+body.dark-mode .present-text {
+  color: #4caf50;
+}
+
+body.dark-mode .absent-text {
+  color: var(--text-secondary);
+}
+
+/* Responsive Attendance List */
+@media (max-width: 768px) {
+  .attendance-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .attendance-controls {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .attendance-status {
+    align-items: flex-end;
+  }
+}

@@ -650,32 +650,6 @@ export class ElectionApp {
     return await this.attendanceManager.getAbsentMembers();
   }
 
-  async markAllPresent(): Promise<{
-    success: boolean;
-    updated?: number;
-    error?: string;
-  }> {
-    const result = await this.attendanceManager.markAllPresent();
-    return {
-      success: result.success,
-      updated: result.data?.length,
-      error: result.error,
-    };
-  }
-
-  async markAllAbsent(): Promise<{
-    success: boolean;
-    updated?: number;
-    error?: string;
-  }> {
-    const result = await this.attendanceManager.markAllAbsent();
-    return {
-      success: result.success,
-      updated: result.data?.length,
-      error: result.error,
-    };
-  }
-
   async updateQuorumConfig(
     config: QuorumConfig
   ): Promise<{ success: boolean; error?: string }> {

@@ -133,12 +133,6 @@ export class UIManager {
 
     // Attendance actions
     document
-      .getElementById("mark-all-present")
-      ?.addEventListener("click", this.handleMarkAllPresent.bind(this));
-    document
-      .getElementById("mark-all-absent")
-      ?.addEventListener("click", this.handleMarkAllAbsent.bind(this));
-    document
       .getElementById("attendance-search")
       ?.addEventListener("input", this.handleAttendanceSearch.bind(this));
 
@@ -483,7 +477,7 @@ export class UIManager {
       tbody.innerHTML = `
         <tr>
           <td colspan="6" class="text-center">
-            Nenhum membro cadastrado. 
+            Nenhum membro cadastrado.
             <button class="btn btn-link" onclick="document.getElementById('add-member')?.click()">
               Adicionar primeiro membro
             </button>
@@ -527,6 +521,68 @@ export class UIManager {
 
     // Setup attendance toggles
     tbody.querySelectorAll(".attendance-toggle").forEach((toggle) => {
+      toggle.addEventListener("change", this.handleAttendanceToggle.bind(this));
+    });
+  }
+
+  private async renderAttendanceList(): Promise<void> {
+    const container = document.getElementById("attendance-list");
+    if (!container) return;
+
+    const members = await electionApp.getMembers();
+
+    if (members.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <span class="material-icons md-48">people</span>
+          <p>Nenhum membro cadastrado</p>
+          <small style="color: var(--gray-500); margin-top: 0.5rem;">
+            Adicione membros na aba "Membros" para marcar presença
+          </small>
+        </div>
+      `;
+      return;
+    }
+
+    // Ordenar membros por ordem alfabética (nome)
+    const sortedMembers = [...members].sort((a, b) =>
+      a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })
+    );
+
+    // Criar lista de presença
+    const attendanceItems = sortedMembers.map((member) => {
+      const isPresent = member.presente || false;
+      const memberType = member.tipo || "Não informado";
+
+      return `
+        <div class="attendance-item ${isPresent ? "present" : "absent"}">
+          <div class="attendance-info">
+            <div class="attendance-name">${this.escapeHtml(member.nome)}</div>
+            <div class="attendance-type">${memberType}</div>
+          </div>
+          <div class="attendance-controls">
+            <label class="toggle-switch">
+              <input type="checkbox" data-member-id="${member.id}" class="attendance-toggle" ${isPresent ? "checked" : ""}>
+              <span class="toggle-slider"></span>
+            </label>
+            <div class="attendance-status">
+              <span class="status-text ${isPresent ? "present-text" : "absent-text"}">
+                ${isPresent ? "Presente" : "Ausente"}
+              </span>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = `
+      <div class="attendance-items">
+        ${attendanceItems.join("")}
+      </div>
+    `;
+
+    // Setup attendance toggles
+    container.querySelectorAll(".attendance-toggle").forEach((toggle) => {
       toggle.addEventListener("change", this.handleAttendanceToggle.bind(this));
     });
   }
@@ -579,6 +635,30 @@ export class UIManager {
         checkbox.checked = !checkbox.checked; // Revert
         NotificationService.error(result.error || "Erro ao atualizar presença");
       } else {
+        // ✅ CORREÇÃO: Atualizar status visual na lista de presença
+        const attendanceItem = checkbox.closest(
+          ".attendance-item"
+        ) as HTMLElement;
+        const statusText = attendanceItem?.querySelector(
+          ".status-text"
+        ) as HTMLElement;
+
+        if (attendanceItem && statusText) {
+          if (checkbox.checked) {
+            attendanceItem.classList.remove("absent");
+            attendanceItem.classList.add("present");
+            statusText.classList.remove("absent-text");
+            statusText.classList.add("present-text");
+            statusText.textContent = "Presente";
+          } else {
+            attendanceItem.classList.remove("present");
+            attendanceItem.classList.add("absent");
+            statusText.classList.remove("present-text");
+            statusText.classList.add("absent-text");
+            statusText.textContent = "Ausente";
+          }
+        }
+
         await this.updateStats();
       }
     } catch (error) {
@@ -2012,11 +2092,8 @@ export class UIManager {
     try {
       console.log("[UIManager] Recarregando dados de presença...");
 
-      // Recarregar tabela de membros (atualiza checkboxes de presença)
-      await this.loadMembersData();
-
-      // ✅ CORREÇÃO: Removido updateStats() duplicado
-      // loadMembersData() já chama updateStats() internamente
+      // ✅ CORREÇÃO: Renderizar lista específica de presença ao invés da tabela de membros
+      await this.renderAttendanceList();
 
       console.log("[UIManager] ✓ Dados de presença recarregados");
     } catch (error) {
@@ -2514,42 +2591,6 @@ export class UIManager {
     }
   }
 
-  private async handleMarkAllPresent(): Promise<void> {
-    try {
-      const result = await electionApp.markAllPresent();
-
-      if (result.success) {
-        NotificationService.success(
-          `${result.updated || 0} membros marcados como presentes`
-        );
-        await this.loadAttendanceData();
-      } else {
-        NotificationService.error(result.error || "Erro ao marcar presenças");
-      }
-    } catch (error) {
-      console.error("[UIManager] Erro ao marcar todos presentes:", error);
-      NotificationService.error("Erro ao marcar todos como presentes");
-    }
-  }
-
-  private async handleMarkAllAbsent(): Promise<void> {
-    try {
-      const result = await electionApp.markAllAbsent();
-
-      if (result.success) {
-        NotificationService.success(
-          `${result.updated || 0} membros marcados como ausentes`
-        );
-        await this.loadAttendanceData();
-      } else {
-        NotificationService.error(result.error || "Erro ao marcar ausências");
-      }
-    } catch (error) {
-      console.error("[UIManager] Erro ao marcar todos ausentes:", error);
-      NotificationService.error("Erro ao marcar todos como ausentes");
-    }
-  }
-
   private async handleAttendanceSearch(e: Event): Promise<void> {
     const input = e.target as HTMLInputElement;
     const query = input.value.trim().toLowerCase();
@@ -2558,22 +2599,87 @@ export class UIManager {
       "attendance-search",
       async () => {
         const members = await electionApp.getMembers();
+        const container = document.getElementById("attendance-list");
+
+        if (!container) return;
 
         if (query.length === 0) {
           // Mostrar todos
-          await this.renderMembersTable(members);
+          await this.renderAttendanceList();
         } else {
           // Filtrar por nome ou CPF
           const filtered = members.filter((m) => {
             const nameMatch = m.nome.toLowerCase().includes(query);
-            const cpfMatch = m.cpf?.includes(query) || false;
-            return nameMatch || cpfMatch;
+            const cpfMatch = m.cpf?.toLowerCase().includes(query) || false;
+            const emailMatch = m.email?.toLowerCase().includes(query) || false;
+            return nameMatch || cpfMatch || emailMatch;
           });
-          await this.renderMembersTable(filtered);
+
+          // Renderizar lista filtrada
+          if (filtered.length === 0) {
+            container.innerHTML = `
+              <div class="empty-state">
+                <span class="material-icons md-48">search_off</span>
+                <p>Nenhum membro encontrado</p>
+                <small style="color: var(--gray-500); margin-top: 0.5rem;">
+                  Tente buscar por outro nome, CPF ou e-mail
+                </small>
+              </div>
+            `;
+          } else {
+            await this.renderFilteredAttendanceList(filtered);
+          }
         }
       },
       300
     );
+  }
+
+  private async renderFilteredAttendanceList(members: Member[]): Promise<void> {
+    const container = document.getElementById("attendance-list");
+    if (!container) return;
+
+    // Ordenar membros por ordem alfabética (nome)
+    const sortedMembers = [...members].sort((a, b) =>
+      a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })
+    );
+
+    // Criar lista de presença filtrada
+    const attendanceItems = sortedMembers.map((member) => {
+      const isPresent = member.presente || false;
+      const memberType = member.tipo || "Não informado";
+
+      return `
+        <div class="attendance-item ${isPresent ? "present" : "absent"}">
+          <div class="attendance-info">
+            <div class="attendance-name">${this.escapeHtml(member.nome)}</div>
+            <div class="attendance-type">${memberType}</div>
+          </div>
+          <div class="attendance-controls">
+            <label class="toggle-switch">
+              <input type="checkbox" data-member-id="${member.id}" class="attendance-toggle" ${isPresent ? "checked" : ""}>
+              <span class="toggle-slider"></span>
+            </label>
+            <div class="attendance-status">
+              <span class="status-text ${isPresent ? "present-text" : "absent-text"}">
+                ${isPresent ? "Presente" : "Ausente"}
+              </span>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = `
+      <div class="attendance-items">
+        ${attendanceItems.join("")}
+      </div>
+    `;
+
+    // Setup attendance toggles para itens filtrados
+    container.querySelectorAll(".attendance-toggle").forEach((toggle) => {
+      toggle.addEventListener("change", this.handleAttendanceToggle.bind(this));
+    });
   }
 
   private async handleRefreshResults(): Promise<void> {
