@@ -33,6 +33,13 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["jspdf", "html2canvas", "firebase", "chart.js"],
+    include: [
+      "jspdf",
+      "html2canvas",
+      "firebase/app",
+      "firebase/database",
+      "firebase/storage",
+      "chart.js",
+    ],
   },
 });
