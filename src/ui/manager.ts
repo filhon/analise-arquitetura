@@ -137,6 +137,10 @@ export class UIManager {
     document
       .getElementById("config-quorum")
       ?.addEventListener("click", this.handleConfigQuorum.bind(this));
+    // Start voting (full flow)
+    document
+      .getElementById("start-voting-btn")
+      ?.addEventListener("click", this.handleStartVoting.bind(this));
 
     // Attendance actions
     document
@@ -1915,6 +1919,309 @@ export class UIManager {
     }
   }
 
+  /**
+   * Handler para iniciar o fluxo de votação em fullscreen (prévia -> iniciar)
+   */
+  private async handleStartVoting(): Promise<void> {
+    try {
+      // Validar quórum antes de abrir a tela inicial de prévia
+      const results = await electionApp.getElectionResults();
+
+      // Mesmo que quórum inválido, mostramos a prévia, mas o botão Iniciar ficará desabilitado
+      this.showVotingFullscreenPreview(results);
+    } catch (error) {
+      console.error("Erro ao iniciar fluxo de votação:", error);
+      NotificationService.error("Erro ao iniciar a votação");
+    }
+  }
+
+  /**
+   * Renderizar a prévia de votação na view fullscreen (touch-friendly)
+   */
+  private async showVotingFullscreenPreview(results: any): Promise<void> {
+    const fullscreenView = document.getElementById("fullscreen-view");
+    const grid = document.getElementById("fullscreen-candidates-grid");
+    const roleTitle = document.getElementById("fullscreen-role-title");
+
+    if (!fullscreenView || !grid || !roleTitle) return;
+
+    // Construir HTML da prévia: separamos em duas seções (Presbíteros / Diáconos)
+    // Ler configuração de quórum para obter número de vagas por cargo
+    const quorumConfig =
+      (await electionApp.getQuorumConfig()) as QuorumConfig | null;
+    const presbyteroPositions = quorumConfig?.presbyteroPositions ?? 3;
+    const diaconoPositions = quorumConfig?.diaconoPositions ?? 6;
+
+    const pres = (results.presbyteros || []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      role: c.role,
+      photoUrl: c.photoUrl,
+    }));
+    const dia = (results.diaconos || []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      role: c.role,
+      photoUrl: c.photoUrl,
+    }));
+
+    // Tamanho de toque e layout responsivo: cards grandes
+    const renderCards = (items: any[]) =>
+      items
+        .map(
+          (it) =>
+            `<div class="preview-card" data-id="${it.id}" role="button" tabindex="0" aria-pressed="false">
+               <div class="preview-photo">${
+                 it.photoUrl
+                   ? `<img src="${it.photoUrl}" alt="${it.name}"/>`
+                   : '<span class="material-icons md-48">person</span>'
+               }</div>
+               <div class="preview-name">${it.name}</div>
+               <div class="preview-role">${it.role}</div>
+             </div>`
+        )
+        .join("");
+
+    // Ajustar colunas das seções com base nas vagas configuradas (mas não mais que candidatos)
+    const presCols = Math.max(
+      1,
+      Math.min(presbyteroPositions, Math.max(1, pres.length))
+    );
+    const diaCols = Math.max(
+      1,
+      Math.min(diaconoPositions, Math.max(1, dia.length))
+    );
+
+    grid.innerHTML = `
+      <div class="preview-section">
+        <h2>Prévia — Presbíteros</h2>
+        <div class="preview-row" id="preview-presbyteros" style="grid-template-columns: repeat(${presCols}, minmax(220px, 1fr));">
+          ${renderCards(pres)}
+        </div>
+      </div>
+      <div class="preview-section">
+        <h2>Prévia — Diáconos</h2>
+        <div class="preview-row" id="preview-diaconos" style="grid-template-columns: repeat(${diaCols}, minmax(220px, 1fr));">
+          ${renderCards(dia)}
+        </div>
+      </div>
+      <div class="preview-actions">
+        <button id="fullscreen-start-btn" class="btn btn-cta btn-lg">Iniciar Votação</button>
+      </div>
+    `;
+
+    // Exibir fullscreen
+    fullscreenView.style.display = "flex";
+    if (fullscreenView.requestFullscreen) {
+      fullscreenView.requestFullscreen().catch(() => {
+        /* ignore fullscreen errors */
+      });
+    }
+
+    // Tornar touch-friendly: aumentar targets e habilitar listeners
+    const startBtn = document.getElementById("fullscreen-start-btn");
+    if (startBtn) {
+      // Desabilitar se quórum inválido
+      if (!results.quorum?.isValid) {
+        (startBtn as HTMLButtonElement).disabled = true;
+        (startBtn as HTMLButtonElement).title =
+          "Quórum insuficiente para iniciar votação";
+      } else {
+        (startBtn as HTMLButtonElement).disabled = false;
+      }
+
+      startBtn.addEventListener("click", async () => {
+        // Iniciar fluxo de seleção de votos (presbíteros primeiro)
+        await this.startSelectionFlow();
+      });
+    }
+
+    // Add basic keyboard / touch accessibility for cards (no selection here, only preview)
+    grid.querySelectorAll<HTMLElement>(".preview-card").forEach((card) => {
+      card.style.touchAction = "manipulation";
+      card.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          (ev.currentTarget as HTMLElement).click();
+        }
+      });
+    });
+  }
+
+  /**
+   * Inicia o fluxo de seleção: primeiro presbíteros, depois diáconos.
+   * Será implementado nas próximas etapas; aqui apenas navega para a tela de seleção.
+   */
+  private async startSelectionFlow(): Promise<void> {
+    // Fluxo de seleção completo (touch-first)
+    // 1) Ler candidatos e vagas
+    // 2) Mostrar etapa Presbíteros -> permitir selecionar até presbyteroPositions
+    // 3) Ao confirmar, avançar para Diáconos
+    // 4) Ao final, mostrar resumo com Corrigir / Confirmar
+    NotificationService.info("Iniciando seleção de votos...");
+
+    try {
+      const results = await electionApp.getElectionResults();
+      const quorumConfig =
+        (await electionApp.getQuorumConfig()) as QuorumConfig | null;
+
+      const presbyteroPositions = quorumConfig?.presbyteroPositions ?? 3;
+      const diaconoPositions = quorumConfig?.diaconoPositions ?? 6;
+
+      const pres = (results.presbyteros || []).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        role: c.role,
+        photoUrl: c.photoUrl,
+      }));
+
+      const dia = (results.diaconos || []).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        role: c.role,
+        photoUrl: c.photoUrl,
+      }));
+
+      // Estado local de seleção
+      const state = {
+        presSelected: new Set<string>(),
+        diaSelected: new Set<string>(),
+      };
+
+      // Função para renderizar etapa de seleção
+      const renderSelectionStep = (
+        roleLabel: string,
+        items: any[],
+        maxSelect: number,
+        currentSet: Set<string>
+      ) => {
+        const fullscreenView = document.getElementById("fullscreen-view");
+        const grid = document.getElementById("fullscreen-candidates-grid");
+        const roleTitle = document.getElementById("fullscreen-role-title");
+        if (!fullscreenView || !grid || !roleTitle) return;
+
+        roleTitle.textContent = `Seleção — ${roleLabel}`;
+
+        const cardsHtml = items
+          .map(
+            (it) => `
+            <div class="preview-card selectable" data-id="${it.id}" tabindex="0" role="button" aria-pressed="false">
+              <div class="preview-photo">${
+                it.photoUrl
+                  ? `<img src="${it.photoUrl}" alt="${it.name}"/>`
+                  : '<span class="material-icons md-48">person</span>'
+              }</div>
+              <div class="preview-name">${it.name}</div>
+              <div class="preview-role">${it.role}</div>
+              <div class="select-badge" aria-hidden="true"></div>
+            </div>`
+          )
+          .join("");
+
+        grid.innerHTML = `
+          <div class="preview-section">
+            <h2>${roleLabel} — Selecione até <strong>${maxSelect}</strong></h2>
+            <div class="preview-row selection-row" style="grid-template-columns: repeat(${Math.max(1, Math.min(maxSelect, Math.max(1, items.length)))}, minmax(220px, 1fr));">
+              ${cardsHtml}
+            </div>
+          </div>
+          <div class="preview-actions">
+            <button id="selection-next-btn" class="btn btn-cta btn-lg" disabled>Avançar</button>
+          </div>
+        `;
+
+        // Attach listeners
+        const row = grid.querySelector(".selection-row");
+        row
+          ?.querySelectorAll<HTMLElement>(".preview-card.selectable")
+          .forEach((card) => {
+            const id = card.dataset.id as string;
+            const updateUI = () => {
+              const selected = currentSet.has(id);
+              card.setAttribute("aria-pressed", selected ? "true" : "false");
+              const badge = card.querySelector(
+                ".select-badge"
+              ) as HTMLElement | null;
+              if (badge) {
+                badge.style.display = selected ? "block" : "none";
+                badge.textContent = selected ? "✓" : "";
+              }
+            };
+
+            // initial
+            updateUI();
+
+            const toggle = () => {
+              if (currentSet.has(id)) {
+                currentSet.delete(id);
+              } else {
+                if (currentSet.size >= maxSelect) {
+                  NotificationService.warning(
+                    `Você só pode selecionar até ${maxSelect} para ${roleLabel}`
+                  );
+                  return;
+                }
+                currentSet.add(id);
+              }
+              updateUI();
+              const nextBtn = document.getElementById(
+                "selection-next-btn"
+              ) as HTMLButtonElement | null;
+              if (nextBtn) nextBtn.disabled = currentSet.size === 0;
+            };
+
+            card.addEventListener("click", toggle);
+            card.addEventListener("keydown", (ev) => {
+              if (ev.key === "Enter" || ev.key === " ") {
+                ev.preventDefault();
+                toggle();
+              }
+            });
+          });
+
+        // Next button
+        const nextBtn = document.getElementById("selection-next-btn");
+        if (nextBtn) {
+          (nextBtn as HTMLButtonElement).disabled =
+            state.presSelected.size === 0 && roleLabel.includes("Presbíteros");
+          nextBtn.addEventListener("click", async () => {
+            // Se estivermos na etapa Presbíteros, avançar para Diáconos
+            if (roleLabel.includes("Presbíteros")) {
+              await renderSelectionStep(
+                "Diáconos",
+                dia,
+                diaconoPositions,
+                state.diaSelected
+              );
+            } else {
+              // Finalizar e mostrar resumo
+              this.showSelectionSummary(
+                Array.from(state.presSelected),
+                Array.from(state.diaSelected)
+              );
+            }
+          });
+        }
+
+        // Show fullscreen
+        const fullscreenViewEl = document.getElementById(
+          "fullscreen-view"
+        ) as HTMLElement;
+        fullscreenViewEl.style.display = "flex";
+      };
+
+      // Start with Presbíteros
+      renderSelectionStep(
+        "Presbíteros",
+        pres,
+        presbyteroPositions,
+        state.presSelected
+      );
+    } catch (err) {
+      console.error("Erro no fluxo de seleção:", err);
+      NotificationService.error("Erro ao iniciar seleção de votos");
+    }
+  }
+
   private closeFullscreen(): void {
     const fullscreenView = document.getElementById("fullscreen-view");
     if (!fullscreenView) return;
@@ -1945,6 +2252,10 @@ export class UIManager {
       return;
     }
 
+    // Checar status do quórum para habilitar/desabilitar controles
+    const results = await electionApp.getElectionResults();
+    const isQuorumValid = results?.quorum?.isValid ?? true;
+
     container.innerHTML = candidates
       .map((candidate) => {
         const photoHtml = candidate.photoUrl
@@ -1956,14 +2267,46 @@ export class UIManager {
             <div class="fullscreen-candidate-photo" data-id="${candidate.id}">
               ${photoHtml}
             </div>
-            <h3 class="fullscreen-candidate-name">${candidate.name}</h3>
-            <div class="fullscreen-candidate-votes">${candidate.votes}</div>
+            <div class="fullscreen-candidate-meta">
+              <h3 class="fullscreen-candidate-name">${candidate.name}</h3>
+              <div class="fullscreen-candidate-votes">${candidate.votes}</div>
+            </div>
+            <div class="fullscreen-candidate-actions">
+              <button class="btn-vote btn-vote-decrease" data-candidate-id="${candidate.id}" data-action="decrease" ${!isQuorumValid ? "disabled" : ""} title="Remover voto">
+                <span class="material-icons md-24">remove</span>
+              </button>
+              <button class="btn-vote btn-vote-reset" data-candidate-id="${candidate.id}" data-action="reset" ${!isQuorumValid ? "disabled" : ""} title="Resetar votos">
+                <span class="material-icons md-24">refresh</span>
+              </button>
+              <button class="btn-vote btn-vote-increase" data-candidate-id="${candidate.id}" data-action="increase" ${!isQuorumValid ? "disabled" : ""} title="Adicionar voto">
+                <span class="material-icons md-24">add</span>
+              </button>
+            </div>
           </div>
         `;
       })
       .join("");
 
-    // Adicionar event listeners
+    // Adicionar event listeners aos botões de voto (mesma lógica da aba Votação)
+    container.querySelectorAll<HTMLButtonElement>(".btn-vote").forEach((btn) => {
+      btn.addEventListener("click", this.handleVoteAction.bind(this));
+    });
+
+    // Clique na foto também aumenta (tocar na foto = +)
+    container.querySelectorAll<HTMLElement>(".fullscreen-candidate-photo").forEach((header) => {
+      const card = header.closest(".fullscreen-candidate-card");
+      if (!card) return;
+      const increaseBtn = card.querySelector<HTMLElement>(".btn-vote-increase");
+      header.addEventListener("click", () => {
+        if (increaseBtn && !increaseBtn.hasAttribute("disabled")) {
+          increaseBtn.click();
+        }
+      });
+      // cursor pointer quando habilitado
+      (header as HTMLElement).style.cursor = isQuorumValid ? "pointer" : "not-allowed";
+    });
+
+    // Adicionar event listeners de sincronização/atualização se necessário
     this.attachFullscreenSyncListeners();
   }
 
@@ -2486,6 +2829,221 @@ export class UIManager {
       console.error("[UIManager] Erro ao carregar resultados:", error);
       NotificationService.error("Erro ao carregar resultados da eleição");
     }
+  }
+
+  /**
+   * Mostrar resumo da seleção com opções Corrigir e Confirmar
+   */
+  private async showSelectionSummary(
+    presIds: string[],
+    diaIds: string[]
+  ): Promise<void> {
+    const fullscreenView = document.getElementById("fullscreen-view");
+    const grid = document.getElementById("fullscreen-candidates-grid");
+    const roleTitle = document.getElementById("fullscreen-role-title");
+
+    if (!fullscreenView || !grid || !roleTitle) return;
+
+    roleTitle.textContent = "Resumo da Votação";
+
+    // Carregar dados dos candidatos para exibir nomes
+    const allCandidates = await electionApp.getCandidates();
+    const presList = presIds
+      .map((id) => allCandidates.find((c) => c.id === id))
+      .filter(Boolean) as any[];
+    const diaList = diaIds
+      .map((id) => allCandidates.find((c) => c.id === id))
+      .filter(Boolean) as any[];
+
+    const renderList = (items: any[]) =>
+      items
+        .map(
+          (it) => `
+            <div class="preview-card summary-item">
+              <div class="preview-photo">${
+                it.photoUrl
+                  ? `<img src="${it.photoUrl}" alt="${it.name}"/>`
+                  : '<span class="material-icons md-48">person</span>'
+              }</div>
+              <div class="preview-name">${it.name}</div>
+              <div class="preview-role">${it.role}</div>
+            </div>`
+        )
+        .join("");
+
+    grid.innerHTML = `
+      <div class="preview-section">
+        <h2>Presbíteros Selecionados</h2>
+        <div class="preview-row">${renderList(presList)}</div>
+      </div>
+      <div class="preview-section">
+        <h2>Diáconos Selecionados</h2>
+        <div class="preview-row">${renderList(diaList)}</div>
+      </div>
+      <div class="preview-actions">
+        <button id="summary-correct-btn" class="btn btn-outline btn-lg">Corrigir</button>
+        <button id="summary-confirm-btn" class="btn btn-cta btn-lg">Confirmar</button>
+      </div>
+    `;
+
+    // Corrigir volta para a etapa inicial de seleção (presbíteros)
+    const correctBtn = document.getElementById("summary-correct-btn");
+    correctBtn?.addEventListener("click", async () => {
+      // Reabrir seleção desde o início
+      await this.startSelectionFlow();
+    });
+
+    const confirmBtn = document.getElementById("summary-confirm-btn");
+    confirmBtn?.addEventListener("click", async () => {
+      try {
+        // Desabilitar botões para evitar duplo envio
+        (confirmBtn as HTMLButtonElement).disabled = true;
+        const correctBtn = document.getElementById(
+          "summary-correct-btn"
+        ) as HTMLButtonElement | null;
+        if (correctBtn) correctBtn.disabled = true;
+
+        // Indicar progresso
+        const originalText = confirmBtn.textContent || "Confirmar";
+        confirmBtn.textContent = "Enviando votos...";
+
+        const allCandidateIds = [...presIds, ...diaIds];
+
+        const res = await this.submitVotesAtomically(allCandidateIds);
+
+        if (res.success) {
+          NotificationService.success("Votos submetidos com sucesso");
+          this.showThankYouScreen();
+        } else {
+          NotificationService.error(
+            res.error || "Falha ao submeter votos. Operação revertida."
+          );
+          // Voltar para prévia para tentar novamente
+          await this.handleStartVoting();
+        }
+
+        // Restaurar texto
+        confirmBtn.textContent = originalText;
+      } catch (err) {
+        console.error("Erro ao confirmar votos:", err);
+        NotificationService.error("Erro ao confirmar votos");
+        // Tentar reabrir a prévia
+        await this.handleStartVoting();
+      } finally {
+        // Reabilitar botão
+        (confirmBtn as HTMLButtonElement).disabled = false;
+        const correctBtn = document.getElementById(
+          "summary-correct-btn"
+        ) as HTMLButtonElement | null;
+        if (correctBtn) correctBtn.disabled = false;
+      }
+    });
+  }
+
+  /**
+   * Submete votos em sequência de forma atômica (tenta rollback em caso de falha).
+   * Observação: esta implementação assume que o ID do eleitor (voter) está
+   * disponível em localStorage.currentVoterId. Se não houver, a submissão falhará
+   * e o usuário deverá identificar o eleitor antes de confirmar.
+   */
+  private async submitVotesAtomically(
+    candidateIds: string[]
+  ): Promise<{ success: boolean; error?: string }> {
+    // Implementação ANÔNIMA usando APIs de projeção
+    if (!candidateIds || candidateIds.length === 0) {
+      return { success: false, error: "Nenhum candidato selecionado" };
+    }
+
+    const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+    const succeeded: string[] = [];
+
+    for (const candidateId of candidateIds) {
+      let attempt = 0;
+      let lastError: any = null;
+      const maxAttempts = 3;
+
+      while (attempt < maxAttempts) {
+        attempt += 1;
+        try {
+          const result = await electionApp.incrementVoteProjection(candidateId);
+          if (result && (result as any).success) {
+            succeeded.push(candidateId);
+            lastError = null;
+            break;
+          } else {
+            lastError = (result as any).error || "Erro desconhecido";
+            console.warn(
+              `[submitVotesAtomically] tentativa ${attempt} falhou para ${candidateId}: ${lastError}`
+            );
+            if (attempt < maxAttempts) await sleep(500 * Math.pow(2, attempt - 1));
+          }
+        } catch (err) {
+          lastError = err;
+          console.error(
+            `[submitVotesAtomically] exceção na tentativa ${attempt} para ${candidateId}`,
+            err
+          );
+          if (attempt < maxAttempts) await sleep(500 * Math.pow(2, attempt - 1));
+        }
+      }
+
+      if (lastError) {
+        console.error(
+          `[submitVotesAtomically] falha definitiva em ${candidateId}, iniciando rollback de projeção...`,
+          lastError
+        );
+
+        for (const succeededId of succeeded) {
+          try {
+            if ((electionApp as any).decrementVoteProjection) {
+              await (electionApp as any).decrementVoteProjection(succeededId);
+            } else if ((electionApp as any).removeVote) {
+              // fallback melhor esforço
+              await (electionApp as any).removeVote(succeededId, "system-projection");
+            } else {
+              console.warn(
+                `[submitVotesAtomically] Nenhum método de rollback disponível para ${succeededId}`
+              );
+            }
+            console.log(`[submitVotesAtomically] rollback OK para ${succeededId}`);
+          } catch (rbErr) {
+            console.warn(
+              `[submitVotesAtomically] rollback falhou para ${succeededId}:`,
+              rbErr
+            );
+          }
+        }
+
+        return {
+          success: false,
+          error: `Falha ao submeter votos (projeção): ${lastError}`,
+        };
+      }
+    }
+
+    return { success: true };
+  }
+
+  private showThankYouScreen(): void {
+    const fullscreenView = document.getElementById("fullscreen-view");
+    const grid = document.getElementById("fullscreen-candidates-grid");
+    const roleTitle = document.getElementById("fullscreen-role-title");
+    if (!fullscreenView || !grid || !roleTitle) return;
+
+    roleTitle.textContent = "Obrigado";
+    grid.innerHTML = `
+      <div class="empty-state" style="padding: 6rem 1rem;">
+        <span class="material-icons md-48">thumb_up</span>
+        <h3>Obrigado por votar!</h3>
+        <p>Voltando para a prévia em 30 segundos...</p>
+      </div>
+    `;
+
+    // Bloquear confirmação por 30s e depois voltar para preview
+    setTimeout(() => {
+      // Reabrir a prévia (carregar resultados atualizados)
+      (this as any).handleStartVoting();
+    }, 30000);
   }
 
   private async handleCandidateSubmit(e: Event): Promise<void> {

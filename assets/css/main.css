@@ -399,6 +399,171 @@ button {
   animation: slideDown 0.3s ease-out;
 }
 
+/* Fullscreen Voting View (touch optimized) */
+.fullscreen-voting-view {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--bg-primary);
+  z-index: 2000;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.exit-fullscreen-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2100;
+}
+
+.fullscreen-header {
+  width: 100%;
+  text-align: center;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+}
+
+.fullscreen-candidates-grid {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.5rem 1rem 5rem 1rem;
+}
+
+.preview-section h2 {
+  font-size: 1.125rem;
+  margin-bottom: 0.5rem;
+}
+
+.preview-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.preview-card {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 0.75rem;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+  min-height: 140px;
+  user-select: none;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  touch-action: manipulation;
+}
+
+.preview-card:active {
+  transform: scale(0.99);
+}
+
+.preview-photo img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.preview-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.preview-role {
+  font-size: 0.825rem;
+  color: var(--text-tertiary);
+}
+
+.preview-actions {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.btn-cta.btn-lg {
+  padding: 0.9rem 1.6rem;
+  font-size: 1.1rem;
+  border-radius: 12px;
+}
+
+/* Fixed bottom CTA for fullscreen voting */
+.fullscreen-voting-view {
+  padding-bottom: 10rem; /* espaço para o botão fixo (aumentado para elevar CTA) */
+}
+
+.fullscreen-voting-view .preview-actions {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Elevar o CTA um pouco mais para ficar acima de gestos e barras do sistema */
+  bottom: calc(28px + env(safe-area-inset-bottom));
+  z-index: 2300;
+  width: calc(100% - 2rem);
+  display: flex;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.fullscreen-voting-view .preview-actions .btn-cta.btn-lg {
+  width: 100%;
+  max-width: 720px;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
+  color: white;
+  border: none;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.18);
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  font-size: 1.125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.fullscreen-voting-view .preview-actions .btn-cta.btn-lg:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.fullscreen-voting-view .preview-actions .btn-cta.btn-lg:focus {
+  outline: 3px solid rgba(37, 99, 235, 0.18);
+}
+
+/* Touch optimization for tablets: larger targets on >=768px */
+@media (min-width: 768px) {
+  .preview-row {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+  .preview-card {
+    min-height: 160px;
+    padding: 1rem;
+  }
+  .preview-photo img {
+    width: 96px;
+    height: 96px;
+  }
+}
+
 .info-tooltip-content {
   padding: 1rem 1.5rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -2216,21 +2381,27 @@ body.dark-mode .voting-category.quorum-blur::after {
 
 .fullscreen-candidates-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+  gap: 1.25rem;
   max-width: 1400px;
   margin: 0 auto;
+  align-items: stretch;
 }
 
 /* Fullscreen Candidate Card */
 .fullscreen-candidate-card {
-  background: var(--bg-primary);
-  border-radius: var(--border-radius);
-  padding: 2rem;
-  text-align: center;
-  box-shadow: var(--shadow);
-  transition: all 0.3s ease;
-  border: 1px solid var(--border-color);
+  display: flex;
+  gap: 1rem;
+  align-items: stretch;
+  background: linear-gradient(180deg, var(--bg-primary), var(--bg-secondary));
+  border-radius: 12px;
+  padding: 0.5rem;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.06);
+  transition:
+    transform 0.28s ease,
+    box-shadow 0.28s ease;
+  border: 1px solid rgba(15, 23, 42, 0.04);
+  overflow: hidden;
 }
 
 .fullscreen-candidate-card:hover {
@@ -2240,24 +2411,21 @@ body.dark-mode .voting-category.quorum-blur::after {
 }
 
 .fullscreen-candidate-photo {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
+  flex: 0 0 160px; /* foto fixa na esquerda */
+  height: 160px;
+  border-radius: 8px;
   overflow: hidden;
-  margin: 0 auto 1.5rem;
   background: var(--gray-100);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 3px solid var(--primary-color);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  border-right: 1px solid rgba(15, 23, 42, 0.04);
 }
 
 .fullscreen-candidate-photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* ✅ Foco inteligente no rosto: centraliza horizontalmente, foca no terço superior */
   object-position: center 30%;
 }
 
@@ -2267,20 +2435,30 @@ body.dark-mode .voting-category.quorum-blur::after {
 }
 
 .fullscreen-candidate-name {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-weight: 800;
   color: var(--text-primary);
-  margin: 0 0 1rem 0;
+  margin: 0 0 0.25rem 0;
+  line-height: 1.1;
+}
+
+.fullscreen-candidate-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .fullscreen-candidate-votes {
-  font-size: 2.2rem;
-  font-weight: var(--font-weight-bold);
+  font-size: 1.6rem;
+  font-weight: 700;
   color: var(--primary-color);
-  margin: 1rem 0;
-  padding: 1rem;
-  background: var(--gray-50);
-  border-radius: var(--border-radius);
+  margin: 0.25rem 0 0 0;
+}
+
+.fullscreen-candidate-role {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .fullscreen-candidate-votes-label {
@@ -2294,46 +2472,28 @@ body.dark-mode .voting-category.quorum-blur::after {
 /* Controles de voto removidos - projeção agora é apenas visualização */
 
 /* Responsive para Candidatos */
-@media (max-width: 768px) {
-  .candidates-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .candidate-card {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .candidate-actions {
-    flex-direction: row;
-    width: 100%;
-    justify-content: center;
-  }
-
-  .fullscreen-header h1 {
-    font-size: 2rem;
-  }
-
+@media (max-width: 900px) {
   .fullscreen-candidates-grid {
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: 1rem;
   }
 
   .fullscreen-candidate-card {
-    padding: 1.5rem;
+    flex-direction: row;
+    padding: 0.5rem;
   }
 
   .fullscreen-candidate-photo {
-    width: 100px;
-    height: 100px;
+    flex: 0 0 120px;
+    height: 120px;
   }
 
   .fullscreen-candidate-name {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
   }
 
   .fullscreen-candidate-votes {
-    font-size: 1.8rem;
+    font-size: 1.2rem;
   }
 }
 
