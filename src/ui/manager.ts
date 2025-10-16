@@ -2288,23 +2288,30 @@ export class UIManager {
       .join("");
 
     // Adicionar event listeners aos botões de voto (mesma lógica da aba Votação)
-    container.querySelectorAll<HTMLButtonElement>(".btn-vote").forEach((btn) => {
-      btn.addEventListener("click", this.handleVoteAction.bind(this));
-    });
+    container
+      .querySelectorAll<HTMLButtonElement>(".btn-vote")
+      .forEach((btn) => {
+        btn.addEventListener("click", this.handleVoteAction.bind(this));
+      });
 
     // Clique na foto também aumenta (tocar na foto = +)
-    container.querySelectorAll<HTMLElement>(".fullscreen-candidate-photo").forEach((header) => {
-      const card = header.closest(".fullscreen-candidate-card");
-      if (!card) return;
-      const increaseBtn = card.querySelector<HTMLElement>(".btn-vote-increase");
-      header.addEventListener("click", () => {
-        if (increaseBtn && !increaseBtn.hasAttribute("disabled")) {
-          increaseBtn.click();
-        }
+    container
+      .querySelectorAll<HTMLElement>(".fullscreen-candidate-photo")
+      .forEach((header) => {
+        const card = header.closest(".fullscreen-candidate-card");
+        if (!card) return;
+        const increaseBtn =
+          card.querySelector<HTMLElement>(".btn-vote-increase");
+        header.addEventListener("click", () => {
+          if (increaseBtn && !increaseBtn.hasAttribute("disabled")) {
+            increaseBtn.click();
+          }
+        });
+        // cursor pointer quando habilitado
+        (header as HTMLElement).style.cursor = isQuorumValid
+          ? "pointer"
+          : "not-allowed";
       });
-      // cursor pointer quando habilitado
-      (header as HTMLElement).style.cursor = isQuorumValid ? "pointer" : "not-allowed";
-    });
 
     // Adicionar event listeners de sincronização/atualização se necessário
     this.attachFullscreenSyncListeners();
@@ -2975,7 +2982,8 @@ export class UIManager {
             console.warn(
               `[submitVotesAtomically] tentativa ${attempt} falhou para ${candidateId}: ${lastError}`
             );
-            if (attempt < maxAttempts) await sleep(500 * Math.pow(2, attempt - 1));
+            if (attempt < maxAttempts)
+              await sleep(500 * Math.pow(2, attempt - 1));
           }
         } catch (err) {
           lastError = err;
@@ -2983,7 +2991,8 @@ export class UIManager {
             `[submitVotesAtomically] exceção na tentativa ${attempt} para ${candidateId}`,
             err
           );
-          if (attempt < maxAttempts) await sleep(500 * Math.pow(2, attempt - 1));
+          if (attempt < maxAttempts)
+            await sleep(500 * Math.pow(2, attempt - 1));
         }
       }
 
@@ -2999,13 +3008,18 @@ export class UIManager {
               await (electionApp as any).decrementVoteProjection(succeededId);
             } else if ((electionApp as any).removeVote) {
               // fallback melhor esforço
-              await (electionApp as any).removeVote(succeededId, "system-projection");
+              await (electionApp as any).removeVote(
+                succeededId,
+                "system-projection"
+              );
             } else {
               console.warn(
                 `[submitVotesAtomically] Nenhum método de rollback disponível para ${succeededId}`
               );
             }
-            console.log(`[submitVotesAtomically] rollback OK para ${succeededId}`);
+            console.log(
+              `[submitVotesAtomically] rollback OK para ${succeededId}`
+            );
           } catch (rbErr) {
             console.warn(
               `[submitVotesAtomically] rollback falhou para ${succeededId}:`,
