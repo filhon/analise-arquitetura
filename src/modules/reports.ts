@@ -219,29 +219,106 @@ export class ReportManager {
 
       // Membros presentes
       if (presentMembers.length > 0) {
+        // Forçar quebra de página antes da lista de presentes
+        pdf.addPage();
+        currentY = 20;
+
         pdf.setFontSize(12);
         pdf.setFont("helvetica", "bold");
         pdf.text("MEMBROS PRESENTES:", 20, currentY);
         currentY += 8;
 
+        // Tabela: Nome | CPF | Assinatura (assinatura em branco)
+        const tableX = 20;
+        const colNomeW = 90; // largura coluna Nome
+        const colCpfW = 50; // largura coluna CPF
+        const colAssW = 120; // largura coluna Assinatura
+        const rowHeight = 8;
+
+        // Cabeçalho da tabela
+        pdf.setFontSize(11);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Nome", tableX + 2, currentY + 6);
+        pdf.text("CPF", tableX + colNomeW + 4, currentY + 6);
+        pdf.text("Assinatura", tableX + colNomeW + colCpfW + 6, currentY + 6);
+
+        // Desenhar linha de cabeçalho
+        pdf.setDrawColor(0);
+        pdf.setLineWidth(0.5);
+        pdf.rect(
+          tableX,
+          currentY,
+          colNomeW + colCpfW + colAssW,
+          rowHeight,
+          "S"
+        );
+        currentY += rowHeight;
+
         pdf.setFontSize(10);
         pdf.setFont("helvetica", "normal");
 
         for (const member of presentMembers) {
-          const attendance = await this.attendanceManager.getMemberAttendance(
-            member.id
-          );
-          const arrivalTime =
-            attendance?.arrivalTime || "Horário não registrado";
-          pdf.text(`• ${member.nome} - ${arrivalTime}`, 25, currentY);
-          currentY += 5;
-
-          // Verificar se precisa de nova página
-          if (currentY > 270) {
+          // Quebrar página se necessário (reservar espaço para a linha)
+          if (currentY + rowHeight > 277) {
             pdf.addPage();
             currentY = 20;
+            // redesenhar cabeçalho da tabela na nova página
+            pdf.setFontSize(11);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Nome", tableX + 2, currentY + 6);
+            pdf.text("CPF", tableX + colNomeW + 4, currentY + 6);
+            pdf.text(
+              "Assinatura",
+              tableX + colNomeW + colCpfW + 6,
+              currentY + 6
+            );
+            pdf.rect(
+              tableX,
+              currentY,
+              colNomeW + colCpfW + colAssW,
+              rowHeight,
+              "S"
+            );
+            currentY += rowHeight;
+            pdf.setFontSize(10);
+            pdf.setFont("helvetica", "normal");
           }
+
+          // CPF formatado ou vazio
+          const cpf = member.cpf || "";
+
+          // Escrever nome e cpf
+          // Nome (wrap se necessário simples: cortar se maior que coluna)
+          let nomeText = member.nome || "";
+          if (nomeText.length > 50) {
+            nomeText = nomeText.slice(0, 47) + "...";
+          }
+
+          pdf.text(nomeText, tableX + 2, currentY + 6);
+          pdf.text(cpf, tableX + colNomeW + 4, currentY + 6);
+
+          // Desenhar linha para assinatura (espaço em branco)
+          const sigX = tableX + colNomeW + colCpfW + 4;
+          const sigY = currentY + 4;
+          const sigW = colAssW - 8;
+          // linha para assinatura
+          pdf.line(sigX, sigY + 4, sigX + sigW, sigY + 4);
+
+          // desenhar borda inferior da linha da tabela
+          pdf.rect(
+            tableX,
+            currentY,
+            colNomeW + colCpfW + colAssW,
+            rowHeight,
+            "S"
+          );
+
+          currentY += rowHeight;
         }
+
+        // Forçar quebra de página depois da lista de presentes para facilitar impressão
+        pdf.addPage();
+        currentY = 20;
       }
 
       // Membros ausentes
