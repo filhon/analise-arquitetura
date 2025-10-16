@@ -32,9 +32,11 @@
     />
 
     <!-- CSS -->
-    <script type="module" crossorigin src="/assets/index-BlMPI3EI.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/vendor-BnABG2cI.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-DOhuVUb9.css">
+    <script type="module" crossorigin src="/assets/index-DLLJCxYT.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-mpHdot-v.js">
+    <link rel="modulepreload" crossorigin href="/assets/firebase-CYLAFpjR.js">
+    <link rel="modulepreload" crossorigin href="/assets/jspdf-CcmqT4Oe.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-BMs1cded.css">
   </head>
   <body>
     <!-- Loading Screen -->
@@ -165,9 +167,10 @@
               <thead>
                 <tr>
                   <th>Nome</th>
+                  <th>CPF</th>
+                  <th>Email</th>
                   <th>Tipo</th>
                   <th>Candidato</th>
-                  <th>Presente</th>
                   <th>Ações</th>
                 </tr>
               </thead>
@@ -320,16 +323,6 @@
         <section id="attendance-tab" class="tab-content">
           <div class="section-header">
             <h2>Controle de Presença</h2>
-            <div class="section-actions">
-              <button id="mark-all-present" class="btn btn-success">
-                <span class="material-icons md-20">done_all</span>
-                Marcar Todos Presentes
-              </button>
-              <button id="mark-all-absent" class="btn btn-danger">
-                <span class="material-icons md-20">clear_all</span>
-                Marcar Todos Ausentes
-              </button>
-            </div>
           </div>
 
           <div class="attendance-stats">
@@ -384,10 +377,10 @@
                 <!-- Dynamic content -->
               </div>
             </div>
+            <!-- Presence chart moved under results-summary-stats -->
           </div>
 
           <div class="detailed-results">
-            <h3>Resultados Detalhados</h3>
             <div id="detailed-results-content">
               <!-- Dynamic content -->
             </div>
