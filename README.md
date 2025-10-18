@@ -64,6 +64,7 @@ Este projeto é um sistema completo para gestão de eleições de oficiais em ig
 ## Documentação
 
 A documentação detalhada está disponível na pasta `/docs`, incluindo:
+
 - Guia de configuração do Firebase
 - Checklist de sincronização
 - Alterações de design e layout
