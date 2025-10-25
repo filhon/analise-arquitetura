@@ -9,7 +9,7 @@
 .fullscreen-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 1.1rem 2.2rem 1.1rem 2.2rem;
   z-index: 20;
 }
@@ -18,18 +18,7 @@ body.dark-mode .fullscreen-header {
   border-bottom: 1.5px solid #18181b;
   box-shadow: 0 2px 16px 0 rgba(0, 0, 0, 0.18);
 }
-.fullscreen-header h1#fullscreen-role-title {
-  font-size: 1.45rem;
-  font-weight: 800;
-  margin: 0;
-  color: var(--primary-color, #1e293b);
-  letter-spacing: -0.5px;
-}
-body.dark-mode .fullscreen-header h1#fullscreen-role-title {
-  color: #fff;
-}
 .fullscreen-header .exit-fullscreen-btn {
-  margin-left: 2.2rem;
   background: none;
   border: none;
   border-radius: 50%;
@@ -93,23 +82,42 @@ body.dark-mode .fullscreen-candidate-card.preview-card {
   justify-content: center;
   gap: 0.2rem;
 }
-/* Box de candidatura na prévia fullscreen */
-/* Box de candidatura na prévia fullscreen - contraste aprimorado */
+/* Box de candidatura na prévia fullscreen - design moderno aprimorado */
 .preview-box {
-  background: #f3f4f6;
-  border-radius: 18px;
-  border: 2px solid #d1d5db;
-  box-shadow: 0 4px 24px 0 rgba(30, 41, 59, 0.13);
-  margin-bottom: 2.2rem;
-  padding: 1.2rem 1.5rem 1.5rem 1.5rem;
-  max-width: 700px;
+  background: linear-gradient(135deg, #ffffff 0%, #fefefe 100%);
+  border: 2px solid #e2e8f0;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  margin-bottom: 2.5rem;
+  padding: 2rem 2.5rem 2.5rem 2.5rem;
+  max-width: 800px;
   width: 100%;
   margin-left: auto;
   margin-right: auto;
-  transition:
-    background 0.18s,
-    box-shadow 0.18s,
-    border 0.18s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.preview-box::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--primary-color),
+    var(--primary-dark),
+    var(--secondary-color)
+  );
+  border-radius: 24px 24px 0 0;
+}
+
+.preview-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
 }
 body.dark-mode .preview-box {
   background: #18181b;
@@ -787,11 +795,75 @@ body.dark-mode .exit-fullscreen-btn .material-icons {
   gap: 1.25rem;
 }
 
+/* Preview Section - Design Moderno e Atrativo */
+.preview-section {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(248, 250, 252, 0.9) 100%
+  );
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.preview-section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--primary-color),
+    var(--primary-dark),
+    var(--primary-color)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.preview-section h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.preview-section h2::after {
+  content: "";
+  display: block;
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
+  border-radius: 2px;
+  margin: 0.75rem auto 0;
+}
+
+/* Cards de prévia aprimorados - design moderno e atrativo */
 .preview-card {
-  background: var(--bg-secondary);
-  border-radius: 100px;
-  padding: 0.75rem 1.5rem;
-  box-shadow: var(--shadow);
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 2px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 1.25rem 1.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -801,27 +873,131 @@ body.dark-mode .exit-fullscreen-btn .material-icons {
   user-select: none;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
   touch-action: manipulation;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(5px);
+}
+
+.preview-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.preview-card:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  border-color: var(--primary-color);
+}
+
+.preview-card:hover::before {
+  opacity: 1;
+}
+
+.preview-card:active {
+  transform: scale(0.98) translateY(0);
 }
 
 .preview-card:active {
   transform: scale(0.99);
 }
 
+/* Estilos para modo escuro da preview-section */
+body.dark-mode .preview-section {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 30, 30, 0.95) 0%,
+    rgba(23, 23, 23, 0.9) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .preview-section h2 {
+  color: var(--text-primary);
+}
+
+body.dark-mode .preview-section h2::after {
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
+}
+
+body.dark-mode .preview-card {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 30, 30, 0.95) 0%,
+    rgba(23, 23, 23, 0.9) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .preview-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
 .preview-photo img {
-  width: 68px;
-  height: 68px;
+  width: 80px;
+  height: 80px;
   object-fit: cover;
-  border-radius: 100px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.preview-card:hover .preview-photo img {
+  transform: scale(1.05);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
 }
 
 .preview-name {
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .preview-role {
-  font-size: 0.825rem;
-  color: var(--text-tertiary);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.8;
+}
+
+/* Estilos para candidatos votados e não votados no resumo */
+.preview-card.voted {
+  border: 2px solid var(--success-color);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.05),
+    rgba(16, 185, 129, 0.02)
+  );
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+}
+
+.preview-card.not-voted {
+  filter: grayscale(100%);
+  opacity: 0.6;
+  border: 1px solid var(--gray-300);
+  background: var(--gray-50);
+}
+
+.preview-card.not-voted .preview-name,
+.preview-card.not-voted .preview-role {
+  color: var(--gray-500);
 }
 
 .preview-actions {
@@ -829,6 +1005,7 @@ body.dark-mode .exit-fullscreen-btn .material-icons {
   display: flex;
   justify-content: center;
   margin-top: 1rem;
+  gap: 1rem;
 }
 
 .btn-cta.btn-lg {
@@ -861,7 +1038,7 @@ body.dark-mode .exit-fullscreen-btn .material-icons {
   background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
   color: white;
   border: none;
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.25);
   border-radius: 16px;
   padding: 1rem 1.25rem;
   font-size: 1.125rem;
@@ -869,16 +1046,40 @@ body.dark-mode .exit-fullscreen-btn .material-icons {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  transition: all 0.3s ease;
 }
 
-.fullscreen-voting-view .preview-actions .btn-cta.btn-lg:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  box-shadow: none;
+.fullscreen-voting-view .preview-actions .btn-cta.btn-lg:hover:not(:disabled) {
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
 }
 
-.fullscreen-voting-view .preview-actions .btn-cta.btn-lg:focus {
-  outline: 3px solid rgba(37, 99, 235, 0.18);
+.fullscreen-voting-view .preview-actions .btn-secondary.btn-lg {
+  width: 100%;
+  max-width: 720px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-color),
+    var(--surface-variant)
+  );
+  color: var(--on-surface);
+  border: 1px solid var(--outline-color);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  font-size: 1.125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.fullscreen-voting-view
+  .preview-actions
+  .btn-secondary.btn-lg:hover:not(:disabled) {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
 }
 
 /* Touch optimization for tablets: larger targets on >=768px */
@@ -1088,9 +1289,20 @@ body.dark-mode .exit-fullscreen-btn .material-icons {
   border-color: var(--danger-color);
 }
 
-.btn-danger:hover:not(:disabled) {
-  background: #b91c1c;
-  border-color: #b91c1c;
+.btn-warning {
+  background: #f97316; /* Orange-500 */
+  color: white;
+  border-color: #f97316;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.25);
+  transition: all 0.3s ease;
+  border-radius: 12px;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #ea580c; /* Orange-600 */
+  border-color: #ea580c;
+  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.35);
+  transform: translateY(-1px);
 }
 
 .btn-outline {
@@ -2019,7 +2231,6 @@ body.dark-mode .voting-category.quorum-blur::after {
   text-align: center;
 }
 
-/* Hover nos rows para consistência com .data-table */
 .results-table tbody tr:hover {
   background: var(--gray-50);
 }
@@ -2703,14 +2914,6 @@ body.dark-mode .voting-category.quorum-blur::after {
   padding: 1rem 0;
 }
 
-.fullscreen-header h1 {
-  color: var(--text-primary);
-  font-size: 2.5rem;
-  font-weight: var(--font-weight-bold);
-  margin: 0;
-  text-shadow: none; /* Remover sombra de texto */
-}
-
 .fullscreen-candidates-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
@@ -2990,10 +3193,6 @@ body.dark-mode .fullscreen-voting-view {
   background: var(--bg-primary);
 }
 
-body.dark-mode .fullscreen-header h1 {
-  color: var(--text-primary);
-}
-
 body.dark-mode .fullscreen-candidate-card {
   background: var(--bg-primary);
   border-color: var(--border-color);
@@ -3249,6 +3448,7 @@ body.dark-mode tbody tr:hover {
 .attendance-search + .attendance-items,
 .attendance-items {
   margin-top: 1.5rem; /* padrão usado em outras seções */
+  display: block; /* garante que a mensagem respeite margin quando antes era inline */
 }
 
 /* Individual Attendance Item */

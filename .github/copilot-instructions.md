@@ -98,6 +98,108 @@
   - Validação em tempo real com mudanças de presença
   - Notificações de aviso ao tentar votar sem quórum
   - Documentação completa em docs/IMPLEMENTACAO-CONTROLE-VOTACAO-QUORUM.md
+- [x] Implementar Novo Layout de Seleção de Candidatos
+  - Removido fullscreen-header das etapas de seleção
+  - Criada estrutura de duas seções: linha superior (título + vagas) e grid inferior
+  - Grid de 3 colunas para melhor aproveitamento do espaço
+  - Cards otimizados para toque em tablets
+  - Responsividade completa (desktop: 3 colunas, tablet: 2 colunas, mobile: 1 coluna)
+  - Documentação completa em docs/IMPLEMENTACAO-NOVO-LAYOUT-SELECAO.md
+- [x] Ajuste do Layout de Seleção: Header Horizontal
+  - Colocado selection-vagas-info dentro da selection-header
+  - Alinhamento horizontal dos itens (título + vagas lado a lado)
+  - Responsividade: horizontal em desktop/tablet, vertical em mobile
+  - Documentação completa em docs/AJUSTE-HEADER-SELECAO-HORIZONTAL.md
+- [x] Reorganização do Layout da Seleção: Grid Responsivo
+  - Organizado fullscreen-candidates-grid: header → grid → actions
+  - Grid dividido em até 3 colunas responsivas baseado na quantidade de candidatos
+  - 1 candidato: largura máxima, 2 candidatos: 2 colunas, 3+: até 3 colunas
+  - Cards otimizados para o novo layout
+  - Documentação completa em docs/REORGANIZACAO-LAYOUT-SELECAO-GRID.md
+- [x] Implementar Design Minimalista na Projeção
+  - Design harmonizado com o sistema (fundo branco, cards consistentes)
+  - Hierarquia visual melhorada (nome > votos)
+  - Fotos proporcionais (120px), botão fechar discreto
+  - Responsividade completa e suporte ao modo escuro
+  - Documentação completa em docs/IMPLEMENTACAO-DESIGN-MINIMALISTA-PROJECAO.md
+- [x] Ajuste do Layout de Seleção: Header Horizontal
+  - Colocado selection-vagas-info dentro da selection-header
+  - Alinhamento horizontal dos itens (título + vagas lado a lado)
+  - Responsividade: horizontal em desktop/tablet, vertical em mobile
+  - Documentação completa em docs/AJUSTE-HEADER-SELECAO-HORIZONTAL.md
+- [x] Reorganização do Layout da Seleção: Grid Responsivo
+  - Organizado fullscreen-candidates-grid: header → grid → actions
+  - Grid dividido em até 3 colunas responsivas baseado na quantidade de candidatos
+  - 1 candidato: largura máxima, 2 candidatos: 2 colunas, 3+: até 3 colunas
+  - Cards otimizados para o novo layout
+  - Documentação completa em docs/REORGANIZACAO-LAYOUT-SELECAO-GRID.md
+- [x] Ajuste do Layout da Seleção: Conteúdo da Grid Descido
+  - Adicionado margin-top de 3rem à selection-grid para descer o conteúdo
+  - Melhor distribuição visual entre header e grid de candidatos
+  - Mantida responsividade em todos os breakpoints
+  - Documentação completa em docs/AJUSTE-SELECAO-GRID-DESCIDA.md
+- [x] Implementar Controle de Votação por Quórum
+  - Efeito blur nas seções de votação quando quórum insuficiente
+  - Overlay descritivo explicando requisitos de quórum
+  - Desabilitação completa de interações de voto
+  - Validação em tempo real com mudanças de presença
+  - Notificações de aviso ao tentar votar sem quórum
+  - Documentação completa em docs/IMPLEMENTACAO-CONTROLE-VOTACAO-QUORUM.md
+- [x] Implementar Novo Layout de Seleção de Candidatos
+  - Removido fullscreen-header das etapas de seleção
+  - Criada estrutura de duas seções: linha superior (título + vagas) e grid inferior
+  - Grid de 3 colunas para melhor aproveitamento do espaço
+  - Cards otimizados para toque em tablets
+  - Responsividade completa (desktop: 3 colunas, tablet: 2 colunas, mobile: 1 coluna)
+  - Documentação completa em docs/IMPLEMENTACAO-NOVO-LAYOUT-SELECAO.md
+- [x] Ajuste do Layout de Seleção: Header Horizontal
+  - Colocado selection-vagas-info dentro da selection-header
+  - Alinhamento horizontal dos itens (título + vagas lado a lado)
+  - Responsividade: horizontal em desktop/tablet, vertical em mobile
+  - Documentação completa em docs/AJUSTE-HEADER-SELECAO-HORIZONTAL.md
+- [x] Reorganização do Layout da Seleção: Grid Responsivo
+  - Organizado fullscreen-candidates-grid: header → grid → actions
+  - Grid dividido em até 3 colunas responsivas baseado na quantidade de candidatos
+  - 1 candidato: largura máxima, 2 candidatos: 2 colunas, 3+: até 3 colunas
+  - Cards otimizados para o novo layout
+  - Documentação completa em docs/REORGANIZACAO-LAYOUT-SELECAO-GRID.md
+- [x] Implementar Design Minimalista na Projeção
+  - Design harmonizado com o sistema (fundo branco, cards consistentes)
+  - Hierarquia visual melhorada (nome > votos)
+  - Fotos proporcionais (120px), botão fechar discreto
+  - Responsividade completa e suporte ao modo escuro
+  - Documentação completa em docs/IMPLEMENTACAO-DESIGN-MINIMALISTA-PROJECAO.md
+- [x] Ajuste do Layout de Seleção: Header Horizontal
+  - Colocado selection-vagas-info dentro da selection-header
+  - Alinhamento horizontal dos itens (título + vagas lado a lado)
+  - Responsividade: horizontal em desktop/tablet, vertical em mobile
+  - Documentação completa em docs/AJUSTE-HEADER-SELECAO-HORIZONTAL.md
+- [x] Reorganização do Layout da Seleção: Grid Responsivo
+  - Organizado fullscreen-candidates-grid: header → grid → actions
+  - Grid dividido em até 3 colunas responsivas baseado na quantidade de candidatos
+  - 1 candidato: largura máxima, 2 candidatos: 2 colunas, 3+: até 3 colunas
+  - Cards otimizados para o novo layout
+  - Documentação completa em docs/REORGANIZACAO-LAYOUT-SELECAO-GRID.md
+- [x] Ajuste do Layout de Seleção: Conteúdo da Grid Descido
+  - Adicionado margin-top de 3rem à selection-grid para descer o conteúdo
+  - Melhor distribuição visual entre header e grid de candidatos
+  - Mantida responsividade em todos os breakpoints
+  - Documentação completa em docs/AJUSTE-SELECAO-GRID-DESCIDA.md
+- [x] Melhorias Visuais na Preview-Section
+  - Container com gradiente sutil e backdrop-filter para profundidade
+  - Barra superior animada com efeito shimmer
+  - Título centralizado com linha decorativa gradiente
+  - Cards aprimorados com hover dramático (translateY -3px + scale 1.02)
+  - Suporte completo ao modo escuro com gradientes adaptados
+  - Design moderno com elementos glassmorphism
+  - Documentação completa em docs/MELHORIAS-VISUAIS-PREVIEW-SECTION.md
+- [x] Implementar Preservação de Seleções na Correção de Votos
+  - Modificado método startSelectionFlow para aceitar seleções pré-existentes
+  - Estado de seleção inicializado com candidatos já escolhidos
+  - Botão "Corrigir Voto" agora preserva seleções anteriores
+  - Otimizado carregamento de dados (removida duplicação)
+  - Melhor experiência do usuário ao permitir correções sem perder progresso
+  - Documentação completa em docs/IMPLEMENTACAO-PRESERVACAO-SELECOES-CORRECAO.md
 
 ## Arquitetura do Sistema
 

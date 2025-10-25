@@ -32,11 +32,12 @@
     />
 
     <!-- CSS -->
-    <script type="module" crossorigin src="./assets/index-BnVY6ejy.js"></script>
+    <link rel="stylesheet" href="/assets/css/candidate-select.css" />
+    <script type="module" crossorigin src="./assets/index-dWBF4Hb_.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/vendor-mpHdot-v.js">
     <link rel="modulepreload" crossorigin href="./assets/firebase-CYLAFpjR.js">
     <link rel="modulepreload" crossorigin href="./assets/jspdf-Bjj4am-t.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-CuqqlP3U.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-B0t4TlY2.css">
   </head>
   <body>
     <!-- Loading Screen -->
@@ -55,22 +56,7 @@
             Sistema de Eleição de Oficiais
           </h1>
           <div class="header-actions">
-            <button
-              id="export-btn"
-              class="btn btn-secondary"
-              title="Exportar dados"
-            >
-              <span class="material-icons md-20">file_download</span>
-              Exportar
-            </button>
-            <button
-              id="import-btn"
-              class="btn btn-secondary"
-              title="Importar dados"
-            >
-              <span class="material-icons md-20">file_upload</span>
-              Importar
-            </button>
+            <!-- Botões Exportar e Importar removidos do header -->
             <button
               id="report-btn"
               class="btn btn-primary"
@@ -133,18 +119,47 @@
               </button>
               <button id="add-member" class="btn btn-success">
                 <span class="material-icons md-20">person_add</span>
-                Novo Membro
+                Adicionar Membro
               </button>
             </div>
           </div>
 
           <div class="search-bar">
-            <input
-              type="text"
-              id="member-search"
-              placeholder="Buscar membros por nome, CPF ou email..."
-              class="search-input"
-            />
+            <div
+              class="search-input-wrapper"
+              style="
+                position: relative;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+              "
+            >
+              <input
+                type="text"
+                id="member-search"
+                placeholder="Buscar membros por nome, CPF ou email..."
+                class="search-input"
+                autocomplete="off"
+                style="flex: 1"
+              />
+              <button
+                id="clear-member-search"
+                class="btn btn-icon"
+                title="Limpar busca"
+                style="
+                  display: none;
+                  position: absolute;
+                  right: 0.5rem;
+                  background: transparent;
+                  box-shadow: none;
+                  color: var(--gray-500);
+                "
+                tabindex="-1"
+                type="button"
+              >
+                <span class="material-icons md-20">close</span>
+              </button>
+            </div>
           </div>
 
           <div class="members-stats">
@@ -232,11 +247,15 @@
 
         <!-- Fullscreen Voting View -->
         <div id="fullscreen-view" class="fullscreen-voting-view">
-          <button id="exit-fullscreen" class="exit-fullscreen-btn">
-            <span class="material-icons md-36">close</span>
-          </button>
           <div class="fullscreen-header">
             <h1 id="fullscreen-role-title">Eleição de Oficiais</h1>
+            <button
+              id="exit-fullscreen"
+              class="exit-fullscreen-btn"
+              aria-label="Sair do fullscreen"
+            >
+              <span class="material-icons md-36">close</span>
+            </button>
           </div>
           <div
             id="fullscreen-candidates-grid"

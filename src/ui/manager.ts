@@ -164,9 +164,33 @@ export class UIManager {
       .getElementById("config-quorum")
       ?.addEventListener("click", this.handleConfigQuorum.bind(this));
     // Start voting (full flow)
-    document
-      .getElementById("start-voting-btn")
-      ?.addEventListener("click", this.handleStartVoting.bind(this));
+    const startVotingBtn = document.getElementById("start-voting-btn");
+    console.log("[DEBUG] start-voting-btn encontrado:", !!startVotingBtn);
+    if (startVotingBtn) {
+      console.log(
+        "[DEBUG] start-voting-btn style.display:",
+        startVotingBtn.style.display
+      );
+      console.log(
+        "[DEBUG] start-voting-btn disabled:",
+        (startVotingBtn as HTMLButtonElement).disabled
+      );
+      console.log(
+        "[DEBUG] start-voting-btn offsetParent:",
+        (startVotingBtn as HTMLElement).offsetParent
+      );
+
+      // Adicionar event listener simples para testar
+      startVotingBtn.addEventListener("click", (e) => {
+        console.log("[DEBUG] Clique detectado no start-voting-btn!");
+        e.preventDefault();
+        this.handleStartVoting();
+      });
+
+      console.log("[DEBUG] Event listener anexado ao start-voting-btn");
+    } else {
+      console.error("[DEBUG] start-voting-btn NÃO encontrado!");
+    }
 
     // Attendance actions
     document
@@ -1949,6 +1973,7 @@ export class UIManager {
    * Handler para iniciar o fluxo de votação em fullscreen (prévia -> iniciar)
    */
   private async handleStartVoting(): Promise<void> {
+    console.log("[DEBUG] handleStartVoting chamado!");
     try {
       // Validar quórum antes de abrir a tela inicial de prévia
       const results = await electionApp.getElectionResults();
@@ -2159,7 +2184,10 @@ export class UIManager {
    * Inicia o fluxo de seleção: primeiro presbíteros, depois diáconos.
    * Será implementado nas próximas etapas; aqui apenas navega para a tela de seleção.
    */
-  private async startSelectionFlow(): Promise<void> {
+  private async startSelectionFlow(
+    preSelectedPresbyteros: string[] = [],
+    preSelectedDiaconos: string[] = []
+  ): Promise<void> {
     // Fluxo de seleção completo (touch-first)
     // 1) Ler candidatos e vagas
     // 2) Mostrar etapa Presbíteros -> permitir selecionar até presbyteroPositions
@@ -2191,8 +2219,8 @@ export class UIManager {
 
       // Estado local de seleção
       const state = {
-        presSelected: new Set<string>(),
-        diaSelected: new Set<string>(),
+        presSelected: new Set<string>(preSelectedPresbyteros),
+        diaSelected: new Set<string>(preSelectedDiaconos),
       };
 
       // Função para renderizar etapa de seleção
@@ -2208,6 +2236,9 @@ export class UIManager {
         if (!fullscreenView || !grid || !roleTitle) return;
 
         roleTitle.textContent = `Seleção — ${roleLabel}`;
+
+        // Adicionar classe para modo de seleção
+        grid.classList.add("selection-mode");
 
         const cardsHtml = items
           .map((it) => {
@@ -2232,41 +2263,38 @@ export class UIManager {
             const initials = getInitials(it.name);
             const color = stringToColor(it.name);
             return `
-                <div class="preview-card selectable" data-id="${it.id}" tabindex="0" role="button" aria-pressed="false">
-                  <div class="preview-photo">
+                <div class="selection-card selectable" data-id="${it.id}" tabindex="0" role="button" aria-pressed="false">
+                  <div class="selection-photo">
                     ${
                       it.photoUrl
                         ? `<img src="${it.photoUrl}" alt="${it.name}"/>`
-                        : `<span class="candidate-initials-avatar" style="background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.7rem;font-weight:700;border-radius:50%;width:68px;height:68px;">${initials}</span>`
+                        : `<span class="candidate-initials-avatar" style="background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:700;border-radius:50%;width:120px;height:120px;">${initials}</span>`
                     }
                   </div>
-                  <div class="preview-name">${it.name}</div>
-                  <div class="preview-role">${it.role}</div>
-                  <div class="select-badge" aria-hidden="true"></div>
+                  <div class="selection-name">${it.name}</div>
+                  <div class="selection-role">${it.role}</div>
+                  <div class="selection-badge" aria-hidden="true">✓</div>
                 </div>`;
           })
           .join("");
 
         grid.innerHTML = `
-          <div class="preview-section">
-            <div class="preview-box-header" style="margin-bottom: 0.7rem; gap: 0.7rem; flex-wrap: wrap; align-items: flex-end;">
-              <div style="display: flex; flex-direction: column; gap: 0.18em;">
-                <span class="preview-box-title">${roleLabel}</span>
-                <span class="preview-desc" id="preview-desc">Você pode selecionar até <strong id='preview-vagas-restantes'>${maxSelect}</strong></span>
-              </div>
-              <span class="preview-vagas" title="Vagas disponíveis">${maxSelect} vaga${maxSelect > 1 ? "s" : ""} disponíveis</span>
-            </div>
-            <div class="preview-row selection-row" style="grid-template-columns: repeat(${Math.max(1, Math.min(maxSelect, Math.max(1, items.length)))}, minmax(220px, 1fr));">
-              ${cardsHtml}
+          <div class="selection-header">
+            <h1 class="selection-title">${roleLabel}</h1>
+            <div class="selection-vagas-info">
+              Você pode selecionar até <strong id='preview-vagas-restantes'>${maxSelect}</strong> candidato${maxSelect > 1 ? "s" : ""}
             </div>
           </div>
-          <div class="preview-actions">
-            <button id="selection-next-btn" class="btn btn-cta btn-lg">Avançar</button>
+          <div class="selection-grid">
+            ${cardsHtml}
+          </div>
+          <div class="selection-actions">
+            <button id="selection-next-btn" class="selection-btn selection-btn-primary">Avançar</button>
           </div>
         `;
 
         // Attach listeners
-        const row = grid.querySelector(".selection-row");
+        const row = grid.querySelector(".selection-grid");
         const vagasRestantesEl = document.getElementById(
           "preview-vagas-restantes"
         );
@@ -2276,18 +2304,18 @@ export class UIManager {
           }
         }
         row
-          ?.querySelectorAll<HTMLElement>(".preview-card.selectable")
+          ?.querySelectorAll<HTMLElement>(".selection-card.selectable")
           .forEach((card) => {
             const id = card.dataset.id as string;
             const updateUI = () => {
               const selected = currentSet.has(id);
               card.setAttribute("aria-pressed", selected ? "true" : "false");
+              card.classList.toggle("selected", selected);
               const badge = card.querySelector(
-                ".select-badge"
+                ".selection-badge"
               ) as HTMLElement | null;
               if (badge) {
-                badge.style.display = selected ? "block" : "none";
-                badge.textContent = selected ? "✓" : "";
+                badge.style.display = selected ? "flex" : "none";
               }
             };
 
@@ -2319,6 +2347,34 @@ export class UIManager {
             });
           });
         updateVagasRestantes();
+
+        // Add event listener for the "Avançar" button
+        const nextBtn = document.getElementById("selection-next-btn");
+        if (nextBtn) {
+          nextBtn.addEventListener("click", async () => {
+            console.log("[DEBUG] Botão Avançar clicado para:", roleLabel);
+            console.log("[DEBUG] Selecionados:", Array.from(currentSet));
+
+            // Store selection and proceed to next step
+            if (roleLabel === "Presbíteros") {
+              state.presSelected = new Set(currentSet);
+              // Proceed to Diáconos
+              renderSelectionStep(
+                "Diáconos",
+                dia,
+                diaconoPositions,
+                state.diaSelected
+              );
+            } else if (roleLabel === "Diáconos") {
+              state.diaSelected = new Set(currentSet);
+              // Show summary
+              await this.showSelectionSummary(
+                Array.from(state.presSelected),
+                Array.from(state.diaSelected)
+              );
+            }
+          });
+        }
 
         // Show fullscreen
         const fullscreenViewEl = document.getElementById(
@@ -2976,18 +3032,14 @@ export class UIManager {
 
     // Carregar dados dos candidatos para exibir nomes
     const allCandidates = await electionApp.getCandidates();
-    const presList = presIds
-      .map((id) => allCandidates.find((c) => c.id === id))
-      .filter(Boolean) as any[];
-    const diaList = diaIds
-      .map((id) => allCandidates.find((c) => c.id === id))
-      .filter(Boolean) as any[];
+    const presList = allCandidates.filter((c) => c.role === "Presbítero");
+    const diaList = allCandidates.filter((c) => c.role === "Diácono");
 
-    const renderList = (items: any[]) =>
+    const renderList = (items: any[], selectedIds: string[]) =>
       items
         .map(
           (it) => `
-            <div class="preview-card summary-item">
+            <div class="preview-card summary-item ${selectedIds.includes(it.id) ? "voted" : "not-voted"}">
               <div class="preview-photo">${
                 it.photoUrl
                   ? `<img src="${it.photoUrl}" alt="${it.name}"/>`
@@ -3001,24 +3053,30 @@ export class UIManager {
 
     grid.innerHTML = `
       <div class="preview-section">
-        <h2>Presbíteros Selecionados</h2>
-        <div class="preview-row">${renderList(presList)}</div>
+        <h2>Presbíteros</h2>
+        <div class="preview-row">${renderList(presList, presIds)}</div>
       </div>
       <div class="preview-section">
-        <h2>Diáconos Selecionados</h2>
-        <div class="preview-row">${renderList(diaList)}</div>
+        <h2>Diáconos</h2>
+        <div class="preview-row">${renderList(diaList, diaIds)}</div>
       </div>
       <div class="preview-actions">
-        <button id="summary-correct-btn" class="btn btn-outline btn-lg">Corrigir</button>
-        <button id="summary-confirm-btn" class="btn btn-cta btn-lg">Confirmar</button>
+        <button id="summary-correct-btn" class="btn btn-warning btn-lg">
+          <span class="material-icons md-20">undo</span>
+          Corrigir Voto
+        </button>
+        <button id="summary-confirm-btn" class="btn btn-cta btn-lg">
+          <span class="material-icons md-20">check_circle</span>
+          Confirmar Voto
+        </button>
       </div>
     `;
 
     // Corrigir volta para a etapa inicial de seleção (presbíteros)
     const correctBtn = document.getElementById("summary-correct-btn");
     correctBtn?.addEventListener("click", async () => {
-      // Reabrir seleção desde o início
-      await this.startSelectionFlow();
+      // Reabrir seleção desde o início, mantendo candidatos já selecionados
+      await this.startSelectionFlow(presIds, diaIds);
     });
 
     const confirmBtn = document.getElementById("summary-confirm-btn");
@@ -3078,8 +3136,9 @@ export class UIManager {
     candidateIds: string[]
   ): Promise<{ success: boolean; error?: string }> {
     // Implementação ANÔNIMA usando APIs de projeção
-    if (!candidateIds || candidateIds.length === 0) {
-      return { success: false, error: "Nenhum candidato selecionado" };
+    // Permitir submissão mesmo sem candidatos selecionados (voto em branco)
+    if (!candidateIds) {
+      candidateIds = [];
     }
 
     const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
