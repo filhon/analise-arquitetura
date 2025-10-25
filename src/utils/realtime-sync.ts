@@ -9,7 +9,7 @@
  */
 
 import { database, isConfigured } from "@/config/firebase";
-import { ref, set, onValue, get } from "firebase/database";
+import { ref, set, onValue, get, runTransaction } from "firebase/database";
 import { EventSystem } from "./events";
 import { EventTypes } from "@/types";
 import type { Member, QuorumConfig, ConfigData } from "@/types";
@@ -34,7 +34,7 @@ export class RealtimeSync {
 
     if (!isConfigured) {
       console.warn(
-        "[RealtimeSync] Firebase não configurado - sincronização desabilitada",
+        "[RealtimeSync] Firebase não configurado - sincronização desabilitada"
       );
     }
   }
@@ -45,7 +45,7 @@ export class RealtimeSync {
   enable(): void {
     if (!isConfigured || !database) {
       console.warn(
-        "[RealtimeSync] Não é possível ativar - Firebase não configurado",
+        "[RealtimeSync] Não é possível ativar - Firebase não configurado"
       );
       return;
     }
@@ -85,21 +85,21 @@ export class RealtimeSync {
 
     if (!this.isActive()) {
       console.warn(
-        "[RealtimeSync] ⚠️ Firebase está INATIVO! Sincronização ignorada.",
+        "[RealtimeSync] ⚠️ Firebase está INATIVO! Sincronização ignorada."
       );
       return;
     }
 
     if (!database) {
       console.warn(
-        "[RealtimeSync] ⚠️ Firebase database NÃO INICIALIZADO! Sincronização ignorada.",
+        "[RealtimeSync] ⚠️ Firebase database NÃO INICIALIZADO! Sincronização ignorada."
       );
       return;
     }
 
     try {
       console.log(
-        `[RealtimeSync] 📤 Sincronizando ${members.length} membros para Firebase...`,
+        `[RealtimeSync] 📤 Sincronizando ${members.length} membros para Firebase...`
       );
       const membersRef = ref(database, "members");
       await set(membersRef, {
@@ -108,7 +108,7 @@ export class RealtimeSync {
         timestamp: Date.now(),
       });
       console.log(
-        `[RealtimeSync] ✅ ${members.length} membros sincronizados com sucesso!`,
+        `[RealtimeSync] ✅ ${members.length} membros sincronizados com sucesso!`
       );
     } catch (error) {
       console.error("[RealtimeSync] ❌ ERRO ao sincronizar membros:", error);
@@ -121,7 +121,7 @@ export class RealtimeSync {
    * PADRÃO: Igual ao members - { data, updatedBy, timestamp }
    */
   async syncConfig(
-    config: QuorumConfig | { quorum: QuorumConfig; system?: any },
+    config: QuorumConfig | { quorum: QuorumConfig; system?: any }
   ): Promise<void> {
     if (!this.isActive() || !database) return;
 
@@ -141,7 +141,7 @@ export class RealtimeSync {
     } catch (error) {
       console.error(
         "[RealtimeSync] ✗ Erro ao sincronizar configuração:",
-        error,
+        error
       );
     }
   }
@@ -197,7 +197,7 @@ export class RealtimeSync {
         configSnap = res.configSnap;
       } catch (err) {
         console.warn(
-          `[RealtimeSync] ⚠️ loadInitialState timed out or failed (${String(err)}). Proceeding with local cache.`,
+          `[RealtimeSync] ⚠️ loadInitialState timed out or failed (${String(err)}). Proceeding with local cache.`
         );
         return { members: null, config: null };
       }
@@ -287,5 +287,160 @@ export class RealtimeSync {
       sessionId: this.sessionId,
       listeners: this.listeners.size,
     };
+  }
+
+  /**
+   * Incrementar voto de forma ATÔMICA usando transação Firebase
+   * Garante que múltiplos usuários possam votar simultaneamente sem perda de dados
+   */
+  async incrementVoteAtomically(
+    candidateId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.isActive() || !database) {
+      return { success: false, error: "Firebase não configurado ou inativo" };
+    }
+
+    try {
+      const membersRef = ref(database, "members/data");
+
+      const result = await runTransaction(
+        membersRef,
+        (currentMembers: Member[] | null) => {
+          if (!currentMembers) {
+            console.warn(
+              "[RealtimeSync] ⚠️ Nenhum membro encontrado na transação"
+            );
+            return currentMembers; // Abort transaction
+          }
+
+          // Encontrar o candidato
+          const candidateIndex = currentMembers.findIndex(
+            (m) => m.id === candidateId
+          );
+          if (candidateIndex === -1) {
+            console.warn(
+              `[RealtimeSync] ⚠️ Candidato ${candidateId} não encontrado na transação`
+            );
+            return; // Abort transaction
+          }
+
+          // Incrementar voto de forma atômica
+          const candidate = currentMembers[candidateIndex];
+          const currentVotes = candidate.votes || 0;
+          const newVotes = currentVotes + 1;
+
+          // Criar nova cópia do array com voto incrementado
+          const updatedMembers = [...currentMembers];
+          updatedMembers[candidateIndex] = {
+            ...candidate,
+            votes: newVotes,
+          };
+
+          console.log(
+            `[RealtimeSync] 🔄 Transação: ${candidate.nome} (${candidateId}) - votos: ${currentVotes} → ${newVotes}`
+          );
+
+          return updatedMembers;
+        }
+      );
+
+      if (result.committed) {
+        console.log(
+          `[RealtimeSync] ✅ Voto incrementado atomicamente para candidato ${candidateId}`
+        );
+        return { success: true };
+      } else {
+        console.warn(
+          `[RealtimeSync] ⚠️ Transação abortada para candidato ${candidateId}`
+        );
+        return {
+          success: false,
+          error: "Transação abortada - possível conflito de concorrência",
+        };
+      }
+    } catch (error) {
+      console.error(
+        `[RealtimeSync] ❌ Erro na transação para candidato ${candidateId}:`,
+        error
+      );
+      return { success: false, error: `Erro na transação: ${String(error)}` };
+    }
+  }
+
+  /**
+   * Decrementar voto de forma ATÔMICA usando transação Firebase (para rollback)
+   */
+  async decrementVoteAtomically(
+    candidateId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.isActive() || !database) {
+      return { success: false, error: "Firebase não configurado ou inativo" };
+    }
+
+    try {
+      const membersRef = ref(database, "members/data");
+
+      const result = await runTransaction(
+        membersRef,
+        (currentMembers: Member[] | null) => {
+          if (!currentMembers) {
+            console.warn(
+              "[RealtimeSync] ⚠️ Nenhum membro encontrado na transação de rollback"
+            );
+            return currentMembers; // Abort transaction
+          }
+
+          // Encontrar o candidato
+          const candidateIndex = currentMembers.findIndex(
+            (m) => m.id === candidateId
+          );
+          if (candidateIndex === -1) {
+            console.warn(
+              `[RealtimeSync] ⚠️ Candidato ${candidateId} não encontrado na transação de rollback`
+            );
+            return; // Abort transaction
+          }
+
+          // Decrementar voto de forma atômica (não permitir valores negativos)
+          const candidate = currentMembers[candidateIndex];
+          const currentVotes = candidate.votes || 0;
+          const newVotes = Math.max(0, currentVotes - 1); // Não permitir negativo
+
+          // Criar nova cópia do array com voto decrementado
+          const updatedMembers = [...currentMembers];
+          updatedMembers[candidateIndex] = {
+            ...candidate,
+            votes: newVotes,
+          };
+
+          console.log(
+            `[RealtimeSync] 🔄 Rollback: ${candidate.nome} (${candidateId}) - votos: ${currentVotes} → ${newVotes}`
+          );
+
+          return updatedMembers;
+        }
+      );
+
+      if (result.committed) {
+        console.log(
+          `[RealtimeSync] ✅ Voto decrementado atomicamente para candidato ${candidateId} (rollback)`
+        );
+        return { success: true };
+      } else {
+        console.warn(
+          `[RealtimeSync] ⚠️ Transação de rollback abortada para candidato ${candidateId}`
+        );
+        return { success: false, error: "Transação de rollback abortada" };
+      }
+    } catch (error) {
+      console.error(
+        `[RealtimeSync] ❌ Erro na transação de rollback para candidato ${candidateId}:`,
+        error
+      );
+      return {
+        success: false,
+        error: `Erro na transação de rollback: ${String(error)}`,
+      };
+    }
   }
 }

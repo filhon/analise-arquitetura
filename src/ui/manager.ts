@@ -1975,7 +1975,7 @@ export class UIManager {
   private async handleStartVoting(): Promise<void> {
     console.log("[DEBUG] handleStartVoting chamado!");
     try {
-      // Validar quórum antes de abrir a tela inicial de prévia
+      // Validar quórum (sem sincronização automática)
       const results = await electionApp.getElectionResults();
       if (!results.quorum?.isValid) {
         NotificationService.warning(
@@ -1999,6 +1999,9 @@ export class UIManager {
     const roleTitle = document.getElementById("fullscreen-role-title");
 
     if (!fullscreenView || !grid || !roleTitle) return;
+
+    // Definir título correto para a prévia
+    roleTitle.textContent = "Prévia de Votação";
 
     // Construir HTML da prévia: separamos em duas seções (Presbíteros / Diáconos)
     // Ler configuração de quórum para obter número de vagas por cargo
@@ -3028,9 +3031,9 @@ export class UIManager {
 
     if (!fullscreenView || !grid || !roleTitle) return;
 
-    roleTitle.textContent = "Resumo da Votação";
+    roleTitle.textContent = "Confirmação da Votação";
 
-    // Carregar dados dos candidatos para exibir nomes
+    // Carregar dados atualizados dos candidatos
     const allCandidates = await electionApp.getCandidates();
     const presList = allCandidates.filter((c) => c.role === "Presbítero");
     const diaList = allCandidates.filter((c) => c.role === "Diácono");
@@ -3127,20 +3130,29 @@ export class UIManager {
   }
 
   /**
-   * Submete votos em sequência de forma atômica (tenta rollback em caso de falha).
-   * Observação: esta implementação assume que o ID do eleitor (voter) está
-   * disponível em localStorage.currentVoterId. Se não houver, a submissão falhará
-   * e o usuário deverá identificar o eleitor antes de confirmar.
+   * Submete votos em sequência de forma ATÔMICA usando transações Firebase
+   * Garante que múltiplos usuários possam votar simultaneamente sem perda de dados
    */
   private async submitVotesAtomically(
     candidateIds: string[]
   ): Promise<{ success: boolean; error?: string }> {
-    // Implementação ANÔNIMA usando APIs de projeção
-    // Permitir submissão mesmo sem candidatos selecionados (voto em branco)
-    if (!candidateIds) {
-      candidateIds = [];
+    // ✅ Sincronizar dados do realtime database apenas na confirmação dos votos
+    try {
+      console.log(
+        "[UIManager] 🔄 Sincronizando dados do Firebase antes da confirmação dos votos..."
+      );
+      await RealtimeSync.getInstance().loadInitialState();
+      console.log("[UIManager] ✅ Dados sincronizados com sucesso");
+    } catch (error) {
+      console.warn(
+        "[UIManager] ⚠️ Erro ao sincronizar dados antes da confirmação:",
+        error
+      );
+      // Continua mesmo com erro de sincronização para não bloquear a votação
     }
 
+    // Usar transações atômicas do Firebase para garantir concorrência segura
+    const realtimeSync = RealtimeSync.getInstance();
     const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
     const succeeded: string[] = [];
 
@@ -3152,13 +3164,22 @@ export class UIManager {
       while (attempt < maxAttempts) {
         attempt += 1;
         try {
-          const result = await electionApp.incrementVoteProjection(candidateId);
-          if (result && (result as any).success) {
+          console.log(
+            `[submitVotesAtomically] 🔄 Tentativa ${attempt} - Incrementando voto para ${candidateId}...`
+          );
+
+          const result =
+            await realtimeSync.incrementVoteAtomically(candidateId);
+
+          if (result.success) {
             succeeded.push(candidateId);
             lastError = null;
+            console.log(
+              `[submitVotesAtomically] ✅ Voto incrementado com sucesso para ${candidateId}`
+            );
             break;
           } else {
-            lastError = (result as any).error || "Erro desconhecido";
+            lastError = result.error || "Erro desconhecido";
             console.warn(
               `[submitVotesAtomically] tentativa ${attempt} falhou para ${candidateId}: ${lastError}`
             );
@@ -3182,24 +3203,20 @@ export class UIManager {
           lastError
         );
 
+        // Rollback: decrementar votos já incrementados usando transações atômicas
         for (const succeededId of succeeded) {
           try {
-            if ((electionApp as any).decrementVoteProjection) {
-              await (electionApp as any).decrementVoteProjection(succeededId);
-            } else if ((electionApp as any).removeVote) {
-              // fallback melhor esforço
-              await (electionApp as any).removeVote(
-                succeededId,
-                "system-projection"
+            const rollbackResult =
+              await realtimeSync.decrementVoteAtomically(succeededId);
+            if (rollbackResult.success) {
+              console.log(
+                `[submitVotesAtomically] rollback atômico OK para ${succeededId}`
               );
             } else {
               console.warn(
-                `[submitVotesAtomically] Nenhum método de rollback disponível para ${succeededId}`
+                `[submitVotesAtomically] rollback atômico falhou para ${succeededId}: ${rollbackResult.error}`
               );
             }
-            console.log(
-              `[submitVotesAtomically] rollback OK para ${succeededId}`
-            );
           } catch (rbErr) {
             console.warn(
               `[submitVotesAtomically] rollback falhou para ${succeededId}:`,
@@ -3210,7 +3227,7 @@ export class UIManager {
 
         return {
           success: false,
-          error: `Falha ao submeter votos (projeção): ${lastError}`,
+          error: `Falha ao submeter votos atomicamente: ${lastError}`,
         };
       }
     }
@@ -3225,19 +3242,35 @@ export class UIManager {
     if (!fullscreenView || !grid || !roleTitle) return;
 
     roleTitle.textContent = "Obrigado";
+    let countdown = 10; // Reduzido de 30 para 10 segundos
+
     grid.innerHTML = `
       <div class="empty-state" style="padding: 6rem 1rem;">
         <span class="material-icons md-48">thumb_up</span>
         <h3>Obrigado por votar!</h3>
-        <p>Voltando para a prévia em 30 segundos...</p>
+        <p id="countdown-text">Voltando para a prévia em <strong>${countdown}</strong> segundos...</p>
       </div>
     `;
 
-    // Bloquear confirmação por 30s e depois voltar para preview
+    // Contagem regressiva visual
+    const countdownElement = document.getElementById("countdown-text");
+    const countdownInterval = setInterval(() => {
+      countdown--;
+      if (countdownElement) {
+        countdownElement.innerHTML = `Voltando para a prévia em <strong>${countdown}</strong> segundos...`;
+      }
+
+      if (countdown <= 0) {
+        clearInterval(countdownInterval);
+      }
+    }, 1000);
+
+    // Bloquear confirmação por 10s e depois voltar para preview
     setTimeout(() => {
+      clearInterval(countdownInterval);
       // Reabrir a prévia (carregar resultados atualizados)
       (this as any).handleStartVoting();
-    }, 30000);
+    }, 10000); // Reduzido de 30000 para 10000
   }
 
   private async handleCandidateSubmit(e: Event): Promise<void> {

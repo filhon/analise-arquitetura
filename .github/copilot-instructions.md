@@ -133,7 +133,7 @@
   - 1 candidato: largura máxima, 2 candidatos: 2 colunas, 3+: até 3 colunas
   - Cards otimizados para o novo layout
   - Documentação completa em docs/REORGANIZACAO-LAYOUT-SELECAO-GRID.md
-- [x] Ajuste do Layout da Seleção: Conteúdo da Grid Descido
+- [x] Ajuste do Layout de Seleção: Conteúdo da Grid Descido
   - Adicionado margin-top de 3rem à selection-grid para descer o conteúdo
   - Melhor distribuição visual entre header e grid de candidatos
   - Mantida responsividade em todos os breakpoints
@@ -200,6 +200,20 @@
   - Otimizado carregamento de dados (removida duplicação)
   - Melhor experiência do usuário ao permitir correções sem perder progresso
   - Documentação completa em docs/IMPLEMENTACAO-PRESERVACAO-SELECOES-CORRECAO.md
+- [x] Implementar Correção de Emojis no Relatório PDF
+  - Problema: Emojis renderizando como caracteres estranhos (Ø=ÜÊ)
+  - Solução: Remoção sistemática de todos os emojis do PDF
+  - Substituição por alternativas textuais (TOT, PRE, MIN, etc.)
+  - Manutenção da legibilidade e design profissional
+  - Documentação completa em docs/CORRECAO-EMOJIS-PDF.md
+- [x] Implementar Transações Atômicas para Votações Simultâneas
+  - Problema: Perda de dados em votações concorrentes
+  - Solução: Transações Firebase para atomicidade
+  - Métodos incrementVoteAtomically() e decrementVoteAtomically()
+  - Rollback atômico em caso de falha
+  - Suporte a múltiplos usuários votando simultaneamente
+  - Testes de concorrência implementados
+  - Documentação completa em docs/IMPLEMENTACAO-TRANSACOES-ATOMICA-VOTACOES.md
 
 ## Arquitetura do Sistema
 

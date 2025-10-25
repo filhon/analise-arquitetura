@@ -22,14 +22,42 @@ export class ReportManager {
     return ReportManager.instance;
   }
 
+  /**
+   * Sanitiza texto para garantir compatibilidade com PDF
+   * Converte caracteres especiais para formas compatíveis
+   */
+  private sanitizeText(text: string): string {
+    if (!text) return "";
+
+    return text
+      .normalize("NFD") // Decompõe caracteres acentuados
+      .replace(/[\u0300-\u036f]/g, "") // Remove diacríticos
+      .replace(/[""]/g, '"') // Padroniza aspas
+      .replace(/['']/g, "'") // Padroniza apóstrofos
+      .replace(/–/g, "-") // Converte traço longo
+      .replace(/—/g, "-") // Converte traço duplo
+      .replace(/…/g, "..."); // Converte reticências
+  }
+
   async generatePDFReport(): Promise<{ success: boolean; error?: string }> {
     try {
       // Dinamically import jsPDF to avoid bundling issues
       const { jsPDF } = await import("jspdf");
-      const pdf = new jsPDF();
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+        compress: true,
+        putOnlyUsedFonts: true,
+        floatPrecision: 16,
+      });
 
-      // Configurar fonte
-      pdf.setFont("helvetica");
+      // Configurar fonte com suporte UTF-8
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(0, 0, 0);
+
+      // Forçar codificação UTF-8 para caracteres especiais
+      pdf.setLanguage("pt-BR");
 
       // Cabeçalho
       this.addHeader(pdf);
@@ -40,7 +68,7 @@ export class ReportManager {
         this.attendanceManager.getAttendanceStats(),
       ]);
 
-      let currentY = 40;
+      let currentY = 45; // Espaço maior após cabeçalho visual
 
       // Seção de quórum e presença
       currentY = this.addQuorumSection(
@@ -67,7 +95,8 @@ export class ReportManager {
       );
 
       // Seção de presença detalhada
-      if (currentY > 200) {
+      if (currentY > 220) {
+        // Verificar espaço antes da seção de presença
         pdf.addPage();
         currentY = 20;
       }
@@ -76,12 +105,12 @@ export class ReportManager {
       // Rodapé
       this.addFooter(pdf);
 
-      // Salvar PDF
+      // Salvar PDF com nome mais descritivo
       const timestamp = new Date()
         .toISOString()
         .slice(0, 19)
         .replace(/:/g, "-");
-      pdf.save(`relatorio-eleicao-${timestamp}.pdf`);
+      pdf.save(`relatorio-eleicao-oficiais-${timestamp}.pdf`);
 
       return { success: true };
     } catch (error) {
@@ -94,15 +123,33 @@ export class ReportManager {
   }
 
   private addHeader(pdf: any): void {
-    pdf.setFontSize(18);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("RELATÓRIO DE ELEIÇÃO DE OFICIAIS", 105, 20, { align: "center" });
+    // Fundo azul institucional para o cabeçalho
+    pdf.setFillColor(41, 128, 185); // Azul institucional
+    pdf.rect(0, 0, 210, 35, "F");
 
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "normal");
-    pdf.text(`Data: ${Formatter.date(new Date())}`, 105, 30, {
+    // Título principal em branco
+    pdf.setFontSize(20);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(this.sanitizeText("RELATÓRIO DE ELEIÇÃO"), 105, 15, {
       align: "center",
     });
+
+    pdf.setFontSize(16);
+    pdf.text(this.sanitizeText("OFICIAIS DA IGREJA"), 105, 25, {
+      align: "center",
+    });
+
+    // Data em destaque
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(`Gerado em: ${Formatter.date(new Date())}`, 105, 32, {
+      align: "center",
+    });
+
+    // Resetar cor do texto para preto
+    pdf.setTextColor(0, 0, 0);
   }
 
   private addQuorumSection(
@@ -113,29 +160,90 @@ export class ReportManager {
   ): number {
     let currentY = startY;
 
+    // Título da seção com fundo azul claro
+    pdf.setFillColor(240, 248, 255); // Azul muito claro
+    pdf.rect(15, currentY - 3, 180, 10, "F");
+
     pdf.setFontSize(14);
     pdf.setFont("helvetica", "bold");
-    pdf.text("DADOS DE QUÓRUM E PRESENÇA", 20, currentY);
-    currentY += 10;
+    pdf.setTextColor(41, 128, 185); // Azul institucional
+    pdf.text(this.sanitizeText("DADOS DE QUÓRUM E PRESENÇA"), 20, currentY + 3);
+    currentY += 15;
 
+    // Resetar cor do texto
+    pdf.setTextColor(0, 0, 0);
     pdf.setFontSize(11);
     pdf.setFont("helvetica", "normal");
 
-    const quorumData = [
-      `Total de Membros: ${quorum.totalMembers}`,
-      `Membros Presentes: ${quorum.presentMembers}`,
-      `Quórum Mínimo Necessário: ${quorum.minimumQuorum}`,
-      `Votos Necessários para Eleição: ${quorum.votesRequired}`,
-      `Status do Quórum: ${quorum.isValid ? "VÁLIDO" : "INSUFICIENTE"}`,
-      `Taxa de Presença: ${attendance.attendanceRate.toFixed(1)}%`,
+    // Criar cards visuais para as métricas
+    const metrics = [
+      { label: "Total de Membros", value: quorum.totalMembers, icon: "TOT" },
+      { label: "Membros Presentes", value: quorum.presentMembers, icon: "PRE" },
+      { label: "Quórum Mínimo", value: quorum.minimumQuorum, icon: "MIN" },
+      { label: "Votos Necessários", value: quorum.votesRequired, icon: "VOT" },
+      {
+        label: "Taxa de Presença",
+        value: `${attendance.attendanceRate.toFixed(1)}%`,
+        icon: "TAX",
+      },
     ];
 
-    quorumData.forEach((text) => {
-      pdf.text(text, 20, currentY);
-      currentY += 6;
+    // Desenhar métricas em formato de cards
+    const cardY = currentY;
+    const cardWidth = 55;
+    const cardHeight = 18;
+    const cardsPerRow = 3;
+
+    metrics.forEach((metric, index) => {
+      const row = Math.floor(index / cardsPerRow);
+      const col = index % cardsPerRow;
+      const x = 20 + col * (cardWidth + 10);
+
+      // Fundo do card
+      pdf.setFillColor(248, 249, 250);
+      pdf.setDrawColor(200, 200, 200);
+      pdf.rect(x, cardY + row * (cardHeight + 5), cardWidth, cardHeight, "FD");
+
+      // Ícone e valor
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(
+        `${metric.icon} ${metric.value}`,
+        x + 2,
+        cardY + 8 + row * (cardHeight + 5)
+      );
+
+      // Label
+      pdf.setFontSize(8);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(
+        this.sanitizeText(metric.label),
+        x + 2,
+        cardY + 15 + row * (cardHeight + 5)
+      );
     });
 
-    return currentY + 10;
+    currentY += Math.ceil(metrics.length / cardsPerRow) * (cardHeight + 5) + 10;
+
+    // Status do quórum em destaque
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "bold");
+    if (quorum.isValid) {
+      pdf.setTextColor(34, 197, 94); // Verde sucesso
+      pdf.text(this.sanitizeText("STATUS DO QUÓRUM: VÁLIDO"), 20, currentY);
+    } else {
+      pdf.setTextColor(239, 68, 68); // Vermelho erro
+      pdf.text(
+        this.sanitizeText("STATUS DO QUÓRUM: INSUFICIENTE"),
+        20,
+        currentY
+      );
+    }
+
+    // Resetar cor do texto
+    pdf.setTextColor(0, 0, 0);
+
+    return currentY + 15;
   }
 
   private addCandidatesSection(
@@ -146,56 +254,101 @@ export class ReportManager {
   ): number {
     let currentY = startY;
 
+    // Título da seção com fundo azul claro
+    pdf.setFillColor(240, 248, 255); // Azul muito claro
+    pdf.rect(15, currentY - 3, 180, 10, "F");
+
     pdf.setFontSize(14);
     pdf.setFont("helvetica", "bold");
-    pdf.text(title, 20, currentY);
-    currentY += 10;
+    pdf.setTextColor(41, 128, 185); // Azul institucional
+    pdf.text(`${this.sanitizeText(title.toUpperCase())}`, 20, currentY + 3);
+    currentY += 15;
+
+    // Resetar cor do texto
+    pdf.setTextColor(0, 0, 0);
 
     if (candidates.length === 0) {
       pdf.setFontSize(11);
       pdf.setFont("helvetica", "italic");
-      pdf.text("Nenhum candidato atingiu os votos necessários", 20, currentY);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(
+        this.sanitizeText("Nenhum candidato registrado nesta categoria"),
+        20,
+        currentY
+      );
+      pdf.setTextColor(0, 0, 0);
       return currentY + 15;
     }
 
-    pdf.setFontSize(11);
-    pdf.setFont("helvetica", "normal");
-
     const electedCandidates = candidates.filter((c) => c.isElected);
 
+    // Candidatos eleitos em destaque
     if (electedCandidates.length > 0) {
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(34, 197, 94); // Verde sucesso
+      pdf.text(this.sanitizeText("CANDIDATOS ELEITOS:"), 20, currentY);
+      currentY += 8;
+
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(0, 0, 0);
+
       electedCandidates.forEach((candidate) => {
-        pdf.text(
-          `✓ ${candidate.name} - ${candidate.votes} votos`,
-          20,
-          currentY
-        );
-        currentY += 6;
+        // Fundo verde claro para eleitos
+        pdf.setFillColor(240, 255, 240);
+        pdf.rect(25, currentY - 3, 160, 8, "F");
+
+        pdf.text(`${this.sanitizeText(candidate.name)}`, 30, currentY + 2);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`${candidate.votes} votos`, 160, currentY + 2, {
+          align: "right",
+        });
+        pdf.setFont("helvetica", "normal");
+        currentY += 8;
       });
     } else {
+      pdf.setFontSize(11);
       pdf.setFont("helvetica", "italic");
-      pdf.text("Nenhum candidato atingiu os votos necessários", 20, currentY);
-      currentY += 6;
+      pdf.setTextColor(239, 68, 68); // Vermelho
+      pdf.text(
+        this.sanitizeText("Nenhum candidato atingiu os votos necessários"),
+        20,
+        currentY
+      );
+      pdf.setTextColor(0, 0, 0);
+      currentY += 8;
     }
 
-    // Mostrar todos os candidatos e seus votos
-    if (candidates.length > 0) {
-      currentY += 5;
-      pdf.setFont("helvetica", "bold");
-      pdf.text("Todos os candidatos:", 20, currentY);
-      currentY += 6;
+    // Todos os candidatos
+    currentY += 5;
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(41, 128, 185);
+    pdf.text(this.sanitizeText("TODOS OS CANDIDATOS:"), 20, currentY);
+    currentY += 8;
 
-      pdf.setFont("helvetica", "normal");
-      candidates.forEach((candidate) => {
-        const status = candidate.isElected ? " (ELEITO)" : "";
-        pdf.text(
-          `${candidate.name}: ${candidate.votes} votos${status}`,
-          25,
-          currentY
-        );
-        currentY += 5;
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(0, 0, 0);
+
+    candidates.forEach((candidate, index) => {
+      const statusColor = candidate.isElected ? [34, 197, 94] : [239, 68, 68];
+
+      // Fundo alternado para melhor leitura
+      if (index % 2 === 0) {
+        pdf.setFillColor(248, 249, 250);
+        pdf.rect(25, currentY - 2, 160, 6, "F");
+      }
+
+      pdf.text(`${this.sanitizeText(candidate.name)}`, 30, currentY + 2);
+      pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+      pdf.text(`${candidate.votes} votos`, 160, currentY + 2, {
+        align: "right",
       });
-    }
+      pdf.setTextColor(0, 0, 0);
+      currentY += 6;
+    });
 
     return currentY + 10;
   }
@@ -206,10 +359,18 @@ export class ReportManager {
   ): Promise<number> {
     let currentY = startY;
 
+    // Título da seção com fundo azul claro
+    pdf.setFillColor(240, 248, 255); // Azul muito claro
+    pdf.rect(15, currentY - 3, 180, 10, "F");
+
     pdf.setFontSize(14);
     pdf.setFont("helvetica", "bold");
-    pdf.text("LISTA DE PRESENÇA", 20, currentY);
-    currentY += 10;
+    pdf.setTextColor(41, 128, 185); // Azul institucional
+    pdf.text(this.sanitizeText("LISTA DE PRESENÇA"), 20, currentY + 3);
+    currentY += 15;
+
+    // Resetar cor do texto
+    pdf.setTextColor(0, 0, 0);
 
     try {
       const [presentMembers, absentMembers] = await Promise.all([
@@ -217,124 +378,123 @@ export class ReportManager {
         this.attendanceManager.getAbsentMembers(),
       ]);
 
-      // Membros presentes
+      // Membros presentes - Tabela profissional
       if (presentMembers.length > 0) {
         // Forçar quebra de página antes da lista de presentes
         pdf.addPage();
         currentY = 20;
 
+        // Título da tabela
         pdf.setFontSize(12);
         pdf.setFont("helvetica", "bold");
-        pdf.text("MEMBROS PRESENTES:", 20, currentY);
-        currentY += 8;
+        pdf.setTextColor(34, 197, 94); // Verde
+        pdf.text(this.sanitizeText("MEMBROS PRESENTES"), 20, currentY);
+        currentY += 10;
 
-        // Tabela: Nome | CPF | Assinatura (assinatura em branco)
-        const tableX = 20;
-        const colNomeW = 90; // largura coluna Nome
-        const colCpfW = 50; // largura coluna CPF
-        const colAssW = 120; // largura coluna Assinatura
-        const rowHeight = 8;
+        // Configuração da tabela
+        const tableX = 15;
+        const colWidths = [80, 40, 55]; // Nome, CPF, Assinatura
+        const rowHeight = 10;
+        const tableWidth = colWidths.reduce((a, b) => a + b, 0);
 
         // Cabeçalho da tabela
-        pdf.setFontSize(11);
-        pdf.setFont("helvetica", "bold");
-        pdf.text("Nome", tableX + 2, currentY + 6);
-        pdf.text("CPF", tableX + colNomeW + 4, currentY + 6);
-        pdf.text("Assinatura", tableX + colNomeW + colCpfW + 6, currentY + 6);
-
-        // Desenhar linha de cabeçalho
-        pdf.setDrawColor(0);
-        pdf.setLineWidth(0.5);
-        pdf.rect(
-          tableX,
-          currentY,
-          colNomeW + colCpfW + colAssW,
-          rowHeight,
-          "S"
-        );
-        currentY += rowHeight;
+        pdf.setFillColor(41, 128, 185); // Azul institucional
+        pdf.rect(tableX, currentY, tableWidth, rowHeight, "F");
 
         pdf.setFontSize(10);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(255, 255, 255);
+
+        let headerX = tableX + 2;
+        pdf.text(this.sanitizeText("Nome"), headerX, currentY + 7);
+        headerX += colWidths[0];
+        pdf.text(this.sanitizeText("CPF"), headerX, currentY + 7);
+        headerX += colWidths[1];
+        pdf.text(this.sanitizeText("Assinatura"), headerX, currentY + 7);
+
+        currentY += rowHeight;
+
+        // Resetar cores
+        pdf.setTextColor(0, 0, 0);
         pdf.setFont("helvetica", "normal");
 
-        for (const member of presentMembers) {
-          // Quebrar página se necessário (reservar espaço para a linha)
-          if (currentY + rowHeight > 277) {
+        for (const [index, member] of presentMembers.entries()) {
+          // Quebrar página se necessário
+          if (currentY + rowHeight > 270) {
             pdf.addPage();
             currentY = 20;
-            // redesenhar cabeçalho da tabela na nova página
-            pdf.setFontSize(11);
-            pdf.setFont("helvetica", "bold");
-            pdf.text("Nome", tableX + 2, currentY + 6);
-            pdf.text("CPF", tableX + colNomeW + 4, currentY + 6);
-            pdf.text(
-              "Assinatura",
-              tableX + colNomeW + colCpfW + 6,
-              currentY + 6
-            );
-            pdf.rect(
-              tableX,
-              currentY,
-              colNomeW + colCpfW + colAssW,
-              rowHeight,
-              "S"
-            );
-            currentY += rowHeight;
+            // Redesenhar cabeçalho
+            pdf.setFillColor(41, 128, 185);
+            pdf.rect(tableX, currentY, tableWidth, rowHeight, "F");
             pdf.setFontSize(10);
+            pdf.setFont("helvetica", "bold");
+            pdf.setTextColor(255, 255, 255);
+            headerX = tableX + 2;
+            pdf.text(this.sanitizeText("Nome"), headerX, currentY + 7);
+            headerX += colWidths[0];
+            pdf.text(this.sanitizeText("CPF"), headerX, currentY + 7);
+            headerX += colWidths[1];
+            pdf.text(this.sanitizeText("Assinatura"), headerX, currentY + 7);
+            currentY += rowHeight;
+            pdf.setTextColor(0, 0, 0);
             pdf.setFont("helvetica", "normal");
           }
 
-          // CPF formatado ou vazio
-          const cpf = member.cpf || "";
-
-          // Escrever nome e cpf
-          // Nome (wrap se necessário simples: cortar se maior que coluna)
-          let nomeText = member.nome || "";
-          if (nomeText.length > 50) {
-            nomeText = nomeText.slice(0, 47) + "...";
+          // Fundo alternado para linhas
+          if (index % 2 === 0) {
+            pdf.setFillColor(248, 249, 250);
+            pdf.rect(tableX, currentY, tableWidth, rowHeight, "F");
           }
 
-          pdf.text(nomeText, tableX + 2, currentY + 6);
-          pdf.text(cpf, tableX + colNomeW + 4, currentY + 6);
+          // Bordas da linha
+          pdf.setDrawColor(200, 200, 200);
+          pdf.rect(tableX, currentY, tableWidth, rowHeight, "S");
 
-          // Desenhar linha para assinatura (espaço em branco)
-          const sigX = tableX + colNomeW + colCpfW + 4;
-          const sigY = currentY + 4;
-          const sigW = colAssW - 8;
-          // linha para assinatura
-          pdf.line(sigX, sigY + 4, sigX + sigW, sigY + 4);
+          // Dados
+          let dataX = tableX + 2;
+          const nomeText =
+            member.nome?.length > 25
+              ? member.nome.slice(0, 22) + "..."
+              : member.nome || "";
+          pdf.text(this.sanitizeText(nomeText), dataX, currentY + 7);
 
-          // desenhar borda inferior da linha da tabela
-          pdf.rect(
-            tableX,
-            currentY,
-            colNomeW + colCpfW + colAssW,
-            rowHeight,
-            "S"
-          );
+          dataX += colWidths[0];
+          pdf.text(member.cpf || "", dataX, currentY + 7);
+
+          // Linha para assinatura
+          dataX += colWidths[1] + 2;
+          pdf.line(dataX, currentY + 5, dataX + colWidths[2] - 4, currentY + 5);
 
           currentY += rowHeight;
         }
 
-        // Forçar quebra de página depois da lista de presentes para facilitar impressão
+        // Forçar quebra de página depois da lista de presentes
         pdf.addPage();
         currentY = 20;
       }
 
       // Membros ausentes
       if (absentMembers.length > 0) {
-        currentY += 10;
+        // Título da seção
         pdf.setFontSize(12);
         pdf.setFont("helvetica", "bold");
-        pdf.text("MEMBROS AUSENTES:", 20, currentY);
-        currentY += 8;
+        pdf.setTextColor(239, 68, 68); // Vermelho
+        pdf.text(this.sanitizeText("MEMBROS AUSENTES"), 20, currentY);
+        currentY += 10;
 
         pdf.setFontSize(10);
         pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(0, 0, 0);
 
-        absentMembers.forEach((member) => {
-          pdf.text(`• ${member.nome}`, 25, currentY);
-          currentY += 5;
+        absentMembers.forEach((member, index) => {
+          // Fundo alternado
+          if (index % 2 === 0) {
+            pdf.setFillColor(255, 240, 240); // Vermelho muito claro
+            pdf.rect(25, currentY - 2, 160, 6, "F");
+          }
+
+          pdf.text(`• ${this.sanitizeText(member.nome)}`, 30, currentY + 2);
+          currentY += 6;
 
           // Verificar se precisa de nova página
           if (currentY > 270) {
@@ -346,7 +506,13 @@ export class ReportManager {
     } catch (error) {
       ErrorHandler.log(error as Error, "ReportManager.addAttendanceSection");
       pdf.setFont("helvetica", "italic");
-      pdf.text("Erro ao carregar dados de presença", 20, currentY);
+      pdf.setTextColor(239, 68, 68);
+      pdf.text(
+        this.sanitizeText("Erro ao carregar dados de presença"),
+        20,
+        currentY
+      );
+      pdf.setTextColor(0, 0, 0);
       currentY += 10;
     }
 
@@ -358,13 +524,38 @@ export class ReportManager {
 
     for (let i = 1; i <= pageCount; i++) {
       pdf.setPage(i);
-      pdf.setFontSize(10);
+
+      // Linha separadora
+      pdf.setDrawColor(41, 128, 185);
+      pdf.setLineWidth(0.5);
+      pdf.line(15, 275, 195, 275);
+
+      // Fundo azul claro para o rodapé
+      pdf.setFillColor(240, 248, 255);
+      pdf.rect(0, 276, 210, 20, "F");
+
+      // Informações do rodapé
+      pdf.setFontSize(9);
       pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(100, 100, 100);
+
+      const footerText = `Sistema de Eleição de Oficiais - Página ${i} de ${pageCount}`;
+      pdf.text(footerText, 105, 282, { align: "center" });
+
+      pdf.setFontSize(8);
+      const dateText = `Gerado em ${Formatter.date(new Date())}`;
+      pdf.text(dateText, 105, 288, { align: "center" });
+
+      // Logo/assinatura da igreja (opcional)
+      pdf.setFontSize(7);
+      pdf.setTextColor(41, 128, 185);
       pdf.text(
-        `Página ${i} de ${pageCount} - Relatório gerado em ${Formatter.date(new Date())}`,
+        this.sanitizeText("Igreja Presbiteriana em Águas Compridas"),
         105,
-        285,
-        { align: "center" }
+        292,
+        {
+          align: "center",
+        }
       );
     }
   }

@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  base: "./",
+  base: "/", // ✅ Corrigido para produção no Vercel
   resolve: {
     alias: {
       "@": "/src",
@@ -16,7 +16,8 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    sourcemap: true,
+    sourcemap: false, // ❌ Desabilitado em produção para reduzir tamanho
+    minify: "esbuild", // ✅ Minificação otimizada
     rollupOptions: {
       output: {
         // Split large third-party libraries into separate chunks to reduce
