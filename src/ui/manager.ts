@@ -34,6 +34,9 @@ export class UIManager {
   }
 
   async initialize(): Promise<void> {
+    // Ativar sincronização do Firebase (RealtimeSync)
+    RealtimeSync.getInstance().enable();
+
     console.log("[UIManager] Configurando event listeners...");
     this.setupEventListeners();
 
@@ -102,9 +105,32 @@ export class UIManager {
     document
       .getElementById("add-member")
       ?.addEventListener("click", this.handleAddMember.bind(this));
-    document
-      .getElementById("member-search")
-      ?.addEventListener("input", this.handleMemberSearch.bind(this));
+    const memberSearchInput = document.getElementById(
+      "member-search"
+    ) as HTMLInputElement | null;
+    const clearBtn = document.getElementById(
+      "clear-member-search"
+    ) as HTMLButtonElement | null;
+    if (memberSearchInput) {
+      memberSearchInput.addEventListener("input", (e) => {
+        this.handleMemberSearch(e);
+        if (clearBtn) {
+          clearBtn.style.display =
+            memberSearchInput.value.length > 0 ? "flex" : "none";
+        }
+      });
+      // Estado inicial do botão
+      if (clearBtn) {
+        clearBtn.style.display =
+          memberSearchInput.value.length > 0 ? "flex" : "none";
+        clearBtn.addEventListener("click", () => {
+          memberSearchInput.value = "";
+          clearBtn.style.display = "none";
+          memberSearchInput.dispatchEvent(new Event("input"));
+          memberSearchInput.focus();
+        });
+      }
+    }
 
     // Candidate actions
     document
@@ -1058,11 +1084,11 @@ export class UIManager {
     const memberData = {
       nome: formData.get("name") as string,
       tipo: tipo,
-      cpf: formData.get("cpf") as string,
-      rg: formData.get("rg") as string,
-      email: formData.get("email") as string,
-      telefone: formData.get("phone") as string,
-      candidato: candidato,
+      cpf: (formData.get("cpf") as string) || "",
+      rg: (formData.get("rg") as string) || "",
+      email: (formData.get("email") as string) || "",
+      telefone: (formData.get("phone") as string) || "",
+      candidato: candidato || null,
     };
 
     try {
@@ -1926,8 +1952,12 @@ export class UIManager {
     try {
       // Validar quórum antes de abrir a tela inicial de prévia
       const results = await electionApp.getElectionResults();
-
-      // Mesmo que quórum inválido, mostramos a prévia, mas o botão Iniciar ficará desabilitado
+      if (!results.quorum?.isValid) {
+        NotificationService.warning(
+          "Quórum insuficiente para iniciar a votação. Aguarde mais membros presentes."
+        );
+        return;
+      }
       this.showVotingFullscreenPreview(results);
     } catch (error) {
       console.error("Erro ao iniciar fluxo de votação:", error);
@@ -1947,71 +1977,122 @@ export class UIManager {
 
     // Construir HTML da prévia: separamos em duas seções (Presbíteros / Diáconos)
     // Ler configuração de quórum para obter número de vagas por cargo
+    // const quorumConfig = await electionApp.getQuorumConfig() as QuorumConfig | null;
+    // (vagas removidas: layout agora é um card por linha)
+
+    // Buscar configuração de vagas
     const quorumConfig =
       (await electionApp.getQuorumConfig()) as QuorumConfig | null;
     const presbyteroPositions = quorumConfig?.presbyteroPositions ?? 3;
     const diaconoPositions = quorumConfig?.diaconoPositions ?? 6;
 
-    const pres = (results.presbyteros || []).map((c: any) => ({
+    // Lazy loading: exibir 20 por vez
+    const PAGE_SIZE = 20;
+    let presPage = 1;
+    let diaPage = 1;
+    const presAll = (results.presbyteros || []).map((c: any) => ({
       id: c.id,
       name: c.name,
       role: c.role,
       photoUrl: c.photoUrl,
     }));
-    const dia = (results.diaconos || []).map((c: any) => ({
+    const diaAll = (results.diaconos || []).map((c: any) => ({
       id: c.id,
       name: c.name,
       role: c.role,
       photoUrl: c.photoUrl,
     }));
+    let pres = presAll.slice(0, PAGE_SIZE);
+    let dia = diaAll.slice(0, PAGE_SIZE);
 
     // Tamanho de toque e layout responsivo: cards grandes
     const renderCards = (items: any[]) =>
       items
-        .map(
-          (it) =>
-            `<div class="preview-card" data-id="${it.id}" role="button" tabindex="0" aria-pressed="false">
-               <div class="preview-photo">${
-                 it.photoUrl
-                   ? `<img src="${it.photoUrl}" alt="${it.name}"/>`
-                   : '<span class="material-icons md-48">person</span>'
-               }</div>
-               <div class="preview-name">${it.name}</div>
-               <div class="preview-role">${it.role}</div>
-             </div>`
-        )
+        .map((it) => {
+          let photoHtml = "";
+          if (it.photoUrl) {
+            photoHtml = `<img src="${it.photoUrl}" alt="${it.name}" />`;
+          } else {
+            // Gerar iniciais do nome
+            const initials = it.name
+              .split(" ")
+              .filter((n: string) => n.length > 0)
+              .slice(0, 2)
+              .map((n: string) => n[0].toUpperCase())
+              .join("");
+            // Cor de fundo baseada no nome (hash simples)
+            const colors = [
+              "#3b82f6",
+              "#6366f1",
+              "#10b981",
+              "#f59e42",
+              "#f43f5e",
+              "#fbbf24",
+              "#0ea5e9",
+              "#a21caf",
+            ];
+            let hash = 0;
+            for (let i = 0; i < it.name.length; i++)
+              hash += it.name.charCodeAt(i);
+            const bgColor = colors[hash % colors.length];
+            photoHtml = `<span class="candidate-initials-avatar" style="background:${bgColor};color:#fff;display:flex;align-items:center;justify-content:center;width:68px;height:68px;border-radius:50%;font-size:1.7rem;font-weight:700;">${initials}</span>`;
+          }
+          return `<div class="fullscreen-candidate-card preview-card" data-id="${it.id}">
+               <div class="fullscreen-candidate-photo preview-photo">
+                 ${photoHtml}
+               </div>
+               <div class="fullscreen-candidate-meta" style="margin-left: 1.5rem;">
+                 <div class="fullscreen-candidate-name preview-name">${it.name}</div>
+                 <div class="fullscreen-candidate-role preview-role">${it.role}</div>
+               </div>
+             </div>`;
+        })
         .join("");
 
-    // Ajustar colunas das seções com base nas vagas configuradas (mas não mais que candidatos)
-    const presCols = Math.max(
-      1,
-      Math.min(presbyteroPositions, Math.max(1, pres.length))
-    );
-    const diaCols = Math.max(
-      1,
-      Math.min(diaconoPositions, Math.max(1, dia.length))
-    );
+    // (colunas removidas: layout agora é um card por linha)
 
     grid.innerHTML = `
-      <div class="preview-section">
-        <h2>Prévia — Presbíteros</h2>
-        <div class="preview-row" id="preview-presbyteros" style="grid-template-columns: repeat(${presCols}, minmax(220px, 1fr));">
+      ${
+        !results.quorum?.isValid
+          ? `
+      <div class="fullscreen-status-message" style="width:100%;text-align:center;margin-bottom:1.5rem;">
+        <span style="display:inline-block;background:#fee2e2;color:#b91c1c;padding:0.7rem 1.2rem;border-radius:32px;font-weight:600;font-size:1.08rem;">
+          Quórum insuficiente para iniciar a votação. Aguarde mais membros presentes.
+        </span>
+      </div>
+      `
+          : ""
+      }
+      <div class="preview-section preview-box" aria-labelledby="presbiteros-label">
+        <div class="preview-box-header">
+          <h2 id="presbiteros-label" class="preview-box-title">Presbíteros</h2>
+          <span class="preview-vagas">Vagas disponíveis: <strong>${presbyteroPositions}</strong></span>
+        </div>
+        <div class="preview-row" id="preview-presbyteros" role="list">
           ${renderCards(pres)}
         </div>
+        ${presAll.length > PAGE_SIZE ? `<div class="preview-loadmore" style="text-align:center;margin:0.7rem 0 1.2rem 0;"><button id="loadmore-presbiteros" class="btn btn-outline" style="min-width:160px;">Carregar mais</button></div>` : ""}
       </div>
-      <div class="preview-section">
-        <h2>Prévia — Diáconos</h2>
-        <div class="preview-row" id="preview-diaconos" style="grid-template-columns: repeat(${diaCols}, minmax(220px, 1fr));">
+      <div class="preview-section preview-box" aria-labelledby="diaconos-label">
+        <div class="preview-box-header">
+          <h2 id="diaconos-label" class="preview-box-title">Diáconos</h2>
+          <span class="preview-vagas">Vagas disponíveis: <strong>${diaconoPositions}</strong></span>
+        </div>
+        <div class="preview-row" id="preview-diaconos" role="list">
           ${renderCards(dia)}
         </div>
+        ${diaAll.length > PAGE_SIZE ? `<div class="preview-loadmore" style="text-align:center;margin:0.7rem 0 1.2rem 0;"><button id="loadmore-diaconos" class="btn btn-outline" style="min-width:160px;">Carregar mais</button></div>` : ""}
       </div>
       <div class="preview-actions">
-        <button id="fullscreen-start-btn" class="btn btn-cta btn-lg">Iniciar Votação</button>
+        <button id="fullscreen-start-btn" class="btn btn-cta btn-lg" aria-label="Iniciar Votação">Iniciar Votação</button>
       </div>
     `;
 
     // Exibir fullscreen
     fullscreenView.style.display = "flex";
+    // Força reflow para garantir animação
+    void fullscreenView.offsetWidth;
+    fullscreenView.classList.add("active");
     if (fullscreenView.requestFullscreen) {
       fullscreenView.requestFullscreen().catch(() => {
         /* ignore fullscreen errors */
@@ -2021,6 +2102,33 @@ export class UIManager {
     // Tornar touch-friendly: aumentar targets e habilitar listeners
     const startBtn = document.getElementById("fullscreen-start-btn");
     if (startBtn) {
+      // Lazy loading: listeners para carregar mais
+      const loadMorePres = document.getElementById("loadmore-presbiteros");
+      if (loadMorePres) {
+        loadMorePres.addEventListener("click", () => {
+          presPage++;
+          pres = presAll.slice(0, PAGE_SIZE * presPage);
+          // Atualiza apenas a lista de presbíteros
+          const presRow = document.getElementById("preview-presbyteros");
+          if (presRow) presRow.innerHTML = renderCards(pres);
+          if (pres.length >= presAll.length)
+            loadMorePres.style.display = "none";
+        });
+      }
+      const loadMoreDia = document.getElementById("loadmore-diaconos");
+      if (loadMoreDia) {
+        loadMoreDia.addEventListener("click", () => {
+          diaPage++;
+          dia = diaAll.slice(0, PAGE_SIZE * diaPage);
+          const diaRow = document.getElementById("preview-diaconos");
+          if (diaRow) diaRow.innerHTML = renderCards(dia);
+          if (dia.length >= diaAll.length) loadMoreDia.style.display = "none";
+        });
+      }
+      // Foco automático para acessibilidade/touch
+      setTimeout(() => {
+        (startBtn as HTMLButtonElement).focus();
+      }, 100);
       // Desabilitar se quórum inválido
       if (!results.quorum?.isValid) {
         (startBtn as HTMLButtonElement).disabled = true;
@@ -2102,35 +2210,71 @@ export class UIManager {
         roleTitle.textContent = `Seleção — ${roleLabel}`;
 
         const cardsHtml = items
-          .map(
-            (it) => `
-            <div class="preview-card selectable" data-id="${it.id}" tabindex="0" role="button" aria-pressed="false">
-              <div class="preview-photo">${
-                it.photoUrl
-                  ? `<img src="${it.photoUrl}" alt="${it.name}"/>`
-                  : '<span class="material-icons md-48">person</span>'
-              }</div>
-              <div class="preview-name">${it.name}</div>
-              <div class="preview-role">${it.role}</div>
-              <div class="select-badge" aria-hidden="true"></div>
-            </div>`
-          )
+          .map((it) => {
+            // Fallback: iniciais em círculo colorido
+            function getInitials(name: string) {
+              return name
+                .split(" ")
+                .filter(Boolean)
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase();
+            }
+            function stringToColor(str: string) {
+              let hash = 0;
+              for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+              }
+              const h = hash % 360;
+              return `hsl(${h}, 70%, 60%)`;
+            }
+            const initials = getInitials(it.name);
+            const color = stringToColor(it.name);
+            return `
+                <div class="preview-card selectable" data-id="${it.id}" tabindex="0" role="button" aria-pressed="false">
+                  <div class="preview-photo">
+                    ${
+                      it.photoUrl
+                        ? `<img src="${it.photoUrl}" alt="${it.name}"/>`
+                        : `<span class="candidate-initials-avatar" style="background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.7rem;font-weight:700;border-radius:50%;width:68px;height:68px;">${initials}</span>`
+                    }
+                  </div>
+                  <div class="preview-name">${it.name}</div>
+                  <div class="preview-role">${it.role}</div>
+                  <div class="select-badge" aria-hidden="true"></div>
+                </div>`;
+          })
           .join("");
 
         grid.innerHTML = `
           <div class="preview-section">
-            <h2>${roleLabel} — Selecione até <strong>${maxSelect}</strong></h2>
+            <div class="preview-box-header" style="margin-bottom: 0.7rem; gap: 0.7rem; flex-wrap: wrap; align-items: flex-end;">
+              <div style="display: flex; flex-direction: column; gap: 0.18em;">
+                <span class="preview-box-title">${roleLabel}</span>
+                <span class="preview-desc" id="preview-desc">Você pode selecionar até <strong id='preview-vagas-restantes'>${maxSelect}</strong></span>
+              </div>
+              <span class="preview-vagas" title="Vagas disponíveis">${maxSelect} vaga${maxSelect > 1 ? "s" : ""} disponíveis</span>
+            </div>
             <div class="preview-row selection-row" style="grid-template-columns: repeat(${Math.max(1, Math.min(maxSelect, Math.max(1, items.length)))}, minmax(220px, 1fr));">
               ${cardsHtml}
             </div>
           </div>
           <div class="preview-actions">
-            <button id="selection-next-btn" class="btn btn-cta btn-lg" disabled>Avançar</button>
+            <button id="selection-next-btn" class="btn btn-cta btn-lg">Avançar</button>
           </div>
         `;
 
         // Attach listeners
         const row = grid.querySelector(".selection-row");
+        const vagasRestantesEl = document.getElementById(
+          "preview-vagas-restantes"
+        );
+        function updateVagasRestantes() {
+          if (vagasRestantesEl) {
+            vagasRestantesEl.textContent = String(maxSelect - currentSet.size);
+          }
+        }
         row
           ?.querySelectorAll<HTMLElement>(".preview-card.selectable")
           .forEach((card) => {
@@ -2163,10 +2307,7 @@ export class UIManager {
                 currentSet.add(id);
               }
               updateUI();
-              const nextBtn = document.getElementById(
-                "selection-next-btn"
-              ) as HTMLButtonElement | null;
-              if (nextBtn) nextBtn.disabled = currentSet.size === 0;
+              updateVagasRestantes();
             };
 
             card.addEventListener("click", toggle);
@@ -2177,30 +2318,7 @@ export class UIManager {
               }
             });
           });
-
-        // Next button
-        const nextBtn = document.getElementById("selection-next-btn");
-        if (nextBtn) {
-          (nextBtn as HTMLButtonElement).disabled =
-            state.presSelected.size === 0 && roleLabel.includes("Presbíteros");
-          nextBtn.addEventListener("click", async () => {
-            // Se estivermos na etapa Presbíteros, avançar para Diáconos
-            if (roleLabel.includes("Presbíteros")) {
-              await renderSelectionStep(
-                "Diáconos",
-                dia,
-                diaconoPositions,
-                state.diaSelected
-              );
-            } else {
-              // Finalizar e mostrar resumo
-              this.showSelectionSummary(
-                Array.from(state.presSelected),
-                Array.from(state.diaSelected)
-              );
-            }
-          });
-        }
+        updateVagasRestantes();
 
         // Show fullscreen
         const fullscreenViewEl = document.getElementById(
@@ -2231,8 +2349,11 @@ export class UIManager {
       document.exitFullscreen();
     }
 
-    // Ocultar view
-    fullscreenView.style.display = "none";
+    // Remover animação e ocultar após transição
+    fullscreenView.classList.remove("active");
+    setTimeout(() => {
+      fullscreenView.style.display = "none";
+    }, 350);
   }
 
   private async renderFullscreenCandidates(

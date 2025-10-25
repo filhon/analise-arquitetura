@@ -1,3 +1,308 @@
+.preview-box-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  margin-bottom: 1.1rem;
+}
+.fullscreen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 2.2rem 1.1rem 2.2rem;
+  z-index: 20;
+}
+body.dark-mode .fullscreen-header {
+  background: #23232b;
+  border-bottom: 1.5px solid #18181b;
+  box-shadow: 0 2px 16px 0 rgba(0, 0, 0, 0.18);
+}
+.fullscreen-header h1#fullscreen-role-title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--primary-color, #1e293b);
+  letter-spacing: -0.5px;
+}
+body.dark-mode .fullscreen-header h1#fullscreen-role-title {
+  color: #fff;
+}
+.fullscreen-header .exit-fullscreen-btn {
+  margin-left: 2.2rem;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s;
+  cursor: pointer;
+}
+.fullscreen-header .exit-fullscreen-btn:hover,
+.fullscreen-header .exit-fullscreen-btn:focus {
+  background: #e5e7eb;
+}
+body.dark-mode .fullscreen-header .exit-fullscreen-btn:hover,
+body.dark-mode .fullscreen-header .exit-fullscreen-btn:focus {
+  background: #18181b;
+}
+.fullscreen-candidate-photo.preview-photo {
+  background: none !important;
+  box-shadow: none !important;
+}
+/* Card ocupa toda a largura do box, visual amplo */
+.fullscreen-candidate-card.preview-card {
+  width: 100%;
+  min-width: 0;
+  min-height: 120px;
+  height: 132px;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: #f8fafc;
+  border-radius: 16px;
+  box-shadow: 0 1px 6px 0 rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.18s;
+  padding: 0.7rem 2.2rem 0.7rem 2.2rem;
+  box-sizing: border-box;
+}
+body.dark-mode .fullscreen-candidate-card.preview-card {
+  background: #23232b;
+  box-shadow: 0 1px 8px 0 rgba(0, 0, 0, 0.18);
+}
+.fullscreen-candidate-card.preview-card:hover {
+  box-shadow: 0 4px 16px 0 rgba(30, 41, 59, 0.13);
+}
+.fullscreen-candidate-photo.preview-photo,
+.candidate-initials-avatar {
+  min-width: 68px !important;
+  min-height: 68px !important;
+  max-width: 68px !important;
+  max-height: 68px !important;
+  width: 68px !important;
+  height: 68px !important;
+}
+.fullscreen-candidate-meta {
+  flex: 1 1 0%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+}
+/* Box de candidatura na prévia fullscreen */
+/* Box de candidatura na prévia fullscreen - contraste aprimorado */
+.preview-box {
+  background: #f3f4f6;
+  border-radius: 18px;
+  border: 2px solid #d1d5db;
+  box-shadow: 0 4px 24px 0 rgba(30, 41, 59, 0.13);
+  margin-bottom: 2.2rem;
+  padding: 1.2rem 1.5rem 1.5rem 1.5rem;
+  max-width: 700px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  transition:
+    background 0.18s,
+    box-shadow 0.18s,
+    border 0.18s;
+}
+body.dark-mode .preview-box {
+  background: #18181b;
+  border: 2px solid #27272a;
+  box-shadow: 0 4px 32px 0 rgba(0, 0, 0, 0.28);
+}
+body.dark-mode .preview-box {
+  background: #23232b;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.18);
+}
+.preview-box-header {
+  display: flex;
+  align-items: center;
+  align-content: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  margin-bottom: 1.1rem;
+}
+.preview-box-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary-color, #1e293b);
+}
+body.dark-mode .preview-box-title {
+  color: #fff;
+}
+.preview-vagas {
+  font-size: 1.08rem;
+  color: var(--primary-color, #2563eb);
+  font-weight: 500;
+  background: #f9f9f9;
+  border-radius: 16px;
+  padding: 0.32em 1em;
+  display: flex;
+  align-items: center;
+}
+body.dark-mode .preview-vagas {
+  background: #18181b;
+  color: #60a5fa;
+}
+.fullscreen-status-message {
+  width: 100%;
+  text-align: center;
+  margin-top: 1.2rem;
+  margin-bottom: 1.5rem;
+  z-index: 10;
+}
+body.dark-mode .fullscreen-status-message span {
+  background: #3f1d1d;
+  color: #fee2e2;
+}
+@media (max-width: 900px) {
+  .fullscreen-candidates-grid {
+    padding: 0.5rem 0.2rem 4rem 0.2rem;
+    gap: 0.7rem;
+  }
+  .preview-section h2 {
+    font-size: 1rem;
+    margin-bottom: 0.3rem;
+  }
+  .preview-vagas {
+    font-size: 0.98rem !important;
+    margin-bottom: 0.3rem !important;
+  }
+  .preview-row {
+    gap: 0.7rem;
+  }
+  .fullscreen-candidate-card {
+    padding: 0.5rem 0.7rem;
+    min-height: 80px;
+    gap: 0.7rem;
+  }
+  .fullscreen-candidate-photo.preview-photo,
+  .candidate-initials-avatar {
+    width: 48px !important;
+    height: 48px !important;
+    font-size: 1.1rem !important;
+  }
+  .fullscreen-candidate-meta {
+    margin-left: 0.7rem !important;
+  }
+  .fullscreen-candidate-name.preview-name {
+    font-size: 1.02rem;
+  }
+  .fullscreen-candidate-role.preview-role {
+    font-size: 0.92rem;
+  }
+  .preview-actions {
+    padding-bottom: 1.5rem;
+  }
+  .btn.btn-cta.btn-lg {
+    font-size: 2rem;
+    padding: 0.7rem 1.4rem;
+    min-width: 160px;
+    min-height: 160px;
+    border-radius: 32px;
+  }
+}
+body.dark-mode .fullscreen-voting-view {
+  background: var(--bg-dark, #18181b);
+}
+body.dark-mode .fullscreen-candidate-card {
+  background: linear-gradient(180deg, #23232b 0%, #18181b 100%);
+  border-color: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+body.dark-mode .fullscreen-candidate-name,
+body.dark-mode .fullscreen-candidate-role,
+body.dark-mode .preview-vagas {
+  color: #fff !important;
+}
+body.dark-mode .fullscreen-candidate-photo {
+  background: #23232b;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+body.dark-mode .candidate-initials-avatar {
+  border: 2px solid #23232b;
+  color: #fff;
+}
+body.dark-mode .preview-actions .btn-cta.btn-lg {
+  background: var(--primary-color, #6366f1);
+  color: #fff;
+  border: none;
+}
+body.dark-mode .preview-actions .btn-cta.btn-lg:active {
+  background: #4f46e5;
+}
+.candidate-initials-avatar {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+  letter-spacing: 0.02em;
+  user-select: none;
+  border: 2px solid #fff;
+}
+/* Animação de fade e slide para fullscreen */
+.fullscreen-voting-view {
+  opacity: 0;
+  transform: translateY(40px) scale(0.98);
+  transition:
+    opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.fullscreen-voting-view.active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Animação para cards de candidato */
+.fullscreen-candidate-card {
+  opacity: 0;
+  transform: translateY(32px) scale(0.98);
+  animation: fadeInCard 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.fullscreen-candidate-card:nth-child(1) {
+  animation-delay: 0.05s;
+}
+.fullscreen-candidate-card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.fullscreen-candidate-card:nth-child(3) {
+  animation-delay: 0.15s;
+}
+.fullscreen-candidate-card:nth-child(4) {
+  animation-delay: 0.2s;
+}
+.fullscreen-candidate-card:nth-child(5) {
+  animation-delay: 0.25s;
+}
+.fullscreen-candidate-card:nth-child(6) {
+  animation-delay: 0.3s;
+}
+.fullscreen-candidate-card:nth-child(7) {
+  animation-delay: 0.35s;
+}
+.fullscreen-candidate-card:nth-child(8) {
+  animation-delay: 0.4s;
+}
+.fullscreen-candidate-card:nth-child(9) {
+  animation-delay: 0.45s;
+}
+.fullscreen-candidate-card:nth-child(10) {
+  animation-delay: 0.5s;
+}
+
+@keyframes fadeInCard {
+  0% {
+    opacity: 0;
+    transform: translateY(32px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 /* Reset e base styles */
 * {
   margin: 0;
@@ -413,27 +718,54 @@ button {
   overflow-y: auto;
 }
 
+/* Botão sair do fullscreen: grande, sempre visível, fácil de tocar */
 .exit-fullscreen-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
+  position: fixed;
+  top: 1.5rem;
+  right: 2rem;
+  background: #fff;
   border: none;
   border-radius: 50%;
-  width: 48px;
-  height: 48px;
+  width: 68px;
+  height: 68px;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2100;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.13);
+  cursor: pointer;
+  z-index: 9999;
+  transition:
+    background 0.2s,
+    box-shadow 0.2s,
+    transform 0.18s;
+  outline: none;
+  touch-action: manipulation;
 }
-
-.fullscreen-header {
-  width: 100%;
-  text-align: center;
-  margin-top: 3rem;
-  margin-bottom: 1rem;
+.exit-fullscreen-btn:active {
+  background: #f3f4f6;
+  transform: scale(0.96);
+}
+.exit-fullscreen-btn .material-icons {
+  color: #1e293b;
+  font-size: 2.6rem;
+}
+@media (max-width: 700px) {
+  .exit-fullscreen-btn {
+    top: 0.7rem;
+    right: 1rem;
+    width: 54px;
+    height: 54px;
+  }
+  .exit-fullscreen-btn .material-icons {
+    font-size: 2rem;
+  }
+}
+body.dark-mode .exit-fullscreen-btn {
+  background: #23232b;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.32);
+}
+body.dark-mode .exit-fullscreen-btn .material-icons {
+  color: #fff;
 }
 
 .fullscreen-candidates-grid {
@@ -450,22 +782,22 @@ button {
 }
 
 .preview-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
 .preview-card {
   background: var(--bg-secondary);
-  border-radius: 12px;
-  padding: 0.75rem;
+  border-radius: 100px;
+  padding: 0.75rem 1.5rem;
   box-shadow: var(--shadow);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 0.5rem;
-  text-align: center;
-  min-height: 140px;
+  gap: 1.5rem;
+  text-align: left;
+  min-height: 120px;
   user-select: none;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
   touch-action: manipulation;
@@ -476,10 +808,10 @@ button {
 }
 
 .preview-photo img {
-  width: 72px;
-  height: 72px;
+  width: 68px;
+  height: 68px;
   object-fit: cover;
-  border-radius: 50%;
+  border-radius: 100px;
 }
 
 .preview-name {
@@ -1588,7 +1920,7 @@ body.dark-mode .voting-category.quorum-blur::after {
 .voting-candidates {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 @media (max-width: 768px) {
@@ -2406,7 +2738,6 @@ body.dark-mode .voting-category.quorum-blur::after {
 
 .fullscreen-candidate-card:hover {
   transform: translateY(-5px);
-  box-shadow: var(--shadow-lg);
   border-color: var(--primary-color);
 }
 

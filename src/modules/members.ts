@@ -379,7 +379,11 @@ export class MemberManager {
   }
 
   private validateMember(member: Omit<Member, "id">): ValidationResult {
-    const validations = [Validator.required(member.nome)];
+    // Exigir nome e tipo obrigatórios
+    const validations = [
+      Validator.required(member.nome),
+      Validator.required(member.tipo),
+    ];
 
     console.log(`[CSV Import] Validando membro:`, {
       nome: member.nome,
@@ -509,13 +513,34 @@ export class MemberManager {
    */
   private async saveMembers(members: Member[]): Promise<void> {
     console.log("[MemberManager] 💾 Iniciando saveMembers...");
+    // DEBUG: Verificar status do RealtimeSync
+    const sync = RealtimeSync.getInstance();
+    console.log(
+      "[MemberManager][DEBUG] RealtimeSync.isActive:",
+      sync.isActive()
+    );
+    // @ts-ignore
+    console.log(
+      "[MemberManager][DEBUG] RealtimeSync.isEnabled:",
+      sync.isEnabled
+    );
+    // @ts-ignore
+    console.log(
+      "[MemberManager][DEBUG] database:",
+      typeof sync.database !== "undefined" ? sync.database : "undefined"
+    );
 
     const now = new Date().toISOString();
     // Garantir lastUpdated para cada membro no momento do save
-    const membersWithTimestamps = members.map((m) => ({
-      ...m,
-      lastUpdated: now,
-    }));
+    // e remover campos undefined (Firebase não aceita undefined)
+    const cleanMember = (m: any) => {
+      const obj: any = { ...m, lastUpdated: now };
+      Object.keys(obj).forEach((k) => {
+        if (obj[k] === undefined) delete obj[k];
+      });
+      return obj;
+    };
+    const membersWithTimestamps = members.map(cleanMember);
 
     // 1️⃣ Atualizar memory cache (UI imediata)
     console.log("[MemberManager] 1️⃣ Atualizando memory cache...");
