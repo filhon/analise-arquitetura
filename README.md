@@ -56,16 +56,19 @@ Este projeto é um sistema completo para gestão de eleições de oficiais em ig
 Para fazer deploy em produção, siga o guia completo em [`DEPLOY-PRODUCAO.md`](./DEPLOY-PRODUCAO.md).
 
 ### Pré-requisitos Rápidos:
+
 - Conta no [Vercel](https://vercel.com) ou similar
 - Projeto Firebase configurado
 - Variáveis de ambiente configuradas
 
 ### Deploy Automático:
+
 1. Conecte seu repositório Git no Vercel
 2. Configure as variáveis de ambiente do Firebase
 3. Deploy automático será feito
 
 ### Verificação:
+
 - ✅ Aplicação carrega sem erros
 - ✅ Firebase sincroniza corretamente
 - ✅ PWA funciona offline

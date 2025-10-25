@@ -9,6 +9,7 @@
 ## 🔧 Configuração do Firebase
 
 ### 1. Criar Projeto Firebase
+
 1. Acesse [Firebase Console](https://console.firebase.google.com/)
 2. Clique em "Criar um projeto"
 3. Configure o nome do projeto
@@ -16,11 +17,13 @@
 5. Configure as regras de segurança (opcional para desenvolvimento)
 
 ### 2. Obter Credenciais
+
 1. Vá em **Configurações do Projeto** > **Seus Aplicativos**
 2. Clique em **Adicionar App** > **Web App** (ícone `</>`)
 3. Copie as credenciais geradas
 
 ### 3. Configurar Variáveis de Ambiente no Vercel
+
 No painel do Vercel, vá em **Project Settings** > **Environment Variables** e adicione:
 
 ```bash
@@ -116,15 +119,18 @@ Após o deploy, verifique:
 ## 🐛 Troubleshooting
 
 ### Erro: "Firebase not configured"
+
 - Verifique se todas as variáveis de ambiente estão configuradas no Vercel
 - Certifique-se de que não há espaços extras nas variáveis
 
 ### Erro: "Build failed"
+
 - Execute `npm run build` localmente para debug
 - Verifique se todas as dependências estão instaladas
 - Confirme que o Node.js é versão 18+
 
 ### PWA não instala
+
 - Verifique se o site usa HTTPS (Vercel fornece automaticamente)
 - Confirme que o `manifest.json` está acessível
 - Teste em Chrome/Edge para melhor suporte PWA
@@ -132,10 +138,12 @@ Após o deploy, verifique:
 ## 📊 Monitoramento
 
 ### Vercel Analytics
+
 - Configure Analytics no painel do Vercel
 - Monitore performance e erros
 
 ### Firebase Monitoring
+
 - Use Firebase Console para monitorar uso do database
 - Configure alertas para uso excessivo
 
@@ -151,6 +159,7 @@ Para atualizar a aplicação:
 ## 📞 Suporte
 
 Para problemas específicos:
+
 - Verifique os logs no painel do Vercel
 - Use Firebase Console para debug do database
 - Consulte a documentação em `/docs/`
