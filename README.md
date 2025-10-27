@@ -9,7 +9,7 @@ Este projeto é um sistema completo para gestão de eleições de oficiais em ig
 - **Votação Escalável:** Controle de votos por candidato, validação de quórum, projeção fullscreen para acompanhamento visual.
 - **Presença em Tempo Real:** Marcação de presença, sincronização automática entre dispositivos (Firebase Realtime Database).
 - **Relatórios Profissionais:** Geração de PDF com lista de presentes (Nome, CPF, Assinatura), exportação/importação de dados.
-- **Interface Responsiva:** Design minimalista, modo escuro, Material Design 3, fonte Inter, ícones Google Material.
+- **Interface Responsiva:** Design minimalista, modo escuro, Material Design 3, fonte Inter, ícones Google Material, **otimizado para telas menores (celulares)**.
 - **Sincronização Híbrida:** Utiliza localStorage e Firebase para garantir performance e disponibilidade offline.
 - **Controle de Quórum:** Efeito blur e overlays explicativos quando quórum não atingido, validação em tempo real.
 - **PWA Ready:** Suporte a Service Worker, manifest.json, uso offline.
@@ -82,6 +82,7 @@ A documentação detalhada está disponível na pasta `/docs`, incluindo:
 - Checklist de sincronização
 - Alterações de design e layout
 - Correções e histórico de mudanças
+- **Otimização para telas menores (celulares)**
 - Referências de ícones e fontes
 
 ## Contribuição

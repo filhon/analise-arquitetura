@@ -7,6 +7,7 @@ Implementado atalho de teclado **Escape** para limpar rapidamente o conteúdo do
 ## Funcionalidades Implementadas
 
 ### Atalho de Teclado Escape
+
 - **Tecla**: `Escape`
 - **Ação**: Limpa completamente o campo de busca de membros
 - **Comportamento adicional**:
@@ -17,9 +18,11 @@ Implementado atalho de teclado **Escape** para limpar rapidamente o conteúdo do
 ## Implementação Técnica
 
 ### Arquivo Modificado
+
 - `src/ui/manager.ts` - Método `setupEventListeners()`
 
 ### Código Adicionado
+
 ```typescript
 // Adicionar atalho de teclado Escape para limpar busca
 memberSearchInput.addEventListener("keydown", (e) => {
@@ -47,12 +50,14 @@ O atalho Escape segue exatamente o mesmo padrão do botão "X" de limpar:
 ## Benefícios
 
 ### Experiência do Usuário
+
 - **Rapidez**: Limpeza instantânea com uma tecla
 - **Intuitivo**: Padrão comum em aplicações web
 - **Acessibilidade**: Não requer mouse ou toque
 - **Fluxo contínuo**: Mantém foco para digitação imediata
 
 ### Produtividade
+
 - **Redução de cliques**: Elimina necessidade de clicar no botão "X"
 - **Fluxo de trabalho**: Permite limpar e continuar digitando rapidamente
 - **Menos distrações**: Foco permanece no campo de entrada
@@ -60,12 +65,14 @@ O atalho Escape segue exatamente o mesmo padrão do botão "X" de limpar:
 ## Testes Realizados
 
 ### Validação Técnica
+
 - ✅ **TypeScript**: Compilação sem erros
 - ✅ **Build**: Produção gerada com sucesso
 - ✅ **Testes**: Todos os testes existentes passaram
 - ✅ **Linting**: Código segue padrões do projeto
 
 ### Validação Funcional
+
 - ✅ **Limpeza**: Campo é completamente limpo
 - ✅ **UI Update**: Botão "X" é ocultado
 - ✅ **Filtro**: Lista de membros é atualizada
@@ -75,6 +82,7 @@ O atalho Escape segue exatamente o mesmo padrão do botão "X" de limpar:
 ## Compatibilidade
 
 ### Navegadores Suportados
+
 - ✅ Chrome/Chromium
 - ✅ Firefox
 - ✅ Safari
@@ -82,6 +90,7 @@ O atalho Escape segue exatamente o mesmo padrão do botão "X" de limpar:
 - ✅ Navegadores móveis (iOS Safari, Chrome Mobile)
 
 ### Dispositivos
+
 - ✅ Desktop (teclado físico)
 - ✅ Tablets (teclados virtuais)
 - ✅ Mobile (teclados virtuais)

@@ -211,6 +211,22 @@
   - Limpa conteúdo, oculta botão X e mantém foco no input
   - Segue mesmo padrão do botão de limpar existente
   - Documentação completa em docs/IMPLEMENTACAO-ATALHO-ESCAPE-LIMPAR-BUSCA.md
+- [x] Otimização para Telas Menores (Celulares)
+  - Breakpoint específico @media (max-width: 480px) adicionado
+  - Tamanhos de fonte otimizados para melhor legibilidade
+  - Espaçamentos ajustados para aproveitar melhor o espaço
+  - Áreas de toque mínimas de 44px implementadas
+  - Navegação otimizada para dispositivos de toque
+  - Formulários e modais responsivos
+  - Documentação completa em docs/OTIMIZACAO-TELAS-MENORES.md
+- [x] Implementar Navegação Móvel (Bottom Navigation Bar)
+  - Navegação movida para inferior seguindo padrão mobile app
+  - Breakpoint @media (max-width: 768px) implementado
+  - Design otimizado para toque com áreas mínimas de 44px
+  - Ícones apenas (sem texto) para economia de espaço
+  - Compatibilidade completa com modo escuro
+  - Espaçamento adequado do conteúdo principal (padding-bottom)
+  - Documentação completa em docs/IMPLEMENTACAO-NAVEGACAO-MOVEL.md
 
 ## Arquitetura do Sistema
 
