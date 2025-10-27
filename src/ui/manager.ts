@@ -119,6 +119,18 @@ export class UIManager {
             memberSearchInput.value.length > 0 ? "flex" : "none";
         }
       });
+      // Adicionar atalho de teclado Escape para limpar busca
+      memberSearchInput.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          memberSearchInput.value = "";
+          if (clearBtn) {
+            clearBtn.style.display = "none";
+          }
+          memberSearchInput.dispatchEvent(new Event("input"));
+          memberSearchInput.focus();
+        }
+      });
       // Estado inicial do botão
       if (clearBtn) {
         clearBtn.style.display =
