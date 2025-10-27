@@ -33,17 +33,92 @@
 
     <!-- CSS -->
     <link rel="stylesheet" href="/assets/css/candidate-select.css" />
-    <script type="module" crossorigin src="/assets/index-CU-ZUijN.js"></script>
+    <script type="module" crossorigin src="/assets/index-BRohFvX3.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/vendor-mpHdot-v.js">
-    <link rel="modulepreload" crossorigin href="/assets/firebase-CoDa9zaB.js">
+    <link rel="modulepreload" crossorigin href="/assets/firebase-9zJ5O7T0.js">
     <link rel="modulepreload" crossorigin href="/assets/jspdf-CcmqT4Oe.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-j8xSEiwH.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-Db7VSF32.css">
   </head>
   <body>
-    <!-- Loading Screen -->
-    <div id="loading-screen" class="loading-screen">
-      <div class="loading-spinner"></div>
-      <p>Inicializando sistema...</p>
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-screen">
+      <div class="login-container">
+        <div class="login-header">
+          <div class="login-logo">
+            <span class="material-icons md-48">how_to_vote</span>
+          </div>
+          <h1 class="login-title">Sistema de Eleição de Oficiais</h1>
+          <p class="login-subtitle">Entre com suas credenciais para acessar o sistema</p>
+        </div>
+
+        <div class="login-card">
+          <div class="login-form-container">
+            <h2 class="login-form-title">
+              <span class="material-icons md-24">login</span>
+              Fazer Login
+            </h2>
+
+            <form id="login-form" class="login-form">
+              <div class="form-group">
+                <label for="login-email">Email</label>
+                <div class="input-wrapper">
+                  <span class="material-icons input-icon">email</span>
+                  <input
+                    type="email"
+                    id="login-email"
+                    name="email"
+                    placeholder="seu@email.com"
+                    required
+                    autocomplete="email"
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="login-password">Senha</label>
+                <div class="input-wrapper">
+                  <span class="material-icons input-icon">lock</span>
+                  <input
+                    type="password"
+                    id="login-password"
+                    name="password"
+                    placeholder="Digite sua senha"
+                    required
+                    autocomplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    id="toggle-password"
+                    class="password-toggle"
+                    title="Mostrar/ocultar senha"
+                  >
+                    <span class="material-icons">visibility</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-login">
+                  <span class="material-icons md-20">login</span>
+                  Entrar
+                </button>
+              </div>
+            </form>
+
+            <div class="login-footer">
+              <p class="login-info">
+                <span class="material-icons md-18">info</span>
+                Sistema seguro para eleições eclesiásticas
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="login-loading" id="login-loading" style="display: none">
+          <div class="loading-spinner"></div>
+          <p>Verificando credenciais...</p>
+        </div>
+      </div>
     </div>
 
     <!-- Main Application -->

@@ -41,6 +41,7 @@ export default defineConfig({
       "firebase/app",
       "firebase/database",
       "firebase/storage",
+      "firebase/auth",
       "chart.js",
     ],
   },

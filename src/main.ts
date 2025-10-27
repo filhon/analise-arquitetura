@@ -4,6 +4,8 @@ import { electionApp } from "@/app";
 import { UIManager } from "@/ui/manager";
 import { NotificationService } from "@/ui/notifications";
 import { ErrorHandler } from "@/utils";
+import { AuthManager } from "@/modules/auth/manager";
+import { LoginUI } from "@/modules/auth/ui";
 
 // Migração: Remover storage obsoleto de CANDIDATES
 function migrateStorageV2() {
@@ -13,7 +15,7 @@ function migrateStorageV2() {
       console.log("[Migration] Removendo storage obsoleto:", obsoleteKey);
       localStorage.removeItem(obsoleteKey);
       console.log(
-        "[Migration] ✓ Storage CANDIDATES removido - agora usa apenas MEMBERS",
+        "[Migration] ✓ Storage CANDIDATES removido - agora usa apenas MEMBERS"
       );
     }
   } catch (error) {
@@ -27,6 +29,77 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Executar migração de storage ANTES de qualquer inicialização
     migrateStorageV2();
 
+    // Inicializar sistema de notificações
+    NotificationService.getInstance();
+
+    // Verificar autenticação
+    const authManager = AuthManager.getInstance();
+    const currentUser = authManager.getCurrentUser();
+
+    if (!currentUser) {
+      // Usuário não autenticado - mostrar tela de login
+      console.log("[Main] Usuário não autenticado - mostrando tela de login");
+      showLoginScreen();
+      return;
+    }
+
+    // Usuário autenticado - inicializar aplicação normalmente
+    console.log("[Main] Usuário autenticado:", currentUser.email);
+    await initializeApplication();
+  } catch (error) {
+    console.error("Erro fatal na inicialização:", error);
+    ErrorHandler.log(error as Error, "main.ts.initialize");
+
+    // Mostrar erro na tela
+    const loadingScreen = document.getElementById("loading-screen");
+    if (loadingScreen) {
+      loadingScreen.innerHTML = `
+        <div class="error-container">
+          <h2>Erro na Inicialização</h2>
+          <p>${(error as Error).message}</p>
+          <button onclick="location.reload()" class="btn btn-primary">
+            Tentar Novamente
+          </button>
+        </div>
+      `;
+    }
+  }
+});
+
+// Função para mostrar tela de login
+async function showLoginScreen(): Promise<void> {
+  const loadingScreen = document.getElementById("loading-screen");
+  const appContainer = document.getElementById("app");
+  const loginScreen = document.getElementById("login-screen");
+
+  if (!loadingScreen || !appContainer || !loginScreen) {
+    throw new Error("Elementos DOM essenciais não encontrados");
+  }
+
+  // Esconder loading e mostrar tela de login
+  loadingScreen.style.display = "none";
+  appContainer.style.display = "none";
+  loginScreen.style.display = "flex";
+
+  // Inicializar UI de login
+  const loginUI = new LoginUI();
+  loginUI.showLoginScreen();
+
+  // Escutar evento de login bem-sucedido
+  const authManager = AuthManager.getInstance();
+  const unsubscribe = authManager.subscribe((state) => {
+    if (state.isAuthenticated) {
+      // Login bem-sucedido - esconder tela de login e inicializar aplicação
+      loginScreen.style.display = "none";
+      unsubscribe(); // Remover listener
+      initializeApplication();
+    }
+  });
+}
+
+// Função para inicializar aplicação principal
+async function initializeApplication(): Promise<void> {
+  try {
     // Mostrar tela de loading
     const loadingScreen = document.getElementById("loading-screen");
     const appContainer = document.getElementById("app");
@@ -34,9 +107,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!loadingScreen || !appContainer) {
       throw new Error("Elementos DOM essenciais não encontrados");
     }
-
-    // Inicializar sistema de notificações
-    NotificationService.getInstance();
 
     // Inicializar aplicação
     console.log("[Main] 1/4 - Inicializando sistema de eleição...");
@@ -69,7 +139,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   } catch (error) {
     console.error("Erro fatal na inicialização:", error);
-    ErrorHandler.log(error as Error, "main.ts.initialize");
+    ErrorHandler.log(error as Error, "main.ts.initializeApplication");
 
     // Mostrar erro na tela
     const loadingScreen = document.getElementById("loading-screen");
@@ -85,14 +155,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       `;
     }
   }
-});
-
-// Tratamento de erros globais
+}
 window.addEventListener("error", (event) => {
   ErrorHandler.log(event.error, "window.error");
   NotificationService.show(
     "Ocorreu um erro inesperado. Verifique o console para mais detalhes.",
-    "error",
+    "error"
   );
 });
 
@@ -100,7 +168,7 @@ window.addEventListener("unhandledrejection", (event) => {
   ErrorHandler.log(new Error(event.reason), "window.unhandledrejection");
   NotificationService.show(
     "Erro em operação assíncrona. Verifique o console para mais detalhes.",
-    "error",
+    "error"
   );
 });
 
