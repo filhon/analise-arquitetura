@@ -25,10 +25,11 @@ const firebaseConfig = {
 };
 
 // Verificar se as credenciais foram configuradas
-const isConfigured = firebaseConfig.apiKey &&
-                     firebaseConfig.apiKey !== "COLE_AQUI" &&
-                     firebaseConfig.apiKey !== "" &&
-                     firebaseConfig.apiKey !== undefined;
+const isConfigured =
+  firebaseConfig.apiKey &&
+  firebaseConfig.apiKey !== "COLE_AQUI" &&
+  firebaseConfig.apiKey !== "" &&
+  firebaseConfig.apiKey !== undefined;
 
 // Inicializar Firebase
 let app: FirebaseApp | null = null;
