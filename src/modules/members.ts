@@ -519,15 +519,9 @@ export class MemberManager {
       "[MemberManager][DEBUG] RealtimeSync.isActive:",
       sync.isActive()
     );
-    // @ts-ignore
     console.log(
-      "[MemberManager][DEBUG] RealtimeSync.isEnabled:",
-      sync.isEnabled
-    );
-    // @ts-ignore
-    console.log(
-      "[MemberManager][DEBUG] database:",
-      typeof sync.database !== "undefined" ? sync.database : "undefined"
+      "[MemberManager][DEBUG] RealtimeSync status:",
+      sync.getStatus()
     );
 
     const now = new Date().toISOString();
