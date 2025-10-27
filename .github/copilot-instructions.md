@@ -206,14 +206,11 @@
   - Substituição por alternativas textuais (TOT, PRE, MIN, etc.)
   - Manutenção da legibilidade e design profissional
   - Documentação completa em docs/CORRECAO-EMOJIS-PDF.md
-- [x] Implementar Transações Atômicas para Votações Simultâneas
-  - Problema: Perda de dados em votações concorrentes
-  - Solução: Transações Firebase para atomicidade
-  - Métodos incrementVoteAtomically() e decrementVoteAtomically()
-  - Rollback atômico em caso de falha
-  - Suporte a múltiplos usuários votando simultaneamente
-  - Testes de concorrência implementados
-  - Documentação completa em docs/IMPLEMENTACAO-TRANSACOES-ATOMICA-VOTACOES.md
+- [x] Implementar Atalho de Teclado Escape para Limpar Busca de Membros
+  - Adicionado event listener para tecla Escape no campo member-search
+  - Limpa conteúdo, oculta botão X e mantém foco no input
+  - Segue mesmo padrão do botão de limpar existente
+  - Documentação completa em docs/IMPLEMENTACAO-ATALHO-ESCAPE-LIMPAR-BUSCA.md
 
 ## Arquitetura do Sistema
 
