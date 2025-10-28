@@ -78,7 +78,10 @@ function waitForAuthState(authManager: AuthManager): Promise<void> {
 
     // Se já temos um estado determinado (autenticado ou não), resolver imediatamente
     if (!state.isLoading) {
-      console.log("[Auth] Estado já determinado:", state.isAuthenticated ? "autenticado" : "não autenticado");
+      console.log(
+        "[Auth] Estado já determinado:",
+        state.isAuthenticated ? "autenticado" : "não autenticado"
+      );
       resolve();
       return;
     }
@@ -86,7 +89,10 @@ function waitForAuthState(authManager: AuthManager): Promise<void> {
     // Aguardar mudança de estado
     const unsubscribe = authManager.subscribe((newState) => {
       if (!newState.isLoading) {
-        console.log("[Auth] Estado determinado via listener:", newState.isAuthenticated ? "autenticado" : "não autenticado");
+        console.log(
+          "[Auth] Estado determinado via listener:",
+          newState.isAuthenticated ? "autenticado" : "não autenticado"
+        );
         unsubscribe();
         resolve();
       }

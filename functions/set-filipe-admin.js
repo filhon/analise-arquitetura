@@ -7,7 +7,7 @@ const admin = require("firebase-admin");
 // Certifique-se de que o arquivo .env está configurado corretamente
 
 // Carregar variáveis de ambiente
-require('dotenv').config({ path: '../.env' });
+require("dotenv").config({ path: "../.env" });
 
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY,
@@ -101,14 +101,10 @@ async function setFilipeAdminClaims() {
       console.log("🔄 Atualizando role para admin...");
 
       // Atualizar role se necessário
-      await admin
-        .firestore()
-        .collection("users")
-        .doc(userRecord.uid)
-        .update({
-          role: "admin",
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+      await admin.firestore().collection("users").doc(userRecord.uid).update({
+        role: "admin",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
       console.log("✅ Perfil atualizado no Firestore!");
     }
@@ -117,9 +113,13 @@ async function setFilipeAdminClaims() {
     console.log("🎉 Usuário fcbfilipesantos@gmail.com configurado como ADMIN!");
     console.log("📧 Email:", email);
     console.log("👑 Role: ADMIN");
-    console.log("🚀 Agora você pode fazer login no sistema como administrador.");
+    console.log(
+      "🚀 Agora você pode fazer login no sistema como administrador."
+    );
     console.log("");
-    console.log("💡 Dica: Faça logout e login novamente para que as mudanças tenham efeito.");
+    console.log(
+      "💡 Dica: Faça logout e login novamente para que as mudanças tenham efeito."
+    );
   } catch (error) {
     console.error("❌ Erro:", error.message);
 

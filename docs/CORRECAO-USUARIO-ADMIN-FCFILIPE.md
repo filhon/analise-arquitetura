@@ -13,11 +13,13 @@ O usuário `fcbfilipesantos@gmail.com` foi criado mas está aparecendo como usu�
 ### 1. **Melhorado Mapeamento de Roles**
 
 Atualizei o `AuthManager` para:
+
 - Buscar Custom Claims do Firebase Auth
 - Usar lista de emails admin como fallback
 - Adicionar logs detalhados para debug
 
 **Lista de emails admin incluída:**
+
 - `admin@igreja.com`
 - `fcbfilipesantos@gmail.com` ✅
 
@@ -37,6 +39,7 @@ Criei `functions/set-filipe-admin.js` para definir Custom Claims no usuário.
    - Salve como: `functions/serviceAccountKey.json`
 
 2. **Execute o script:**
+
    ```bash
    cd functions
    node set-filipe-admin.js
@@ -57,6 +60,7 @@ Criei `functions/set-filipe-admin.js` para definir Custom Claims no usuário.
    - Clique no usuário
    - Vá para "Custom claims"
    - Adicione:
+
    ```json
    {
      "role": "admin",

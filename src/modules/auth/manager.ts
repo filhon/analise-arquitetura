@@ -55,7 +55,10 @@ export class AuthManager {
 
     // Escutar mudanças no estado de autenticação
     this.authStateUnsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      console.log("📡 onAuthStateChanged chamado:", firebaseUser ? "usuário logado" : "usuário não logado");
+      console.log(
+        "📡 onAuthStateChanged chamado:",
+        firebaseUser ? "usuário logado" : "usuário não logado"
+      );
 
       if (firebaseUser) {
         // Usuário logado
@@ -115,7 +118,9 @@ export class AuthManager {
             role = UserRole.ADMIN;
             console.log("👑 Role definida por lista de emails admin:", role);
           } else {
-            console.log("👤 Role padrão (USER) - nenhum critério admin encontrado");
+            console.log(
+              "👤 Role padrão (USER) - nenhum critério admin encontrado"
+            );
           }
         }
       } catch (error) {
@@ -124,7 +129,10 @@ export class AuthManager {
         // Fallback para lista de emails admin
         if (adminEmails.includes(email)) {
           role = UserRole.ADMIN;
-          console.log("👑 Role definida por lista de emails admin (fallback):", role);
+          console.log(
+            "👑 Role definida por lista de emails admin (fallback):",
+            role
+          );
         } else {
           console.log("👤 Role padrão (USER) - fallback sem critério admin");
         }

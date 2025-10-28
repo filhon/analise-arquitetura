@@ -1485,8 +1485,12 @@ export class UIManager {
 
       // Reabilitar campos desabilitados na edição
       if (formId === "user-form") {
-        const emailInput = document.getElementById("user-email") as HTMLInputElement;
-        const passwordInput = document.getElementById("user-password") as HTMLInputElement;
+        const emailInput = document.getElementById(
+          "user-email"
+        ) as HTMLInputElement;
+        const passwordInput = document.getElementById(
+          "user-password"
+        ) as HTMLInputElement;
 
         if (emailInput) emailInput.disabled = false;
         if (passwordInput) {
@@ -3926,9 +3930,13 @@ export class UIManager {
         user.role || "user";
 
       // Desabilitar campos que não podem ser editados
-      (document.getElementById("user-email") as HTMLInputElement).disabled = true;
-      (document.getElementById("user-password") as HTMLInputElement).style.display = "none";
-      (document.getElementById("user-password") as HTMLInputElement).required = false;
+      (document.getElementById("user-email") as HTMLInputElement).disabled =
+        true;
+      (
+        document.getElementById("user-password") as HTMLInputElement
+      ).style.display = "none";
+      (document.getElementById("user-password") as HTMLInputElement).required =
+        false;
 
       // Armazenar ID do usuário sendo editado
       form.dataset.editingId = uid;
@@ -3994,13 +4002,17 @@ export class UIManager {
         );
 
         if (result.success) {
-          NotificationService.success("Função do usuário atualizada com sucesso!");
+          NotificationService.success(
+            "Função do usuário atualizada com sucesso!"
+          );
           this.closeAllModals();
 
           // Recarregar lista de usuários
           await this.loadUsersData();
         } else {
-          NotificationService.error(result.error || "Erro ao atualizar usuário");
+          NotificationService.error(
+            result.error || "Erro ao atualizar usuário"
+          );
         }
       } else {
         // Modo criação

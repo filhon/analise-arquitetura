@@ -27,6 +27,7 @@ const currentUser = authManager.getCurrentUser();
 ### 2. **Logs de Debug Melhorados**
 
 Adicionados logs detalhados no `AuthManager` para rastrear:
+
 - Inicialização do listener de autenticação
 - Chamadas do `onAuthStateChanged`
 - Detecção de usuários logados/não logados
@@ -35,6 +36,7 @@ Adicionados logs detalhados no `AuthManager` para rastrear:
 ### 3. **Estado Consistente Após Login**
 
 Melhorado o fluxo de login para garantir que:
+
 - O estado seja atualizado corretamente após login bem-sucedido
 - O `onAuthStateChanged` seja respeitado
 - A transição de telas ocorra automaticamente
@@ -64,6 +66,7 @@ Agora você verá logs como:
 ## 🔍 Verificação Adicional
 
 Se ainda houver problemas, verifique o console do navegador para logs como:
+
 - `[Auth] Estado já determinado`
 - `[Auth] Estado determinado via listener`
 - `🔄 Inicializando listener de autenticação`

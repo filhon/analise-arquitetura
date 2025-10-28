@@ -11,7 +11,11 @@ O sistema tinha funcionalidade básica para criar usuários, mas faltava a capac
 Adicionado botão "Editar" na tabela de usuários (aba "Usuários"):
 
 ```html
-<button class="btn btn-sm btn-secondary" onclick="editUser('${user.uid}')" title="Editar">
+<button
+  class="btn btn-sm btn-secondary"
+  onclick="editUser('${user.uid}')"
+  title="Editar"
+>
   <span class="material-icons md-18">edit</span>
 </button>
 ```
@@ -37,10 +41,7 @@ O método `updateUserRole` já existia no `AuthManager`, mas agora é usado na i
 
 ```typescript
 // Modo edição - apenas atualizar role
-const result = await authManager.updateUserRole(
-  editingId,
-  role as UserRole
-);
+const result = await authManager.updateUserRole(editingId, role as UserRole);
 ```
 
 ### 4. **Modal Adaptável (Criar/Editar)**
@@ -119,6 +120,7 @@ O sistema agora gera logs detalhados:
 ## 📊 Estatísticas Atualizadas
 
 A aba "Usuários" mostra estatísticas em tempo real:
+
 - Total de usuários
 - Administradores
 - Usuários regulares
