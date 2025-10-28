@@ -13,6 +13,7 @@ import { initializeApp, FirebaseApp } from "firebase/app";
 import { getDatabase, Database } from "firebase/database";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 import { getAuth, Auth } from "firebase/auth";
+import { getFunctions, Functions } from "firebase/functions";
 
 // ⚠️ SUBSTITUA COM SUAS CREDENCIAIS DO FIREBASE
 const firebaseConfig = {
@@ -37,12 +38,32 @@ let app: FirebaseApp | null = null;
 let database: Database | null = null;
 let storage: FirebaseStorage | null = null;
 let auth: Auth | null = null;
+let functions: Functions | null = null;
 
 if (isConfigured) {
   try {
+    console.log("🔧 Inicializando Firebase com config:", {
+      projectId: firebaseConfig.projectId,
+      authDomain: firebaseConfig.authDomain,
+      hasApiKey: !!firebaseConfig.apiKey,
+    });
+
     app = initializeApp(firebaseConfig);
     database = getDatabase(app);
     auth = getAuth(app);
+
+    console.log("✅ Firebase App inicializado");
+    console.log("✅ Firebase Database inicializado");
+    console.log("✅ Firebase Auth inicializado");
+
+    // Inicializar Functions
+    try {
+      functions = getFunctions(app);
+      console.log("✅ Firebase Functions inicializado");
+    } catch (err) {
+      console.warn("⚠️ Não foi possível inicializar Firebase Functions:", err);
+    }
+
     // Inicializar Storage se houver bucket configurado
     try {
       storage = getStorage(app);
@@ -63,5 +84,5 @@ if (isConfigured) {
   console.warn("📚 Veja docs/CONFIGURACAO-FIREBASE-PASSO-A-PASSO.md");
 }
 
-export { app, database, storage, auth, isConfigured };
+export { app, database, storage, auth, functions, isConfigured };
 export default database;

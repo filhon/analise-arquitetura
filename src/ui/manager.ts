@@ -13,6 +13,9 @@ import { EventTypes, StorageKeys } from "@/types";
 import { RealtimeSync } from "@/utils";
 import { uploadImage, deleteFileByUrl } from "@/utils/storage";
 import { resizeImage, generateThumbnail } from "@/utils/image";
+import { AuthManager } from "@/modules/auth/manager";
+import type { User } from "@/types/auth";
+import { UserRole } from "@/types/auth";
 
 export class UIManager {
   private static instance: UIManager;
@@ -55,6 +58,9 @@ export class UIManager {
     console.log("[UIManager] Inicializando preferências...");
     this.initializeDarkMode();
 
+    console.log("[UIManager] Atualizando informações do usuário...");
+    this.updateUserInfoOnInit();
+
     console.log("[UIManager] ✓ Inicialização completa!");
   }
 
@@ -94,6 +100,11 @@ export class UIManager {
     document
       .getElementById("settings-btn")
       ?.addEventListener("click", this.handleSettings.bind(this));
+
+    // User info actions
+    document
+      .getElementById("logout-btn")
+      ?.addEventListener("click", this.handleLogout.bind(this));
 
     // Member actions
     document
@@ -214,6 +225,11 @@ export class UIManager {
       .getElementById("refresh-results")
       ?.addEventListener("click", this.handleRefreshResults.bind(this));
 
+    // Users actions
+    document
+      .getElementById("add-user")
+      ?.addEventListener("click", this.handleAddUser.bind(this));
+
     // File inputs
     document
       .getElementById("csv-file-input")
@@ -255,6 +271,9 @@ export class UIManager {
     document
       .getElementById("quorum-form")
       ?.addEventListener("submit", this.handleQuorumSubmit.bind(this));
+    document
+      .getElementById("user-form")
+      ?.addEventListener("submit", this.handleUserSubmit.bind(this));
 
     // Setup dark mode toggle
     document
@@ -515,6 +534,9 @@ export class UIManager {
           break;
         case "results":
           await this.loadResultsData();
+          break;
+        case "users":
+          await this.loadUsersData();
           break;
       }
     } catch (error) {
@@ -1229,6 +1251,71 @@ export class UIManager {
     this.showModal("settings-modal");
   }
 
+  private async handleLogout(): Promise<void> {
+    try {
+      const authManager = AuthManager.getInstance();
+      await authManager.logout();
+      NotificationService.success("Logout realizado com sucesso");
+
+      // Esconder user-info e mostrar tela de login
+      this.updateUserInfo(null);
+
+      // Esconder aplicação e mostrar tela de login
+      const appContainer = document.getElementById("app");
+      const loginScreen = document.getElementById("login-screen");
+      const loadingScreen = document.getElementById("loading-screen");
+
+      if (appContainer) appContainer.style.display = "none";
+      if (loginScreen) loginScreen.style.display = "flex";
+      if (loadingScreen) loadingScreen.style.display = "none";
+    } catch (error) {
+      console.error("Erro ao fazer logout:", error);
+      NotificationService.error("Erro ao fazer logout");
+    }
+  }
+
+  private updateUserInfo(user: User | null): void {
+    const userInfo = document.getElementById("user-info");
+    const userName = document.getElementById("user-name");
+    const userRole = document.getElementById("user-role");
+
+    if (!userInfo || !userName || !userRole) return;
+
+    if (user) {
+      // Usuário logado - mostrar informações
+      userName.textContent = user.displayName || user.email || "Usuário";
+      userRole.textContent = this.getRoleDisplayName(user.role);
+      userInfo.style.display = "flex";
+    } else {
+      // Usuário não logado - esconder informações
+      userInfo.style.display = "none";
+    }
+  }
+
+  private updateUserInfoOnInit(): void {
+    const authManager = AuthManager.getInstance();
+    const currentUser = authManager.getCurrentUser();
+    this.updateUserInfo(currentUser);
+
+    // Escutar mudanças no estado de autenticação
+    authManager.subscribe((state) => {
+      this.updateUserInfo(state.user);
+    });
+  }
+
+  private getRoleDisplayName(role: string | undefined): string {
+    switch (role) {
+      case "admin":
+        return "Admin";
+      case "moderator":
+        return "Moderador";
+      case "user":
+        return "Usuário";
+      default:
+        return "Usuário";
+    }
+  }
+
   private handleDarkModeToggle(e: Event): void {
     const checkbox = e.target as HTMLInputElement;
     const isDarkMode = checkbox.checked;
@@ -1394,6 +1481,18 @@ export class UIManager {
       // Limpar dataset de edição
       if (form.dataset.editingId) {
         delete form.dataset.editingId;
+      }
+
+      // Reabilitar campos desabilitados na edição
+      if (formId === "user-form") {
+        const emailInput = document.getElementById("user-email") as HTMLInputElement;
+        const passwordInput = document.getElementById("user-password") as HTMLInputElement;
+
+        if (emailInput) emailInput.disabled = false;
+        if (passwordInput) {
+          passwordInput.style.display = "block";
+          passwordInput.required = true;
+        }
       }
     }
   }
@@ -3768,6 +3867,253 @@ export class UIManager {
       NotificationService.error("Erro ao atualizar resultados");
     }
   }
+
+  private async handleAddUser(): Promise<void> {
+    // Verificar se usuário tem permissão (apenas ADMIN)
+    const authManager = AuthManager.getInstance();
+    const currentUser = authManager.getCurrentUser();
+
+    if (!currentUser || currentUser.role !== "admin") {
+      NotificationService.error(
+        "Apenas administradores podem gerenciar usuários"
+      );
+      return;
+    }
+
+    // Limpar formulário e mostrar modal
+    this.clearForm("user-form");
+    const title = document.getElementById("user-modal-title");
+    if (title) title.textContent = "Novo Usuário";
+    this.showModal("user-modal");
+  }
+
+  private async handleEditUser(uid: string): Promise<void> {
+    // Verificar se usuário tem permissão (apenas ADMIN)
+    const authManager = AuthManager.getInstance();
+    const currentUser = authManager.getCurrentUser();
+
+    if (!currentUser || currentUser.role !== "admin") {
+      NotificationService.error(
+        "Apenas administradores podem gerenciar usuários"
+      );
+      return;
+    }
+
+    try {
+      // Buscar dados do usuário
+      const users = await authManager.getUsers();
+      const user = users.find((u) => u.uid === uid);
+
+      if (!user) {
+        NotificationService.error("Usuário não encontrado");
+        return;
+      }
+
+      // Preencher formulário
+      const form = document.getElementById("user-form") as HTMLFormElement;
+      const title = document.getElementById("user-modal-title");
+
+      if (!form || !title) return;
+
+      title.textContent = "Editar Usuário";
+
+      // Preencher campos
+      (document.getElementById("user-display-name") as HTMLInputElement).value =
+        user.displayName || "";
+      (document.getElementById("user-email") as HTMLInputElement).value =
+        user.email || "";
+      (document.getElementById("user-role") as HTMLSelectElement).value =
+        user.role || "user";
+
+      // Desabilitar campos que não podem ser editados
+      (document.getElementById("user-email") as HTMLInputElement).disabled = true;
+      (document.getElementById("user-password") as HTMLInputElement).style.display = "none";
+      (document.getElementById("user-password") as HTMLInputElement).required = false;
+
+      // Armazenar ID do usuário sendo editado
+      form.dataset.editingId = uid;
+
+      // Mostrar modal
+      this.showModal("user-modal");
+    } catch (error) {
+      console.error("Erro ao carregar dados do usuário:", error);
+      NotificationService.error("Erro ao carregar dados do usuário");
+    }
+  }
+
+  private async handleUserSubmit(e: Event): Promise<void> {
+    e.preventDefault();
+
+    // Verificar permissões novamente
+    const authManager = AuthManager.getInstance();
+    const currentUser = authManager.getCurrentUser();
+
+    if (!currentUser || currentUser.role !== "admin") {
+      NotificationService.error(
+        "Apenas administradores podem gerenciar usuários"
+      );
+      return;
+    }
+
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const editingId = form.dataset.editingId;
+
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const role = formData.get("role") as string;
+    const displayName = formData.get("displayName") as string;
+
+    // Validações básicas
+    if (!email || !role) {
+      NotificationService.error("Email e função são obrigatórios");
+      return;
+    }
+
+    if (!editingId && !password) {
+      NotificationService.error("Senha é obrigatória para novos usuários");
+      return;
+    }
+
+    if (password && password.length < 6) {
+      NotificationService.error("A senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+
+    if (!["admin", "user"].includes(role)) {
+      NotificationService.error("Função inválida");
+      return;
+    }
+
+    try {
+      if (editingId) {
+        // Modo edição - apenas atualizar role
+        const result = await authManager.updateUserRole(
+          editingId,
+          role as UserRole
+        );
+
+        if (result.success) {
+          NotificationService.success("Função do usuário atualizada com sucesso!");
+          this.closeAllModals();
+
+          // Recarregar lista de usuários
+          await this.loadUsersData();
+        } else {
+          NotificationService.error(result.error || "Erro ao atualizar usuário");
+        }
+      } else {
+        // Modo criação
+        const result = await authManager.createUser(
+          email,
+          password,
+          role as UserRole,
+          displayName || undefined
+        );
+
+        if (result.success) {
+          NotificationService.success("Usuário criado com sucesso!");
+          this.closeAllModals();
+
+          // Recarregar lista de usuários
+          await this.loadUsersData();
+        } else {
+          NotificationService.error(result.error || "Erro ao criar usuário");
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao salvar usuário:", error);
+      NotificationService.error("Erro ao salvar usuário");
+    }
+  }
+
+  private async loadUsersData(): Promise<void> {
+    try {
+      // Verificar permissões
+      const authManager = AuthManager.getInstance();
+      const currentUser = authManager.getCurrentUser();
+
+      if (!currentUser || currentUser.role !== "admin") {
+        console.warn("Usuário sem permissão para carregar dados de usuários");
+        return;
+      }
+
+      // Buscar usuários do Firebase Auth
+      const users = await authManager.getUsers();
+
+      // Renderizar tabela de usuários
+      await this.renderUsersTable(users);
+
+      // Atualizar estatísticas
+      this.updateUsersStats(users);
+    } catch (error) {
+      console.error("Erro ao carregar dados de usuários:", error);
+      NotificationService.error("Erro ao carregar usuários");
+    }
+  }
+
+  private async renderUsersTable(users: User[]): Promise<void> {
+    const tbody = document.getElementById("users-tbody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    if (users.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" class="text-center">
+            Nenhum usuário cadastrado.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    // Ordenar usuários por email
+    const sortedUsers = [...users].sort((a, b) =>
+      (a.email || "").localeCompare(b.email || "", "pt-BR", {
+        sensitivity: "base",
+      })
+    );
+
+    sortedUsers.forEach((user) => {
+      const row = document.createElement("tr");
+      const roleDisplay = this.getRoleDisplayName(user.role);
+      const statusDisplay = "Ativo"; // Por enquanto, todos os usuários são considerados ativos
+      const statusClass = "user-status-active";
+
+      row.innerHTML = `
+        <td>${this.escapeHtml(user.email || "N/A")}</td>
+        <td>
+          <span class="user-role-badge user-role-${user.role}">${roleDisplay}</span>
+        </td>
+        <td>
+          <span class="user-status ${statusClass}">${statusDisplay}</span>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-secondary" onclick="editUser('${user.uid}')" title="Editar">
+            <span class="material-icons md-18">edit</span>
+          </button>
+          <button class="btn btn-sm btn-danger" onclick="deleteUser('${user.uid}')" title="Excluir">
+            <span class="material-icons md-18">delete</span>
+          </button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+
+  private updateUsersStats(users: User[]): void {
+    const totalUsers = users.length;
+    const adminUsers = users.filter((u) => u.role === "admin").length;
+    const regularUsers = users.filter((u) => u.role === "user").length;
+    const activeUsers = users.length; // Por enquanto, todos os usuários são considerados ativos
+
+    this.updateElement("total-users", totalUsers.toString());
+    this.updateElement("admin-users", adminUsers.toString());
+    this.updateElement("regular-users", regularUsers.toString());
+    this.updateElement("active-users", activeUsers.toString());
+  }
 }
 
 // Expose methods globally for inline event handlers
@@ -3886,4 +4232,9 @@ export class UIManager {
     console.error("Erro ao deletar membro:", error);
     NotificationService.error("Erro ao excluir membro");
   }
+};
+
+(window as any).editUser = async (uid: string) => {
+  const uiManager = UIManager.getInstance();
+  await (uiManager as any).handleEditUser(uid);
 };

@@ -473,6 +473,32 @@ button {
   z-index: 9999;
 }
 
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  text-align: center;
+}
+
+.loading-logo {
+  color: var(--primary-color);
+  animation: pulse 2s infinite;
+}
+
+.loading-title {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.loading-text {
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
 .loading-spinner {
   width: 40px;
   height: 40px;
@@ -489,6 +515,16 @@ button {
   }
   100% {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
   }
 }
 
@@ -547,6 +583,52 @@ button {
 .header-actions {
   display: flex;
   gap: 1rem;
+  align-items: center;
+}
+
+/* User Info Styles */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+}
+
+.user-details {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.user-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.user-role {
+  font-size: var(--font-size-sm);
+  background: var(--primary-color);
+  color: white;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.user-info .btn-outline {
+  border-color: var(--gray-300);
+  color: var(--text-secondary);
+}
+
+.user-info .btn-outline:hover {
+  background: var(--danger-color);
+  border-color: var(--danger-color);
+  color: white;
 }
 
 /* Navigation */
@@ -2332,18 +2414,68 @@ body.dark-mode .voting-category.quorum-blur::after {
   font-size: var(--font-size-base);
 }
 
-/* Charts: containers and responsiveness */
-.chart-card {
-  width: 100%;
-  height: 220px;
-  display: flex;
+/* Users Tab Styles */
+.users-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+/* Status badges for users */
+.user-status {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 0.5rem;
-  background: var(--bg-primary);
-  border-radius: var(--border-radius);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow);
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.user-status.active {
+  background: var(--success-color);
+  color: white;
+}
+
+.user-status.inactive {
+  background: var(--gray-400);
+  color: white;
+}
+
+.user-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.user-role-badge.admin {
+  background: var(--danger-color);
+  color: white;
+}
+
+.user-role-badge.user {
+  background: var(--primary-color);
+  color: white;
+}
+
+/* User actions */
+.user-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.user-actions .btn {
+  padding: 0.25rem 0.5rem;
+  font-size: var(--font-size-sm);
 }
 
 /* Espaçamento entre bloco de estatísticas e gráficos para evitar aparência "colada" */

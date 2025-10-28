@@ -1,4 +1,4 @@
-﻿// Gerenciador de Autenticação com Firebase Authentication
+﻿// Gerenciador de Autenticação com Firebase Authentication e Cloud Functions
 
 import {
   signInWithEmailAndPassword,
@@ -11,6 +11,8 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { auth, isConfigured } from "@/config/firebase";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "@/config/firebase";
 import {
   User,
   AuthState,
@@ -49,40 +51,88 @@ export class AuthManager {
       return;
     }
 
+    console.log("🔄 Inicializando listener de autenticação...");
+
     // Escutar mudanças no estado de autenticação
     this.authStateUnsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log("📡 onAuthStateChanged chamado:", firebaseUser ? "usuário logado" : "usuário não logado");
+
       if (firebaseUser) {
         // Usuário logado
+        console.log("👤 Usuário Firebase detectado:", firebaseUser.email);
         const user = this.firebaseUserToUser(firebaseUser);
+        console.log("🔄 Atualizando estado para autenticado:", user.email);
+
         this.setState({
           isAuthenticated: true,
           user,
           isLoading: false,
           error: null,
         });
+
+        console.log("✅ Estado atualizado - usuário autenticado");
       } else {
         // Usuário não logado
+        console.log("🚪 Nenhum usuário logado detectado");
         this.setState({
           isAuthenticated: false,
           user: null,
           isLoading: false,
           error: null,
         });
+
+        console.log("✅ Estado atualizado - usuário não autenticado");
       }
     });
   }
 
   private firebaseUserToUser(firebaseUser: FirebaseUser): User {
     // Mapear roles baseado em custom claims ou email
-    // Por enquanto, usa lógica simples baseada no email
     let role = UserRole.USER;
     const email = firebaseUser.email || "";
 
-    if (email.includes("admin")) {
-      role = UserRole.ADMIN;
-    } else if (email.includes("moderador") || email.includes("mod")) {
-      role = UserRole.MODERATOR;
-    }
+    // Lista de emails admin (fallback se não houver custom claims)
+    const adminEmails = [
+      "admin@igreja.com",
+      "fcbfilipesantos@gmail.com", // Adicionado email do usuário
+    ];
+
+    // Primeiro, tentar obter custom claims
+    const getIdTokenResult = async () => {
+      try {
+        const idTokenResult = await firebaseUser.getIdTokenResult();
+        console.log("🔑 Custom Claims obtidos:", idTokenResult.claims);
+
+        if (idTokenResult.claims.role) {
+          role = idTokenResult.claims.role as UserRole;
+          console.log("👑 Role definida por Custom Claims:", role);
+        } else if (idTokenResult.claims.admin === true) {
+          role = UserRole.ADMIN;
+          console.log("👑 Role definida por claim 'admin':", role);
+        } else {
+          // Fallback para lista de emails admin
+          if (adminEmails.includes(email)) {
+            role = UserRole.ADMIN;
+            console.log("👑 Role definida por lista de emails admin:", role);
+          } else {
+            console.log("👤 Role padrão (USER) - nenhum critério admin encontrado");
+          }
+        }
+      } catch (error) {
+        console.warn("⚠️ Erro ao obter custom claims, usando fallback:", error);
+
+        // Fallback para lista de emails admin
+        if (adminEmails.includes(email)) {
+          role = UserRole.ADMIN;
+          console.log("👑 Role definida por lista de emails admin (fallback):", role);
+        } else {
+          console.log("👤 Role padrão (USER) - fallback sem critério admin");
+        }
+      }
+    };
+
+    // Executar de forma assíncrona, mas retornar usuário com role padrão inicialmente
+    getIdTokenResult();
 
     return {
       uid: firebaseUser.uid,
@@ -123,24 +173,40 @@ export class AuthManager {
   }
 
   async login(credentials: LoginCredentials): Promise<AuthResult> {
+    console.log("🔐 Tentando login com:", credentials.email);
+
     if (!isConfigured || !auth) {
+      console.error("❌ Firebase Auth não está configurado");
       return {
         success: false,
         error: "Firebase Auth não está configurado",
       };
     }
 
+    console.log("✅ Firebase Auth configurado, iniciando login...");
     this.setState({ isLoading: true, error: null });
 
     try {
+      console.log("📡 Fazendo chamada para signInWithEmailAndPassword...");
       const userCredential = await signInWithEmailAndPassword(
         auth,
         credentials.email,
         credentials.password
       );
 
+      console.log(
+        "✅ Login bem-sucedido no Firebase:",
+        userCredential.user.email
+      );
       const user = this.firebaseUserToUser(userCredential.user);
 
+      console.log("👤 Usuário mapeado:", {
+        email: user.email,
+        role: user.role,
+      });
+
+      // O estado será atualizado automaticamente pelo onAuthStateChanged
+      // Mas vamos garantir que esteja consistente
       this.setState({
         isAuthenticated: true,
         user,
@@ -148,9 +214,12 @@ export class AuthManager {
         error: null,
       });
 
+      console.log("🎉 Login completo - aguardando redirecionamento automático");
       return { success: true, user };
     } catch (error) {
       const authError = error as AuthError;
+      console.error("❌ Erro no login:", authError.code, authError.message);
+
       let errorMessage = "Erro desconhecido no login";
 
       switch (authError.code) {
@@ -169,10 +238,19 @@ export class AuthManager {
         case "auth/too-many-requests":
           errorMessage = "Muitas tentativas. Tente novamente mais tarde";
           break;
+        case "auth/project-not-found":
+          errorMessage =
+            "Projeto Firebase não encontrado. Verifique a configuração.";
+          break;
+        case "auth/invalid-api-key":
+          errorMessage =
+            "Chave da API inválida. Verifique a configuração do Firebase.";
+          break;
         default:
           errorMessage = authError.message || errorMessage;
       }
 
+      console.error("📝 Mensagem de erro final:", errorMessage);
       this.setState({
         isAuthenticated: false,
         user: null,
@@ -210,53 +288,55 @@ export class AuthManager {
     }
   }
 
-  // Método para criar novo usuário (útil para admins)
+  // Método para criar novo usuário (usando Cloud Functions)
   async createUser(
     email: string,
     password: string,
+    role: UserRole = UserRole.USER,
     displayName?: string
   ): Promise<AuthResult> {
-    if (!isConfigured || !auth) {
+    if (!isConfigured || !functions) {
       return {
         success: false,
-        error: "Firebase Auth não está configurado",
+        error: "Firebase Functions não está configurado",
       };
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
+      const createUserFunction = httpsCallable(functions, "createUser");
+      const result = await createUserFunction({
         email,
-        password
-      );
+        password,
+        role,
+        displayName,
+      });
 
-      // Atualizar display name se fornecido
-      if (displayName && userCredential.user) {
-        await updateProfile(userCredential.user, { displayName });
+      const data = result.data as any;
+      if (data.success) {
+        return {
+          success: true,
+          user: {
+            uid: data.uid,
+            email,
+            displayName: displayName || email.split("@")[0],
+            emailVerified: false,
+            role,
+            createdAt: new Date(),
+            lastLoginAt: new Date(),
+          },
+        };
+      } else {
+        return {
+          success: false,
+          error: data.message || "Erro ao criar usuário",
+        };
       }
-
-      const user = this.firebaseUserToUser(userCredential.user);
-
-      return { success: true, user };
-    } catch (error) {
-      const authError = error as AuthError;
-      let errorMessage = "Erro ao criar usuário";
-
-      switch (authError.code) {
-        case "auth/email-already-in-use":
-          errorMessage = "Este email já está em uso";
-          break;
-        case "auth/invalid-email":
-          errorMessage = "Email inválido";
-          break;
-        case "auth/weak-password":
-          errorMessage = "Senha muito fraca";
-          break;
-        default:
-          errorMessage = authError.message || errorMessage;
-      }
-
-      return { success: false, error: errorMessage };
+    } catch (error: any) {
+      console.error("Erro ao criar usuário:", error);
+      return {
+        success: false,
+        error: error.message || "Erro ao criar usuário",
+      };
     }
   }
 
@@ -310,12 +390,111 @@ export class AuthManager {
 
   // Método para verificar se usuário tem permissão de moderador ou superior
   isModerator(): boolean {
-    return this.hasAnyRole([UserRole.ADMIN, UserRole.MODERATOR]);
+    return this.hasAnyRole([UserRole.ADMIN]);
   }
 
   // Método para obter usuário atual
   getCurrentUser(): User | null {
     return this.state.user;
+  }
+
+  // Método para obter todos os usuários (usando Cloud Functions)
+  async getUsers(): Promise<User[]> {
+    if (!isConfigured || !functions) {
+      console.warn("Firebase Functions não está configurado");
+      return [];
+    }
+
+    try {
+      const getUsersFunction = httpsCallable(functions, "getUsers");
+      const result = await getUsersFunction();
+
+      const data = result.data as any;
+      if (data.success && data.users) {
+        return data.users.map((userData: any) => ({
+          uid: userData.uid,
+          email: userData.email,
+          displayName: userData.displayName,
+          emailVerified: userData.emailVerified || false,
+          role: userData.role as UserRole,
+          createdAt: new Date(userData.createdAt),
+          lastLoginAt: userData.lastLoginAt
+            ? new Date(userData.lastLoginAt)
+            : new Date(),
+        }));
+      } else {
+        console.error("Erro ao obter usuários:", data.message);
+        return [];
+      }
+    } catch (error: any) {
+      console.error("Erro ao obter usuários:", error);
+      return [];
+    }
+  }
+
+  // Método para excluir usuário (usando Cloud Functions)
+  async deleteUser(uid: string): Promise<{ success: boolean; error?: string }> {
+    if (!isConfigured || !functions) {
+      return {
+        success: false,
+        error: "Firebase Functions não está configurado",
+      };
+    }
+
+    try {
+      const deleteUserFunction = httpsCallable(functions, "deleteUser");
+      const result = await deleteUserFunction({ uid });
+
+      const data = result.data as any;
+      if (data.success) {
+        return { success: true };
+      } else {
+        return {
+          success: false,
+          error: data.message || "Erro ao excluir usuário",
+        };
+      }
+    } catch (error: any) {
+      console.error("Erro ao excluir usuário:", error);
+      return {
+        success: false,
+        error: error.message || "Erro ao excluir usuário",
+      };
+    }
+  }
+
+  // Método para atualizar função do usuário (usando Cloud Functions)
+  async updateUserRole(
+    uid: string,
+    role: UserRole
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!isConfigured || !functions) {
+      return {
+        success: false,
+        error: "Firebase Functions não está configurado",
+      };
+    }
+
+    try {
+      const updateUserRoleFunction = httpsCallable(functions, "updateUserRole");
+      const result = await updateUserRoleFunction({ uid, role });
+
+      const data = result.data as any;
+      if (data.success) {
+        return { success: true };
+      } else {
+        return {
+          success: false,
+          error: data.message || "Erro ao atualizar função do usuário",
+        };
+      }
+    } catch (error: any) {
+      console.error("Erro ao atualizar função do usuário:", error);
+      return {
+        success: false,
+        error: error.message || "Erro ao atualizar função do usuário",
+      };
+    }
   }
 
   // Método para verificar se Firebase Auth está configurado

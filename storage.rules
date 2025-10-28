@@ -1,0 +1,35 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Regras para fotos de candidatos
+    match /candidates/{electionId}/{candidateId}/{fileName} {
+      // Qualquer usuário autenticado pode ler fotos
+      allow read: if request.auth != null;
+
+      // Qualquer usuário autenticado pode fazer upload de fotos
+      allow write: if request.auth != null &&
+        // Limitar tamanho do arquivo (2MB)
+        request.resource.size < 2 * 1024 * 1024 &&
+        // Apenas imagens
+        request.resource.contentType.matches('image/.*');
+    }
+
+    // Regras para relatórios PDF
+    match /reports/{electionId}/{fileName} {
+      // Qualquer usuário autenticado pode ler relatórios
+      allow read: if request.auth != null;
+
+      // Qualquer usuário autenticado pode fazer upload de relatórios
+      allow write: if request.auth != null &&
+        // Apenas PDFs
+        request.resource.contentType == 'application/pdf';
+    }
+
+    // Regras para backups
+    match /backups/{fileName} {
+      // Apenas admin pode acessar backups
+      allow read, write: if request.auth != null &&
+        request.auth.token.admin == true;
+    }
+  }
+}

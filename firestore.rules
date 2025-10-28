@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Regras para usuários
+    match /users/{userId} {
+      // Apenas o próprio usuário ou admin pode ler seu perfil
+      allow read: if request.auth != null &&
+        (request.auth.uid == userId ||
+         request.auth.token.admin == true);
+
+      // Apenas admin pode criar usuários
+      allow create: if request.auth != null &&
+        request.auth.token.admin == true;
+
+      // Apenas admin pode atualizar usuários
+      allow update: if request.auth != null &&
+        request.auth.token.admin == true;
+
+      // Apenas admin pode excluir usuários
+      allow delete: if request.auth != null &&
+        request.auth.token.admin == true;
+    }
+
+    // Regras para eleições
+    match /elections/{electionId} {
+      // Qualquer usuário autenticado pode ler eleições
+      allow read: if request.auth != null;
+
+      // Qualquer usuário autenticado pode gerenciar eleições
+      allow write: if request.auth != null;
+    }
+
+    // Regras para candidatos
+    match /elections/{electionId}/candidates/{candidateId} {
+      // Qualquer usuário autenticado pode ler candidatos
+      allow read: if request.auth != null;
+
+      // Qualquer usuário autenticado pode gerenciar candidatos
+      allow write: if request.auth != null;
+    }
+
+    // Regras para votos
+    match /elections/{electionId}/votes/{voteId} {
+      // Apenas o próprio usuário pode ler seus votos
+      allow read: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
+
+      // Apenas o próprio usuário pode criar seus votos
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.userId;
+
+      // Votos não podem ser atualizados ou excluídos
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // Regras para presença
+    match /elections/{electionId}/attendance/{memberId} {
+      // Qualquer usuário autenticado pode ler presença
+      allow read: if request.auth != null;
+
+      // Qualquer usuário autenticado pode gerenciar presença
+      allow write: if request.auth != null;
+    }
+
+    // Regras para configurações
+    match /settings/{settingId} {
+      // Qualquer usuário autenticado pode ler configurações
+      allow read: if request.auth != null;
+
+      // Apenas admin pode gerenciar configurações
+      allow write: if request.auth != null &&
+        request.auth.token.admin == true;
+    }
+  }
+}

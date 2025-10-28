@@ -32,8 +32,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Inicializar sistema de notificações
     NotificationService.getInstance();
 
-    // Verificar autenticação
+    // Aguardar inicialização completa do Firebase Auth
+    console.log("[Main] Aguardando inicialização do Firebase Auth...");
     const authManager = AuthManager.getInstance();
+
+    // Aguardar até que o estado de autenticação seja determinado
+    await waitForAuthState(authManager);
+
     const currentUser = authManager.getCurrentUser();
 
     if (!currentUser) {
@@ -65,6 +70,36 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 });
+
+// Função para aguardar o estado de autenticação ser determinado
+function waitForAuthState(authManager: AuthManager): Promise<void> {
+  return new Promise((resolve) => {
+    const state = authManager.getState();
+
+    // Se já temos um estado determinado (autenticado ou não), resolver imediatamente
+    if (!state.isLoading) {
+      console.log("[Auth] Estado já determinado:", state.isAuthenticated ? "autenticado" : "não autenticado");
+      resolve();
+      return;
+    }
+
+    // Aguardar mudança de estado
+    const unsubscribe = authManager.subscribe((newState) => {
+      if (!newState.isLoading) {
+        console.log("[Auth] Estado determinado via listener:", newState.isAuthenticated ? "autenticado" : "não autenticado");
+        unsubscribe();
+        resolve();
+      }
+    });
+
+    // Timeout de segurança (10 segundos)
+    setTimeout(() => {
+      console.warn("[Auth] Timeout aguardando estado de autenticação");
+      unsubscribe();
+      resolve();
+    }, 10000);
+  });
+}
 
 // Função para mostrar tela de login
 async function showLoginScreen(): Promise<void> {
