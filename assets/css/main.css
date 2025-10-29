@@ -2435,12 +2435,12 @@ body.dark-mode .voting-category.quorum-blur::after {
   letter-spacing: 0.5px;
 }
 
-.user-status.active {
+.user-status-active {
   background: var(--success-color);
   color: white;
 }
 
-.user-status.inactive {
+.user-status-inactive {
   background: var(--gray-400);
   color: white;
 }

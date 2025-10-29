@@ -3891,64 +3891,6 @@ export class UIManager {
     this.showModal("user-modal");
   }
 
-  private async handleEditUser(uid: string): Promise<void> {
-    // Verificar se usuário tem permissão (apenas ADMIN)
-    const authManager = AuthManager.getInstance();
-    const currentUser = authManager.getCurrentUser();
-
-    if (!currentUser || currentUser.role !== "admin") {
-      NotificationService.error(
-        "Apenas administradores podem gerenciar usuários"
-      );
-      return;
-    }
-
-    try {
-      // Buscar dados do usuário
-      const users = await authManager.getUsers();
-      const user = users.find((u) => u.uid === uid);
-
-      if (!user) {
-        NotificationService.error("Usuário não encontrado");
-        return;
-      }
-
-      // Preencher formulário
-      const form = document.getElementById("user-form") as HTMLFormElement;
-      const title = document.getElementById("user-modal-title");
-
-      if (!form || !title) return;
-
-      title.textContent = "Editar Usuário";
-
-      // Preencher campos
-      (document.getElementById("user-display-name") as HTMLInputElement).value =
-        user.displayName || "";
-      (document.getElementById("user-email") as HTMLInputElement).value =
-        user.email || "";
-      (document.getElementById("user-role") as HTMLSelectElement).value =
-        user.role || "user";
-
-      // Desabilitar campos que não podem ser editados
-      (document.getElementById("user-email") as HTMLInputElement).disabled =
-        true;
-      (
-        document.getElementById("user-password") as HTMLInputElement
-      ).style.display = "none";
-      (document.getElementById("user-password") as HTMLInputElement).required =
-        false;
-
-      // Armazenar ID do usuário sendo editado
-      form.dataset.editingId = uid;
-
-      // Mostrar modal
-      this.showModal("user-modal");
-    } catch (error) {
-      console.error("Erro ao carregar dados do usuário:", error);
-      NotificationService.error("Erro ao carregar dados do usuário");
-    }
-  }
-
   private async handleUserSubmit(e: Event): Promise<void> {
     e.preventDefault();
 
@@ -4073,7 +4015,7 @@ export class UIManager {
     if (users.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="4" class="text-center">
+          <td colspan="6" class="text-center">
             Nenhum usuário cadastrado.
           </td>
         </tr>
@@ -4091,10 +4033,24 @@ export class UIManager {
     sortedUsers.forEach((user) => {
       const row = document.createElement("tr");
       const roleDisplay = this.getRoleDisplayName(user.role);
-      const statusDisplay = "Ativo"; // Por enquanto, todos os usuários são considerados ativos
-      const statusClass = "user-status-active";
+      const statusDisplay = user.emailVerified
+        ? "Verificado"
+        : "Não verificado";
+      const statusClass = user.emailVerified
+        ? "user-status-active"
+        : "user-status-inactive";
+      const lastLoginDisplay = user.lastLoginAt
+        ? new Date(user.lastLoginAt).toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "Nunca";
 
       row.innerHTML = `
+        <td>${this.escapeHtml(user.displayName || user.email?.split("@")[0] || "N/A")}</td>
         <td>${this.escapeHtml(user.email || "N/A")}</td>
         <td>
           <span class="user-role-badge user-role-${user.role}">${roleDisplay}</span>
@@ -4102,6 +4058,7 @@ export class UIManager {
         <td>
           <span class="user-status ${statusClass}">${statusDisplay}</span>
         </td>
+        <td>${lastLoginDisplay}</td>
         <td>
           <button class="btn btn-sm btn-secondary" onclick="editUser('${user.uid}')" title="Editar">
             <span class="material-icons md-18">edit</span>

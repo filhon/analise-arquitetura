@@ -4,11 +4,9 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   User as FirebaseUser,
   AuthError,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  updateProfile,
 } from "firebase/auth";
 import { auth, isConfigured } from "@/config/firebase";
 import { httpsCallable } from "firebase/functions";
@@ -54,43 +52,46 @@ export class AuthManager {
     console.log("🔄 Inicializando listener de autenticação...");
 
     // Escutar mudanças no estado de autenticação
-    this.authStateUnsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      console.log(
-        "📡 onAuthStateChanged chamado:",
-        firebaseUser ? "usuário logado" : "usuário não logado"
-      );
+    this.authStateUnsubscribe = onAuthStateChanged(
+      auth,
+      async (firebaseUser) => {
+        console.log(
+          "📡 onAuthStateChanged chamado:",
+          firebaseUser ? "usuário logado" : "usuário não logado"
+        );
 
-      if (firebaseUser) {
-        // Usuário logado
-        console.log("👤 Usuário Firebase detectado:", firebaseUser.email);
-        const user = this.firebaseUserToUser(firebaseUser);
-        console.log("🔄 Atualizando estado para autenticado:", user.email);
+        if (firebaseUser) {
+          // Usuário logado
+          console.log("👤 Usuário Firebase detectado:", firebaseUser.email);
+          const user = await this.firebaseUserToUser(firebaseUser);
+          console.log("🔄 Atualizando estado para autenticado:", user.email);
 
-        this.setState({
-          isAuthenticated: true,
-          user,
-          isLoading: false,
-          error: null,
-        });
+          this.setState({
+            isAuthenticated: true,
+            user,
+            isLoading: false,
+            error: null,
+          });
 
-        console.log("✅ Estado atualizado - usuário autenticado");
-      } else {
-        // Usuário não logado
-        console.log("🚪 Nenhum usuário logado detectado");
-        this.setState({
-          isAuthenticated: false,
-          user: null,
-          isLoading: false,
-          error: null,
-        });
+          console.log("✅ Estado atualizado - usuário autenticado");
+        } else {
+          // Usuário não logado
+          console.log("🚪 Nenhum usuário logado detectado");
+          this.setState({
+            isAuthenticated: false,
+            user: null,
+            isLoading: false,
+            error: null,
+          });
 
-        console.log("✅ Estado atualizado - usuário não autenticado");
+          console.log("✅ Estado atualizado - usuário não autenticado");
+        }
       }
-    });
+    );
   }
 
-  private firebaseUserToUser(firebaseUser: FirebaseUser): User {
-    // Mapear roles baseado em custom claims ou email
+  private async firebaseUserToUser(firebaseUser: FirebaseUser): Promise<User> {
+    // Aguardar obtenção dos custom claims
     let role = UserRole.USER;
     const email = firebaseUser.email || "";
 
@@ -100,47 +101,41 @@ export class AuthManager {
       "fcbfilipesantos@gmail.com", // Adicionado email do usuário
     ];
 
-    // Primeiro, tentar obter custom claims
-    const getIdTokenResult = async () => {
-      try {
-        const idTokenResult = await firebaseUser.getIdTokenResult();
-        console.log("🔑 Custom Claims obtidos:", idTokenResult.claims);
+    try {
+      const idTokenResult = await firebaseUser.getIdTokenResult();
+      console.log("🔑 Custom Claims obtidos:", idTokenResult.claims);
 
-        if (idTokenResult.claims.role) {
-          role = idTokenResult.claims.role as UserRole;
-          console.log("👑 Role definida por Custom Claims:", role);
-        } else if (idTokenResult.claims.admin === true) {
-          role = UserRole.ADMIN;
-          console.log("👑 Role definida por claim 'admin':", role);
-        } else {
-          // Fallback para lista de emails admin
-          if (adminEmails.includes(email)) {
-            role = UserRole.ADMIN;
-            console.log("👑 Role definida por lista de emails admin:", role);
-          } else {
-            console.log(
-              "👤 Role padrão (USER) - nenhum critério admin encontrado"
-            );
-          }
-        }
-      } catch (error) {
-        console.warn("⚠️ Erro ao obter custom claims, usando fallback:", error);
-
+      if (idTokenResult.claims.role) {
+        role = idTokenResult.claims.role as UserRole;
+        console.log("👑 Role definida por Custom Claims:", role);
+      } else if (idTokenResult.claims.admin === true) {
+        role = UserRole.ADMIN;
+        console.log("👑 Role definida por claim 'admin':", role);
+      } else {
         // Fallback para lista de emails admin
         if (adminEmails.includes(email)) {
           role = UserRole.ADMIN;
-          console.log(
-            "👑 Role definida por lista de emails admin (fallback):",
-            role
-          );
+          console.log("👑 Role definida por lista de emails admin:", role);
         } else {
-          console.log("👤 Role padrão (USER) - fallback sem critério admin");
+          console.log(
+            "👤 Role padrão (USER) - nenhum critério admin encontrado"
+          );
         }
       }
-    };
+    } catch (error) {
+      console.warn("⚠️ Erro ao obter custom claims, usando fallback:", error);
 
-    // Executar de forma assíncrona, mas retornar usuário com role padrão inicialmente
-    getIdTokenResult();
+      // Fallback para lista de emails admin
+      if (adminEmails.includes(email)) {
+        role = UserRole.ADMIN;
+        console.log(
+          "👑 Role definida por lista de emails admin (fallback):",
+          role
+        );
+      } else {
+        console.log("👤 Role padrão (USER) - fallback sem critério admin");
+      }
+    }
 
     return {
       uid: firebaseUser.uid,
@@ -206,7 +201,7 @@ export class AuthManager {
         "✅ Login bem-sucedido no Firebase:",
         userCredential.user.email
       );
-      const user = this.firebaseUserToUser(userCredential.user);
+      const user = await this.firebaseUserToUser(userCredential.user);
 
       console.log("👤 Usuário mapeado:", {
         email: user.email,
