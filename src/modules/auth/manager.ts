@@ -227,30 +227,40 @@ export class AuthManager {
 
       switch (authError.code) {
         case "auth/user-not-found":
-          errorMessage = "Usuário não encontrado";
+          errorMessage =
+            "Este email não está cadastrado no sistema. Verifique se digitou corretamente ou entre em contato com o administrador.";
           break;
         case "auth/wrong-password":
-          errorMessage = "Email ou senha incorretos";
+          errorMessage =
+            "A senha está incorreta. Tente novamente ou clique em 'Esqueci minha senha'.";
           break;
         case "auth/invalid-email":
-          errorMessage = "Email inválido";
+          errorMessage =
+            "O formato do email é inválido. Digite um email válido.";
           break;
         case "auth/user-disabled":
-          errorMessage = "Conta desabilitada";
+          errorMessage =
+            "Esta conta foi desabilitada. Entre em contato com o administrador do sistema.";
           break;
         case "auth/too-many-requests":
-          errorMessage = "Muitas tentativas. Tente novamente mais tarde";
+          errorMessage =
+            "Muitas tentativas de login. Aguarde alguns minutos antes de tentar novamente.";
+          break;
+        case "auth/network-request-failed":
+          errorMessage =
+            "Erro de conexão. Verifique sua internet e tente novamente.";
           break;
         case "auth/project-not-found":
           errorMessage =
-            "Projeto Firebase não encontrado. Verifique a configuração.";
+            "Configuração do sistema inválida. Entre em contato com o administrador.";
           break;
         case "auth/invalid-api-key":
           errorMessage =
-            "Chave da API inválida. Verifique a configuração do Firebase.";
+            "Configuração do sistema inválida. Entre em contato com o administrador.";
           break;
         default:
-          errorMessage = authError.message || errorMessage;
+          errorMessage =
+            "Erro inesperado no login. Tente novamente em alguns instantes.";
       }
 
       console.error("📝 Mensagem de erro final:", errorMessage);

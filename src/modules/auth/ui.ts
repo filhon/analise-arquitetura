@@ -13,6 +13,9 @@ export class LoginUI {
   private submitButton!: HTMLButtonElement;
   private togglePasswordButton!: HTMLButtonElement;
   private loadingElement!: HTMLElement;
+  private errorMessageElement!: HTMLElement;
+  private errorTitleElement!: HTMLElement;
+  private errorDescriptionElement!: HTMLElement;
 
   constructor() {
     this.authManager = AuthManager.getInstance();
@@ -36,12 +39,19 @@ export class LoginUI {
       "toggle-password"
     ) as HTMLButtonElement;
     this.loadingElement = document.getElementById("login-loading")!;
+    this.errorMessageElement = document.getElementById("login-error-message")!;
+    this.errorTitleElement = document.getElementById("error-title")!;
+    this.errorDescriptionElement =
+      document.getElementById("error-description")!;
 
     if (
       !this.loginScreen ||
       !this.loginForm ||
       !this.emailInput ||
-      !this.passwordInput
+      !this.passwordInput ||
+      !this.errorMessageElement ||
+      !this.errorTitleElement ||
+      !this.errorDescriptionElement
     ) {
       throw new Error("Elementos da tela de login não encontrados");
     }
@@ -85,6 +95,9 @@ export class LoginUI {
       return;
     }
 
+    // Limpar mensagens de erro anteriores
+    this.clearErrorMessage();
+
     // Mostrar loading
     this.setLoading(true);
 
@@ -95,12 +108,13 @@ export class LoginUI {
         NotificationService.show("Login realizado com sucesso!", "success");
         this.hideLoginScreen();
       } else {
-        NotificationService.show(result.error || "Erro no login", "error");
+        // Exibir erro específico baseado no tipo
+        this.showErrorMessage(result.error || "Erro no login");
         this.passwordInput.focus();
       }
     } catch (error) {
       console.error("Erro no login:", error);
-      NotificationService.show("Erro interno no sistema", "error");
+      this.showErrorMessage("Erro interno no sistema");
     } finally {
       this.setLoading(false);
     }
@@ -160,6 +174,7 @@ export class LoginUI {
     // Reset form
     this.loginForm.reset();
     this.setLoading(false);
+    this.clearErrorMessage();
     this.emailInput.classList.remove("invalid");
     this.passwordInput.classList.remove("invalid");
   }
@@ -172,5 +187,126 @@ export class LoginUI {
   shouldShowLogin(): boolean {
     const authState = this.authManager.getState();
     return !authState.isAuthenticated;
+  }
+
+  // Método para limpar mensagens de erro
+  private clearErrorMessage(): void {
+    this.errorMessageElement.style.display = "none";
+    this.errorMessageElement.className = "login-error-message";
+  }
+
+  // Método para exibir mensagem de erro específica
+  private showErrorMessage(errorMessage: string): void {
+    const errorType = this.categorizeError(errorMessage);
+    const errorInfo = this.getErrorInfo(errorType);
+
+    // Atualizar conteúdo
+    this.errorTitleElement.textContent = errorInfo.title;
+    this.errorDescriptionElement.textContent = errorInfo.description;
+
+    // Atualizar classes CSS para styling específico
+    this.errorMessageElement.className = `login-error-message ${errorType}`;
+    this.errorMessageElement.style.display = "block";
+
+    // Focar no campo apropriado baseado no tipo de erro
+    if (errorType === "user-not-found" || errorType === "invalid-email") {
+      this.emailInput.focus();
+    } else if (errorType === "wrong-password") {
+      this.passwordInput.focus();
+    }
+  }
+
+  // Método para categorizar o tipo de erro baseado na mensagem
+  private categorizeError(errorMessage: string): string {
+    if (
+      errorMessage.includes("não está cadastrado") ||
+      errorMessage.includes("user-not-found")
+    ) {
+      return "user-not-found";
+    } else if (
+      errorMessage.includes("senha está incorreta") ||
+      errorMessage.includes("wrong-password")
+    ) {
+      return "wrong-password";
+    } else if (
+      errorMessage.includes("formato do email é inválido") ||
+      errorMessage.includes("invalid-email")
+    ) {
+      return "invalid-email";
+    } else if (
+      errorMessage.includes("conta foi desabilitada") ||
+      errorMessage.includes("user-disabled")
+    ) {
+      return "disabled-account";
+    } else if (
+      errorMessage.includes("muitas tentativas") ||
+      errorMessage.includes("too-many-requests")
+    ) {
+      return "too-many-requests";
+    } else if (
+      errorMessage.includes("conexão") ||
+      errorMessage.includes("network")
+    ) {
+      return "network-error";
+    } else {
+      return "generic-error";
+    }
+  }
+
+  // Método para obter informações do erro baseado no tipo
+  private getErrorInfo(errorType: string): {
+    title: string;
+    description: string;
+  } {
+    switch (errorType) {
+      case "user-not-found":
+        return {
+          title: "Email não encontrado",
+          description:
+            "Este email não está cadastrado no sistema. Verifique se digitou corretamente ou entre em contato com o administrador.",
+        };
+
+      case "wrong-password":
+        return {
+          title: "Senha incorreta",
+          description:
+            "A senha digitada está incorreta. Tente novamente ou clique em 'Esqueci minha senha' se necessário.",
+        };
+
+      case "invalid-email":
+        return {
+          title: "Email inválido",
+          description:
+            "O formato do email digitado é inválido. Digite um email válido no formato nome@dominio.com.",
+        };
+
+      case "disabled-account":
+        return {
+          title: "Conta desabilitada",
+          description:
+            "Esta conta foi desabilitada pelo administrador. Entre em contato com o administrador do sistema.",
+        };
+
+      case "too-many-requests":
+        return {
+          title: "Muitas tentativas",
+          description:
+            "Detectamos muitas tentativas de login. Aguarde alguns minutos antes de tentar novamente.",
+        };
+
+      case "network-error":
+        return {
+          title: "Erro de conexão",
+          description:
+            "Não foi possível conectar ao servidor. Verifique sua conexão com a internet e tente novamente.",
+        };
+
+      default:
+        return {
+          title: "Erro no login",
+          description:
+            "Ocorreu um erro inesperado. Tente novamente em alguns instantes ou entre em contato com o administrador.",
+        };
+    }
   }
 }
