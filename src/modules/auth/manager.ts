@@ -510,6 +510,39 @@ export class AuthManager {
     }
   }
 
+  async updateUserDisplayName(
+    uid: string,
+    displayName: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!isConfigured || !functions) {
+      return {
+        success: false,
+        error: "Firebase Functions não está configurado",
+      };
+    }
+
+    try {
+      const updateUserDisplayNameFunction = httpsCallable(functions, "updateUserDisplayName");
+      const result = await updateUserDisplayNameFunction({ uid, displayName });
+
+      const data = result.data as any;
+      if (data.success) {
+        return { success: true };
+      } else {
+        return {
+          success: false,
+          error: data.message || "Erro ao atualizar nome do usuário",
+        };
+      }
+    } catch (error: any) {
+      console.error("Erro ao atualizar nome do usuário:", error);
+      return {
+        success: false,
+        error: error.message || "Erro ao atualizar nome do usuário",
+      };
+    }
+  }
+
   // Método para verificar se Firebase Auth está configurado
   isFirebaseConfigured(): boolean {
     return isConfigured && !!auth;

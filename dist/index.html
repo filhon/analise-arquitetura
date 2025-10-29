@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sistema de Eleição de Oficiais</title>
+    <title>Eleição de Oficiais</title>
     <meta
       name="description"
       content="Sistema profissional para eleição de Presbíteros e Diáconos em igrejas"
@@ -33,13 +33,25 @@
 
     <!-- CSS -->
     <link rel="stylesheet" href="/assets/css/candidate-select.css" />
-    <script type="module" crossorigin src="/assets/index-BRohFvX3.js"></script>
+    <script type="module" crossorigin src="/assets/index-BCxTopcR.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/vendor-mpHdot-v.js">
-    <link rel="modulepreload" crossorigin href="/assets/firebase-9zJ5O7T0.js">
+    <link rel="modulepreload" crossorigin href="/assets/firebase-CLlSKKzt.js">
     <link rel="modulepreload" crossorigin href="/assets/jspdf-CcmqT4Oe.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-Db7VSF32.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-BwLWXKc0.css">
   </head>
   <body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+      <div class="loading-container">
+        <div class="loading-logo">
+          <span class="material-icons md-64">how_to_vote</span>
+        </div>
+        <h1 class="loading-title">Eleição de Oficiais</h1>
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Inicializando sistema...</p>
+      </div>
+    </div>
+
     <!-- Login Screen -->
     <div id="login-screen" class="login-screen">
       <div class="login-container">
@@ -47,18 +59,30 @@
           <div class="login-logo">
             <span class="material-icons md-48">how_to_vote</span>
           </div>
-          <h1 class="login-title">Sistema de Eleição de Oficiais</h1>
-          <p class="login-subtitle">Entre com suas credenciais para acessar o sistema</p>
+          <h1 class="login-title">Eleição de Oficiais</h1>
+          <p class="login-subtitle">
+            Entre com suas credenciais para acessar o sistema
+          </p>
         </div>
 
         <div class="login-card">
           <div class="login-form-container">
-            <h2 class="login-form-title">
-              <span class="material-icons md-24">login</span>
-              Fazer Login
-            </h2>
-
             <form id="login-form" class="login-form">
+              <!-- Área de Feedback de Erro -->
+              <div
+                id="login-error-message"
+                class="login-error-message"
+                style="display: none"
+              >
+                <div class="error-content">
+                  <span class="material-icons error-icon">error</span>
+                  <div class="error-text">
+                    <p id="error-title">Erro no Login</p>
+                    <p id="error-description">Mensagem de erro detalhada</p>
+                  </div>
+                </div>
+              </div>
+
               <div class="form-group">
                 <label for="login-email">Email</label>
                 <div class="input-wrapper">
@@ -128,7 +152,7 @@
         <div class="header-content">
           <h1 class="app-title">
             <span class="material-icons">how_to_vote</span>
-            Sistema de Eleição de Oficiais
+            Eleição de Oficiais
           </h1>
           <div class="header-actions">
             <!-- Botões Exportar e Importar removidos do header -->
@@ -147,6 +171,23 @@
             >
               <span class="material-icons md-24">settings</span>
             </button>
+
+            <!-- Informações do usuário logado -->
+            <div id="user-info" class="user-info" style="display: none">
+              <div class="user-details">
+                <span class="material-icons md-20">person</span>
+                <span id="user-name" class="user-name"></span>
+                <span id="user-role" class="user-role"></span>
+              </div>
+              <button
+                id="logout-btn"
+                class="btn btn-outline btn-sm"
+                title="Sair do sistema"
+              >
+                <span class="material-icons md-18">logout</span>
+                Sair
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -173,6 +214,10 @@
           <button class="nav-tab" data-tab="results">
             <span class="material-icons md-20">bar_chart</span>
             <span class="nav-tab-text">Resultados</span>
+          </button>
+          <button class="nav-tab" data-tab="users">
+            <span class="material-icons md-20">people_alt</span>
+            <span class="nav-tab-text">Usuários</span>
           </button>
         </div>
       </nav>
@@ -475,6 +520,72 @@
             <div id="detailed-results-content">
               <!-- Dynamic content -->
             </div>
+          </div>
+        </section>
+
+        <!-- Users Tab -->
+        <section id="users-tab" class="tab-content">
+          <div class="section-header">
+            <h2>
+              Gerenciamento de Usuários
+              <button
+                class="info-icon-btn"
+                data-info="users-info"
+                title="Informações"
+              >
+                <span class="material-icons md-20">info</span>
+              </button>
+            </h2>
+            <div class="section-actions">
+              <button id="add-user" class="btn btn-success">
+                <span class="material-icons md-20">person_add</span>
+                Novo Usuário
+              </button>
+            </div>
+          </div>
+
+          <!-- Info Tooltip Content (hidden by default) -->
+          <div id="users-info" class="info-tooltip" style="display: none">
+            <div class="info-tooltip-content">
+              <h4>Gerenciamento de Usuários</h4>
+              <p>
+                Gerencie os usuários da plataforma. Apenas administradores podem
+                adicionar novos usuários e definir suas permissões.
+              </p>
+            </div>
+          </div>
+
+          <div class="users-stats">
+            <div class="stat-card">
+              <h3 id="total-users">0</h3>
+              <p>Usuários Totais</p>
+            </div>
+            <div class="stat-card">
+              <h3 id="admin-users">0</h3>
+              <p>Administradores</p>
+            </div>
+            <div class="stat-card">
+              <h3 id="regular-users">0</h3>
+              <p>Usuários Regulares</p>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table id="users-table" class="data-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Email</th>
+                  <th>Função</th>
+                  <th>Status</th>
+                  <th>Último Login</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="users-tbody">
+                <!-- Dynamic content -->
+              </tbody>
+            </table>
           </div>
         </section>
       </main>
@@ -912,6 +1023,86 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- User Modal -->
+    <div
+      id="user-modal"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="user-modal-title"
+    >
+      <div class="modal-content" role="document">
+        <div class="modal-header">
+          <h3 id="user-modal-title">Novo Usuário</h3>
+          <button class="modal-close">
+            <span class="material-icons md-20">close</span>
+          </button>
+        </div>
+        <form id="user-form" class="modal-form">
+          <div class="form-group">
+            <label for="user-display-name">Nome de Exibição *</label>
+            <input
+              type="text"
+              id="user-display-name"
+              name="displayName"
+              placeholder="Nome completo do usuário"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="user-email">Email *</label>
+            <div class="input-wrapper">
+              <span class="material-icons input-icon">email</span>
+              <input
+                type="email"
+                id="user-email"
+                name="email"
+                placeholder="usuario@email.com"
+                required
+                autocomplete="email"
+              />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="user-password">Senha *</label>
+            <div class="input-wrapper">
+              <span class="material-icons input-icon">lock</span>
+              <input
+                type="password"
+                id="user-password"
+                name="password"
+                placeholder="Mínimo 6 caracteres"
+                required
+                minlength="6"
+              />
+              <button
+                type="button"
+                id="toggle-user-password"
+                class="password-toggle"
+                title="Mostrar/ocultar senha"
+              >
+                <span class="material-icons">visibility</span>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="user-role">Função *</label>
+            <select id="user-role" name="role" required>
+              <option value="">Selecione a função</option>
+              <option value="user">Usuário Regular</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary modal-cancel">
+              Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </form>
       </div>
     </div>
 

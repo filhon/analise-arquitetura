@@ -3937,23 +3937,44 @@ export class UIManager {
 
     try {
       if (editingId) {
-        // Modo edição - apenas atualizar role
-        const result = await authManager.updateUserRole(
-          editingId,
-          role as UserRole
+        // Modo edição - atualizar displayName e role
+        const updatePromises: Promise<{ success: boolean; error?: string }>[] = [];
+
+        // Atualizar displayName se foi alterado
+        const currentUser = await authManager.getUsers().then(users =>
+          users.find(u => u.uid === editingId)
         );
 
-        if (result.success) {
+        if (currentUser && currentUser.displayName !== displayName) {
+          updatePromises.push(
+            authManager.updateUserDisplayName(editingId, displayName)
+          );
+        }
+
+        // Sempre atualizar role (pode ter mudado)
+        updatePromises.push(
+          authManager.updateUserRole(editingId, role as UserRole)
+        );
+
+        // Executar todas as atualizações
+        const results = await Promise.all(updatePromises);
+        const hasError = results.some(result => !result.success);
+
+        if (!hasError) {
           NotificationService.success(
-            "Função do usuário atualizada com sucesso!"
+            "Usuário atualizado com sucesso!"
           );
           this.closeAllModals();
 
           // Recarregar lista de usuários
           await this.loadUsersData();
         } else {
+          const errorMessages = results
+            .filter(result => result.error)
+            .map(result => result.error)
+            .join("; ");
           NotificationService.error(
-            result.error || "Erro ao atualizar usuário"
+            `Erro ao atualizar usuário: ${errorMessages}`
           );
         }
       } else {
@@ -4083,6 +4104,131 @@ export class UIManager {
     this.updateElement("regular-users", regularUsers.toString());
     this.updateElement("active-users", activeUsers.toString());
   }
+
+  // @ts-expect-error - Método usado indiretamente via função global editUser()
+  private async handleEditUser(uid: string): Promise<void> {
+    try {
+      const authManager = AuthManager.getInstance();
+      const users = await authManager.getUsers();
+      const user = users.find((u) => u.uid === uid);
+
+      if (!user) {
+        NotificationService.error("Usuário não encontrado");
+        return;
+      }
+
+      // Preencher o formulário com os dados do usuário
+      const modal = document.getElementById("user-modal");
+      const form = document.getElementById("user-form") as HTMLFormElement;
+      const title = document.getElementById("user-modal-title");
+
+      if (!modal || !form || !title) return;
+
+      title.textContent = "Editar Usuário";
+
+      // Preencher campos
+      (document.getElementById("user-display-name") as HTMLInputElement).value =
+        user.displayName || "";
+      (document.getElementById("user-email") as HTMLInputElement).value =
+        user.email || "";
+      (document.getElementById("user-role") as HTMLSelectElement).value =
+        user.role || "user";
+
+      // Configurar campos para edição
+      const emailInput = document.getElementById(
+        "user-email"
+      ) as HTMLInputElement;
+      const passwordInput = document.getElementById(
+        "user-password"
+      ) as HTMLInputElement;
+
+      // Campo email: visível mas não editável
+      if (emailInput) {
+        emailInput.disabled = true;
+        emailInput.style.display = "block"; // Garantir que está visível
+        emailInput.style.opacity = "0.6"; // Visual de desabilitado
+        // Mostrar label também
+        const emailLabel = document.querySelector(
+          'label[for="user-email"]'
+        ) as HTMLElement;
+        if (emailLabel) {
+          emailLabel.style.display = "block";
+          emailLabel.textContent = "Email (não pode ser alterado)"; // Indicar que não pode ser alterado
+        }
+      }
+
+      // Campo senha: visível mas desabilitado (funcionalidade ainda não implementada)
+      if (passwordInput) {
+        passwordInput.style.display = "block"; // Garantir que está visível
+        passwordInput.disabled = true; // Desabilitar por enquanto
+        passwordInput.required = false; // Não obrigatório na edição
+        passwordInput.value = ""; // Limpar campo
+        passwordInput.placeholder = "Funcionalidade em desenvolvimento";
+        // Mostrar label também
+        const passwordLabel = document.querySelector(
+          'label[for="user-password"]'
+        ) as HTMLElement;
+        if (passwordLabel) {
+          passwordLabel.style.display = "block";
+          passwordLabel.textContent = "Senha (em desenvolvimento)"; // Indicar que está em desenvolvimento
+        }
+      }
+
+      // Armazenar o UID do usuário sendo editado
+      form.dataset.editingId = uid;
+
+      // Mostrar modal usando o método correto
+      this.showModal("user-modal");
+    } catch (error) {
+      console.error("Erro ao editar usuário:", error);
+      NotificationService.error("Erro ao carregar dados do usuário");
+    }
+  }
+
+  // @ts-expect-error - Método usado indiretamente via função global deleteUser()
+  private async handleDeleteUser(uid: string): Promise<void> {
+    try {
+      const authManager = AuthManager.getInstance();
+      const users = await authManager.getUsers();
+      const user = users.find((u) => u.uid === uid);
+
+      if (!user) {
+        NotificationService.error("Usuário não encontrado");
+        return;
+      }
+
+      // Não permitir excluir o próprio usuário
+      const currentUser = authManager.getCurrentUser();
+      if (currentUser && currentUser.uid === uid) {
+        NotificationService.error("Você não pode excluir sua própria conta");
+        return;
+      }
+
+      // Confirmar exclusão
+      const confirmed = confirm(
+        `Tem certeza que deseja excluir o usuário "${user.displayName || user.email}"?\n\nEsta ação não pode ser desfeita.`
+      );
+
+      if (!confirmed) return;
+
+      // Deletar usuário
+      const result = await authManager.deleteUser(uid);
+
+      if (result.success) {
+        NotificationService.success(
+          `Usuário "${user.displayName || user.email}" excluído com sucesso!`
+        );
+
+        // Recarregar lista de usuários
+        await this.loadUsersData();
+      } else {
+        NotificationService.error(result.error || "Erro ao excluir usuário");
+      }
+    } catch (error) {
+      console.error("Erro ao deletar usuário:", error);
+      NotificationService.error("Erro ao excluir usuário");
+    }
+  }
 }
 
 // Expose methods globally for inline event handlers
@@ -4206,4 +4352,9 @@ export class UIManager {
 (window as any).editUser = async (uid: string) => {
   const uiManager = UIManager.getInstance();
   await (uiManager as any).handleEditUser(uid);
+};
+
+(window as any).deleteUser = async (uid: string) => {
+  const uiManager = UIManager.getInstance();
+  await (uiManager as any).handleDeleteUser(uid);
 };
