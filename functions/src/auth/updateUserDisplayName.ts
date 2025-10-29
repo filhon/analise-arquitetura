@@ -51,14 +51,10 @@ export const updateUserDisplayName = functions.https.onCall(
       });
 
       // Atualizar perfil no Firestore
-      await admin
-        .firestore()
-        .collection("users")
-        .doc(uid)
-        .update({
-          displayName: displayName.trim(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+      await admin.firestore().collection("users").doc(uid).update({
+        displayName: displayName.trim(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
       console.log(
         `✅ Nome do usuário ${userRecord.email} atualizado para "${displayName.trim()}"`

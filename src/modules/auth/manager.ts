@@ -522,7 +522,10 @@ export class AuthManager {
     }
 
     try {
-      const updateUserDisplayNameFunction = httpsCallable(functions, "updateUserDisplayName");
+      const updateUserDisplayNameFunction = httpsCallable(
+        functions,
+        "updateUserDisplayName"
+      );
       const result = await updateUserDisplayNameFunction({ uid, displayName });
 
       const data = result.data as any;

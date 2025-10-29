@@ -3938,12 +3938,13 @@ export class UIManager {
     try {
       if (editingId) {
         // Modo edição - atualizar displayName e role
-        const updatePromises: Promise<{ success: boolean; error?: string }>[] = [];
+        const updatePromises: Promise<{ success: boolean; error?: string }>[] =
+          [];
 
         // Atualizar displayName se foi alterado
-        const currentUser = await authManager.getUsers().then(users =>
-          users.find(u => u.uid === editingId)
-        );
+        const currentUser = await authManager
+          .getUsers()
+          .then((users) => users.find((u) => u.uid === editingId));
 
         if (currentUser && currentUser.displayName !== displayName) {
           updatePromises.push(
@@ -3958,20 +3959,18 @@ export class UIManager {
 
         // Executar todas as atualizações
         const results = await Promise.all(updatePromises);
-        const hasError = results.some(result => !result.success);
+        const hasError = results.some((result) => !result.success);
 
         if (!hasError) {
-          NotificationService.success(
-            "Usuário atualizado com sucesso!"
-          );
+          NotificationService.success("Usuário atualizado com sucesso!");
           this.closeAllModals();
 
           // Recarregar lista de usuários
           await this.loadUsersData();
         } else {
           const errorMessages = results
-            .filter(result => result.error)
-            .map(result => result.error)
+            .filter((result) => result.error)
+            .map((result) => result.error)
             .join("; ");
           NotificationService.error(
             `Erro ao atualizar usuário: ${errorMessages}`

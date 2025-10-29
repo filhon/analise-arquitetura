@@ -12,4 +12,10 @@ import { getUsers } from "./auth/getUsers";
 import { deleteUser } from "./auth/deleteUser";
 
 // Exportar funções para deployment
-export { createUser, updateUserRole, updateUserDisplayName, getUsers, deleteUser };
+export {
+  createUser,
+  updateUserRole,
+  updateUserDisplayName,
+  getUsers,
+  deleteUser,
+};
