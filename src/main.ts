@@ -33,23 +33,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     NotificationService.getInstance();
 
     // Aguardar inicialização completa do Firebase Auth
-    console.log("[Main] Aguardando inicialização do Firebase Auth...");
     const authManager = AuthManager.getInstance();
-
-    // Aguardar até que o estado de autenticação seja determinado
     await waitForAuthState(authManager);
 
     const currentUser = authManager.getCurrentUser();
 
     if (!currentUser) {
       // Usuário não autenticado - mostrar tela de login
-      console.log("[Main] Usuário não autenticado - mostrando tela de login");
       showLoginScreen();
       return;
     }
 
     // Usuário autenticado - inicializar aplicação normalmente
-    console.log("[Main] Usuário autenticado:", currentUser.email);
     await initializeApplication();
   } catch (error) {
     console.error("Erro fatal na inicialização:", error);
@@ -73,38 +68,30 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // Função para aguardar o estado de autenticação ser determinado
 function waitForAuthState(authManager: AuthManager): Promise<void> {
-  return new Promise((resolve) => {
-    const state = authManager.getState();
+  const state = authManager.getState();
 
-    // Se já temos um estado determinado (autenticado ou não), resolver imediatamente
-    if (!state.isLoading) {
-      console.log(
-        "[Auth] Estado já determinado:",
-        state.isAuthenticated ? "autenticado" : "não autenticado"
-      );
-      resolve();
-      return;
-    }
+  // Se já temos um estado determinado (autenticado ou não), resolver imediatamente
+  if (!state.isLoading) {
+    return Promise.resolve();
+  }
 
-    // Aguardar mudança de estado
-    const unsubscribe = authManager.subscribe((newState) => {
-      if (!newState.isLoading) {
-        console.log(
-          "[Auth] Estado determinado via listener:",
-          newState.isAuthenticated ? "autenticado" : "não autenticado"
-        );
-        unsubscribe();
+  // Aguardar mudança de estado com timeout
+  return Promise.race([
+    new Promise<void>((resolve) => {
+      const unsubscribe = authManager.subscribe((newState) => {
+        if (!newState.isLoading) {
+          unsubscribe();
+          resolve();
+        }
+      });
+    }),
+    new Promise<void>((resolve) => {
+      setTimeout(() => {
+        console.warn("Timeout aguardando estado de autenticação");
         resolve();
-      }
-    });
-
-    // Timeout de segurança (10 segundos)
-    setTimeout(() => {
-      console.warn("[Auth] Timeout aguardando estado de autenticação");
-      unsubscribe();
-      resolve();
-    }, 10000);
-  });
+      }, 10000);
+    }),
+  ]);
 }
 
 // Função para mostrar tela de login
@@ -150,29 +137,19 @@ async function initializeApplication(): Promise<void> {
     }
 
     // Inicializar aplicação
-    console.log("[Main] 1/4 - Inicializando sistema de eleição...");
     const initResult = await electionApp.initialize();
-    console.log("[Main] ElectionApp inicializado:", initResult);
 
     if (!initResult.success) {
       throw new Error(initResult.error || "Erro desconhecido na inicialização");
     }
 
     // Inicializar interface do usuário
-    console.log("[Main] 2/4 - Inicializando interface...");
     const uiManager = UIManager.getInstance();
-    console.log("[Main] UIManager instanciado");
-
-    console.log("[Main] 3/4 - Carregando dados iniciais da UI...");
     await uiManager.initialize();
-    console.log("[Main] UIManager inicializado");
 
     // Esconder loading e mostrar aplicação
-    console.log("[Main] 4/4 - Exibindo interface...");
     loadingScreen.style.display = "none";
     appContainer.style.display = "block";
-
-    console.log("[Main] ✓ Sistema inicializado com sucesso!");
 
     // Mostrar notificação de sucesso
     NotificationService.show("Sistema inicializado com sucesso!", "success", {

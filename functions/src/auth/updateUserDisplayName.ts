@@ -9,8 +9,12 @@ interface UpdateUserDisplayNameData {
 
 export const updateUserDisplayName = functions.https.onCall(
   async (data: UpdateUserDisplayNameData, context) => {
-    // Verificar se caller é admin
-    if (!context.auth?.token.admin) {
+    // Verificar se caller é admin (verificar tanto admin quanto role)
+    const isAdmin =
+      context.auth?.token.admin === true ||
+      context.auth?.token.role === "admin";
+
+    if (!context.auth || !isAdmin) {
       throw new functions.https.HttpsError(
         "permission-denied",
         "Apenas administradores podem atualizar nomes de usuários"

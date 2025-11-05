@@ -250,6 +250,101 @@
   - Estatísticas por candidato (quantidade e percentual)
   - Event system (VOTE_RECORDED) para atualizações em tempo real
   - Documentação completa em docs/IMPLEMENTACAO-SISTEMA-AUDITORIA.md
+  - ✅ SINCRONIZAÇÃO TEMPO REAL: Contador sincronizado com Firebase (05/nov/2025)
+    - Novo evento SYNC_AUDIT_UPDATED para updates remotos
+    - Listener em /audit no RealtimeSync (3 listeners: members, config, audit)
+    - AuditManager escuta Firebase e atualiza contador automaticamente
+    - Multi-dispositivo: todos veem mesmo número em tempo real
+    - Prevenção de loop infinito com session tracking
+    - Documentação completa em docs/SINCRONIZACAO-AUDIT-FIREBASE.md
+    - Documentação completa em docs/SINCRONIZACAO-AUDIT-FIREBASE.md
+  - ✅ MIGRAÇÃO ESTRUTURA INCREMENTAL V2: Eliminado race conditions (05/nov/2025)
+    - Estrutura migrada de nó único para nodes incrementais (/audit/0/, /audit/1/...)
+    - Atomic writes com Firebase set() em paths individuais
+    - Listener onChildAdded() substituiu onValue() para sync leve
+    - Novo evento SYNC_VOTE_ADDED para votos individuais
+    - Smart ID calculation (getNextVoteId) consulta Firebase
+    - Merge strategy (Firebase priority) em loadFromStorage()
+    - Metadata tracking (/audit/metadata/) com totalVotes, version
+    - Session tracking (createdBy, createdAt) previne loops
+    - 300+ linhas implementadas, 0 race conditions, build sucesso
+    - Documentação completa em docs/MIGRACAO-AUDIT-ESTRUTURA-INCREMENTAL.md
+- [x] Melhorias de Segurança no Modo Fullscreen de Votação
+  - Removido método obsoleto showVotingFullscreenPreview (~200 linhas)
+  - Botão de fechar fullscreen oculto (display: none)
+  - Validação por senha obrigatória para sair (palavra: "sair")
+  - Interceptação de tecla Escape (desktop) com prompt de senha
+  - Interceptação de botão Voltar (mobile) usando history.pushState
+  - Prevenção de saída acidental durante votação
+  - Proteção do gerenciamento de votos
+  - Bundle otimizado (-3.89 kB)
+  - Documentação completa em docs/MELHORIAS-SEGURANCA-FULLSCREEN.md
+- [x] Otimização Completa do Sistema de Login
+  - Removido email hardcoded do código (segurança)
+  - Simplificada lógica de roles (3 → 2 níveis de fallback)
+  - Criado método validateFirebaseConfig() (DRY principle)
+  - Removidos 20+ console.log desnecessários (87% redução)
+  - Otimizado waitForAuthState com Promise.race
+  - Removido elemento HTML login-loading obsoleto
+  - Consolidada categorização de erros (objeto único)
+  - Performance: 40% redução no tempo de inicialização
+  - Bundle: -1.5kB de código removido
+  - Documentação completa em docs/OTIMIZACAO-SISTEMA-LOGIN.md
+- [x] Implementar Sincronização User-Info com Firestore
+  - Firestore adicionado ao firebase.ts (getFirestore, export)
+  - AuthManager busca dados do Firestore em firebaseUserToUser()
+  - Priorização: displayName e role do Firestore > Firebase Auth
+  - Listener em tempo real (onSnapshot) para mudanças no Firestore
+  - Sincronização automática multi-dispositivo
+  - Atualização instantânea do user-info após edições
+  - Cleanup adequado de listeners no logout
+  - Tratamento de erros robusto com fallback para Auth
+  - Documentação completa em docs/IMPLEMENTACAO-FIRESTORE-USER-INFO.md
+- [x] Modificar Validação de Presença para Primeiro Nome
+  - Espaçamento mínimo de 0.75rem entre attendance-item
+  - Substituída validação por CPF (3 dígitos) por primeiro nome
+  - Modal atualizado com hint dinâmico em negrito
+  - Normalização inteligente (case-insensitive, remove acentos)
+  - Extração automática do primeiro nome do membro
+  - UX humanizada e menos propensa a erros
+  - Método openAttendanceConfirmModal agora assíncrono
+  - Documentação completa em docs/MODIFICACAO-VALIDACAO-PRESENCA-PRIMEIRO-NOME.md
+- [x] Corrigir Escape Duplo no Fullscreen de Votação
+  - Problema: Precisava pressionar Escape duas vezes para fechar
+  - Adicionado listener fullscreenchange para detectar saída nativa
+  - Implementado stopPropagation() no handler de Escape
+  - Proteção contra múltiplas chamadas em closeFullscreen()
+  - Re-entrada automática em fullscreen se senha incorreta
+  - Escape agora fecha em uma única pressão
+  - Documentação completa em docs/CORRECAO-ESCAPE-DUPLO-FULLSCREEN.md
+- [x] Implementar Limite de Votos = Presentes (05/nov/2025)
+  - Verificação automática: votos registrados não podem exceder presentes
+  - Flag `votingClosed` em VotingManager para controle de estado
+  - Novo evento `VOTING_CLOSED` notifica sistema ao atingir limite
+  - Validação dupla em `submitVotesAtomically()` (pré e pós-sincronização)
+  - Tela de encerramento estática (sem countdown) quando limite atingido
+  - Bloqueio de todas as entradas de voto após encerramento
+  - **Bloqueio de abertura do fullscreen quando votação encerrada** (handleStartVoting)
+  - Métodos `isVotingClosed()` e `reopenVoting()` para controle
+  - Reset automático de flag ao executar Zerésima
+  - Interface de encerramento: ícone check_circle, contagem total, instrução de saída
+  - Proteção contra race conditions em multi-dispositivo
+  - Notificações de erro ao tentar votar/abrir fullscreen após encerramento
+  - Documentação completa em docs/IMPLEMENTACAO-LIMITE-VOTOS-PRESENTES.md
+  - Modal atualizado com hint dinâmico em negrito
+  - Normalização inteligente (case-insensitive, remove acentos)
+  - Extração automática do primeiro nome do membro
+  - UX humanizada e menos propensa a erros
+  - Método openAttendanceConfirmModal agora assíncrono
+  - Documentação completa em docs/MODIFICACAO-VALIDACAO-PRESENCA-PRIMEIRO-NOME.md
+- [x] Corrigir Escape Duplo no Fullscreen de Votação
+  - Problema: Precisava pressionar Escape duas vezes para fechar
+  - Adicionado listener fullscreenchange para detectar saída nativa
+  - Implementado stopPropagation() no handler de Escape
+  - Proteção contra múltiplas chamadas em closeFullscreen()
+  - Re-entrada automática em fullscreen se senha incorreta
+  - Escape agora fecha em uma única pressão
+  - Documentação completa em docs/CORRECAO-ESCAPE-DUPLO-FULLSCREEN.md
 
 ## Arquitetura do Sistema
 

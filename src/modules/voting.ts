@@ -28,6 +28,7 @@ export class VotingManager {
   private votesCache = new SmartCache<VotingData[]>();
   private eventSystem = EventSystem.getInstance();
   private memberManager = MemberManager.getInstance();
+  private votingClosed = false; // Flag para indicar se votação foi encerrada
 
   // Debounced update para performance
   private updateResults = debounce(this._updateResults.bind(this), 150);
@@ -45,13 +46,13 @@ export class VotingManager {
       const cached = this.candidatesCache.get(cacheKey);
       if (cached) {
         console.log(
-          `[VotingManager.getCandidates] ⚡ Retornando ${cached.length} candidatos do cache (key: ${cacheKey})`,
+          `[VotingManager.getCandidates] ⚡ Retornando ${cached.length} candidatos do cache (key: ${cacheKey})`
         );
         return cached;
       }
 
       console.log(
-        `[VotingManager.getCandidates] 🔄 Cache vazio, buscando de MEMBERS (key: ${cacheKey})`,
+        `[VotingManager.getCandidates] 🔄 Cache vazio, buscando de MEMBERS (key: ${cacheKey})`
       );
 
       // NOVA IMPLEMENTAÇÃO: Buscar candidatos de MEMBERS
@@ -60,7 +61,7 @@ export class VotingManager {
       // Filtrar membros que são candidatos
       let candidateMembers = members.filter(
         (m): m is Member & { candidato: CandidateRole } =>
-          m.candidato !== null && m.candidato !== undefined,
+          m.candidato !== null && m.candidato !== undefined
       );
 
       // Filtrar por role se especificado
@@ -82,7 +83,7 @@ export class VotingManager {
       this.candidatesCache.set(cacheKey, candidates);
 
       console.log(
-        `[DEBUG VotingManager.getCandidates] ${candidates.length} candidatos carregados de MEMBERS`,
+        `[DEBUG VotingManager.getCandidates] ${candidates.length} candidatos carregados de MEMBERS`
       );
 
       return candidates;
@@ -107,7 +108,7 @@ export class VotingManager {
    */
   async castVote(
     candidateId: string,
-    memberId: string,
+    memberId: string
   ): Promise<AsyncResult<VotingData>> {
     try {
       // 1. Validar quórum
@@ -141,7 +142,7 @@ export class VotingManager {
       // 4. Incrementar votos do candidato via MemberManager (SSOT)
       const voteResult = await this.memberManager.updateMemberVotes(
         candidateId,
-        1,
+        1
       );
       if (!voteResult.success) {
         return {
@@ -184,7 +185,7 @@ export class VotingManager {
       };
 
       console.log(
-        `[VotingManager] ✅ Voto registrado: ${candidate.nome} agora tem ${votingData.votes} votos`,
+        `[VotingManager] ✅ Voto registrado: ${candidate.nome} agora tem ${votingData.votes} votos`
       );
 
       return {
@@ -205,12 +206,20 @@ export class VotingManager {
    * Usado na tela de projeção onde não há login individual
    */
   async incrementVoteProjection(
-    candidateId: string,
+    candidateId: string
   ): Promise<AsyncResult<VotingData>> {
     try {
+      // 0. Verificar se votação foi encerrada
+      if (this.votingClosed) {
+        return {
+          success: false,
+          error: "Votação encerrada",
+        };
+      }
+
       console.log(
         "[VotingManager] 🎥 Incrementando voto (projeção):",
-        candidateId,
+        candidateId
       );
 
       // 1. Validar que candidato existe
@@ -222,22 +231,29 @@ export class VotingManager {
         };
       }
 
-      // ✅ NOVA REGRA: Votos não podem exceder o número de presentes
+      // 2. Verificar se votos já atingiram o limite de presentes (ANTES de incrementar)
+      const auditManager = (await import("./audit")).AuditManager.getInstance();
+      const totalVotes = auditManager.getVotesCount();
       const quorumData = await this.getQuorumData();
       const presentMembers = quorumData.presentMembers;
-      const currentVotes = candidate.votes || 0;
 
-      if (currentVotes >= presentMembers) {
+      if (totalVotes >= presentMembers) {
+        // Marcar votação como encerrada
+        this.votingClosed = true;
+        this.eventSystem.emit(EventTypes.VOTING_CLOSED, {
+          totalVotes,
+          presentMembers,
+        });
         return {
           success: false,
-          error: "Número máximo atingido",
+          error: "Votação encerrada - limite de votos atingido",
         };
       }
 
       // 2. Incrementar votos diretamente (sem validar eleitor)
       const voteResult = await this.memberManager.updateMemberVotes(
         candidateId,
-        1,
+        1
       );
       if (!voteResult.success) {
         return {
@@ -266,7 +282,7 @@ export class VotingManager {
       };
 
       console.log(
-        `[VotingManager] ✅ Voto incrementado (projeção): ${candidate.nome} = ${votingData.votes} votos`,
+        `[VotingManager] ✅ Voto incrementado (projeção): ${candidate.nome} = ${votingData.votes} votos`
       );
 
       return { success: true, data: votingData };
@@ -284,12 +300,12 @@ export class VotingManager {
    * Usado na tela de projeção onde não há login individual
    */
   async decrementVoteProjection(
-    candidateId: string,
+    candidateId: string
   ): Promise<AsyncResult<VotingData | null>> {
     try {
       console.log(
         "[VotingManager] 🎥 Decrementando voto (projeção):",
-        candidateId,
+        candidateId
       );
 
       // 1. Validar que candidato existe
@@ -312,7 +328,7 @@ export class VotingManager {
       // 3. Decrementar votos diretamente (sem validar eleitor)
       const voteResult = await this.memberManager.updateMemberVotes(
         candidateId,
-        -1,
+        -1
       );
       if (!voteResult.success) {
         return {
@@ -341,7 +357,7 @@ export class VotingManager {
       };
 
       console.log(
-        `[VotingManager] ✅ Voto decrementado (projeção): ${candidate.nome} = ${votingData.votes} votos`,
+        `[VotingManager] ✅ Voto decrementado (projeção): ${candidate.nome} = ${votingData.votes} votos`
       );
 
       return { success: true, data: votingData };
@@ -359,12 +375,12 @@ export class VotingManager {
    * Usado na tela de projeção para zerar contador
    */
   async resetVotesProjection(
-    candidateId: string,
+    candidateId: string
   ): Promise<AsyncResult<VotingData>> {
     try {
       console.log(
         "[VotingManager] 🎥 Resetando votos (projeção):",
-        candidateId,
+        candidateId
       );
 
       // 1. Validar que candidato existe
@@ -393,7 +409,7 @@ export class VotingManager {
       // 3. Resetar votos (decrementar todos)
       const voteResult = await this.memberManager.updateMemberVotes(
         candidateId,
-        -currentVotes,
+        -currentVotes
       );
       if (!voteResult.success) {
         return {
@@ -422,7 +438,7 @@ export class VotingManager {
       };
 
       console.log(
-        `[VotingManager] ✅ Votos resetados (projeção): ${candidate.nome} = 0 votos`,
+        `[VotingManager] ✅ Votos resetados (projeção): ${candidate.nome} = 0 votos`
       );
 
       return { success: true, data: votingData };
@@ -437,7 +453,7 @@ export class VotingManager {
 
   async removeVote(
     candidateId: string,
-    memberId: string,
+    memberId: string
   ): Promise<AsyncResult<VotingData | null>> {
     try {
       // 1. Obter e validar candidato
@@ -460,7 +476,7 @@ export class VotingManager {
       // 3. Decrementar votos do candidato via MemberManager (SSOT)
       const voteResult = await this.memberManager.updateMemberVotes(
         candidateId,
-        -1,
+        -1
       );
       if (!voteResult.success) {
         return {
@@ -486,7 +502,7 @@ export class VotingManager {
       };
 
       console.log(
-        `[VotingManager] ✅ Voto removido: ${candidate.nome} agora tem ${votingData.votes} votos`,
+        `[VotingManager] ✅ Voto removido: ${candidate.nome} agora tem ${votingData.votes} votos`
       );
 
       return {
@@ -552,13 +568,13 @@ export class VotingManager {
    * ✅ Escrita acontece em ambas as camadas simultaneamente.
    */
   async updateQuorumConfig(
-    config: QuorumConfig,
+    config: QuorumConfig
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // ✅ Obter config existente do cache
       const stored = localStorage.getItem(StorageKeys.CONFIG);
       const existingConfig: ConfigData = (safeParseJSON<ConfigData>(
-        stored,
+        stored
       ) as ConfigData) || { quorum: config };
 
       // Atualizar apenas quorum, mantendo outras configs
@@ -592,11 +608,11 @@ export class VotingManager {
       // Se não há config, retornar valores padrão
       if (!config) {
         console.warn(
-          "[VotingManager.getQuorumData] ⚠️ Config não encontrada no localStorage",
+          "[VotingManager.getQuorumData] ⚠️ Config não encontrada no localStorage"
         );
         console.warn(
           "[VotingManager.getQuorumData] localStorage.CONFIG:",
-          localStorage.getItem(StorageKeys.CONFIG),
+          localStorage.getItem(StorageKeys.CONFIG)
         );
         return {
           totalMembers: 0,
@@ -617,7 +633,7 @@ export class VotingManager {
       const totalMembers = stats.totalMembers;
       const presentMembers = stats.presentMembers;
       const minimumQuorum = Math.ceil(
-        (totalMembers * config.minimumPercentage) / 100,
+        (totalMembers * config.minimumPercentage) / 100
       );
 
       // Calcular votos necessários baseado no critério
@@ -631,7 +647,7 @@ export class VotingManager {
       } else {
         // Percentual personalizado
         votesRequired = Math.ceil(
-          (presentMembers * config.votesRequiredPercentage) / 100,
+          (presentMembers * config.votesRequiredPercentage) / 100
         );
       }
 
@@ -683,14 +699,14 @@ export class VotingManager {
 
       // Separar por categoria
       const presbyteros = candidatesWithVotes.filter(
-        (c) => c.role === "Presbítero",
+        (c) => c.role === "Presbítero"
       );
       const diaconos = candidatesWithVotes.filter((c) => c.role === "Diácono");
 
       // Calcular total de votos somando Member.votes
       const totalVotes = candidateMembers.reduce(
         (sum, m) => sum + (m.votes || 0),
-        0,
+        0
       );
 
       return {
@@ -768,7 +784,7 @@ export class VotingManager {
   async getElectedCandidates(): Promise<Candidate[]> {
     const results = await this.getElectionResults();
     return [...results.presbyteros, ...results.diaconos].filter(
-      (c) => c.isElected,
+      (c) => c.isElected
     );
   }
 
@@ -796,11 +812,29 @@ export class VotingManager {
 
       console.log("[VotingManager] ✅ Todos os votos foram resetados");
 
+      // Resetar flag de votação encerrada
+      this.votingClosed = false;
+
       return { success: true };
     } catch (error) {
       ErrorHandler.log(error as Error, "VotingManager.resetVotes");
       return { success: false, error: "Erro ao resetar votos" };
     }
+  }
+
+  /**
+   * Verificar se a votação foi encerrada (votos = presentes)
+   */
+  isVotingClosed(): boolean {
+    return this.votingClosed;
+  }
+
+  /**
+   * Resetar flag de votação encerrada (usar ao iniciar nova votação)
+   */
+  reopenVoting(): void {
+    this.votingClosed = false;
+    console.log("[VotingManager] 🔄 Votação reaberta");
   }
 
   /**
@@ -821,11 +855,11 @@ export class VotingManager {
 
       const totalVotes = candidateMembers.reduce(
         (sum, m) => sum + (m.votes || 0),
-        0,
+        0
       );
       const votersCount = voters.length;
       const presentCount = presentMembers.filter(
-        (m) => m.tipo === "Membro Comungante",
+        (m) => m.tipo === "Membro Comungante"
       ).length; // Apenas comungantes podem votar
       const abstentions = presentCount - votersCount;
 

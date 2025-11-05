@@ -16,6 +16,8 @@ import { EventTypes, StorageKeys } from "@/types";
 import { EventSystem } from "@/utils/events";
 import { RealtimeSync } from "@/utils/realtime-sync";
 import { MemberManager } from "./members";
+import { database } from "@/config/firebase";
+import { ref, get } from "firebase/database";
 
 export class AuditManager {
   private static instance: AuditManager;
@@ -26,22 +28,90 @@ export class AuditManager {
   static getInstance(): AuditManager {
     if (!AuditManager.instance) {
       AuditManager.instance = new AuditManager();
+      // Inicializar dados de forma assíncrona
+      AuditManager.instance.initialize();
     }
     return AuditManager.instance;
   }
 
-  constructor() {
-    this.loadFromStorage();
+  private constructor() {
+    // Inicialização síncrona básica
+    this.setupFirebaseListener();
   }
 
   /**
-   * Registrar um voto na auditoria
+   * ✅ NOVO: Inicialização assíncrona
+   * Carrega dados do localStorage e Firebase
+   */
+  private async initialize(): Promise<void> {
+    await this.loadFromStorage();
+    console.log("[AuditManager] ✅ Inicialização completa");
+  }
+
+  /**
+   * Configurar listener para atualizações do Firebase
+   */
+  /**
+   * ✅ ATUALIZADO V2: Listener incremental para novos votos do Firebase
+   * Escuta evento SYNC_VOTE_ADDED disparado por onChildAdded()
+   * Previne race conditions ao processar votos individualmente
+   */
+  private setupFirebaseListener(): void {
+    this.eventSystem.on(EventTypes.SYNC_VOTE_ADDED, (vote: AuditVote) => {
+      try {
+        console.log(
+          `[AuditManager] 🔄 Novo voto recebido do Firebase: ID ${vote.id}`
+        );
+
+        // Verificar se voto já existe (prevenir duplicatas)
+        const existingVoteIndex = this.votes.findIndex((v) => v.id === vote.id);
+
+        if (existingVoteIndex === -1) {
+          // Voto novo: adicionar ao array
+          this.votes.push(vote);
+
+          // Ordenar por ID para manter consistência
+          this.votes.sort((a, b) => a.id - b.id);
+
+          // Salvar no localStorage (sem re-sincronizar com Firebase para evitar loop)
+          localStorage.setItem(
+            StorageKeys.AUDIT_LOG,
+            JSON.stringify(this.votes)
+          );
+
+          console.log(
+            `[AuditManager] ✅ Voto ${vote.id} adicionado (total: ${this.votes.length})`
+          );
+
+          // Emitir evento para atualizar UI (contador, estatísticas)
+          this.eventSystem.emit(EventTypes.VOTE_RECORDED, {
+            voteId: vote.id,
+          });
+        } else {
+          console.log(
+            `[AuditManager] ⚠️ Voto ${vote.id} já existe localmente, ignorando`
+          );
+        }
+      } catch (error) {
+        console.error(
+          "[AuditManager] ❌ Erro ao processar novo voto do Firebase:",
+          error
+        );
+      }
+    });
+  }
+
+  /**
+   * ✅ ATUALIZADO: Registrar um voto na auditoria (estrutura incremental)
+   * Cada voto é salvo individualmente no Firebase, eliminando race conditions
+   *
    * @param presbyteros IDs dos candidatos a Presbítero selecionados
    * @param diaconos IDs dos candidatos a Diácono selecionados
    * @returns ID do voto registrado
    */
   async recordVote(presbyteros: string[], diaconos: string[]): Promise<number> {
-    const voteId = this.votes.length;
+    // Calcular próximo ID disponível (pode vir do Firebase ou local)
+    const voteId = await this.getNextVoteId();
     const timestamp = new Date().toISOString();
 
     // Gerar hash SHA-256 para integridade
@@ -60,8 +130,30 @@ export class AuditManager {
       hash,
     };
 
+    // Adicionar ao array local
     this.votes.push(vote);
-    this.saveToStorage();
+
+    // Salvar no localStorage
+    localStorage.setItem(StorageKeys.AUDIT_LOG, JSON.stringify(this.votes));
+    console.log(
+      `[AuditManager] 💾 ${this.votes.length} votos salvos no localStorage`
+    );
+
+    // Sincronizar voto individual com Firebase (estrutura incremental)
+    const realtimeSync = RealtimeSync.getInstance();
+    if (realtimeSync.isActive()) {
+      const syncResult = await realtimeSync.syncVoteToFirebase(vote);
+      if (syncResult.success) {
+        console.log(
+          `[AuditManager] ✅ Voto ${voteId} sincronizado com Firebase`
+        );
+      } else {
+        console.warn(
+          `[AuditManager] ⚠️ Erro ao sincronizar voto ${voteId}:`,
+          syncResult.error
+        );
+      }
+    }
 
     console.log(`[AuditManager] ✅ Voto ${voteId} registrado:`, {
       presbyteros: presbyteros.length,
@@ -76,10 +168,120 @@ export class AuditManager {
   }
 
   /**
+   * ✅ NOVO: Calcular próximo ID de voto disponível
+   * Usa o maior ID existente + 1 (local ou Firebase)
+   *
+   * @returns Próximo ID disponível
+   */
+  private async getNextVoteId(): Promise<number> {
+    // Usar o tamanho do array local como fallback
+    let nextId = this.votes.length;
+
+    // Tentar obter do Firebase se estiver ativo
+    const realtimeSync = RealtimeSync.getInstance();
+    if (realtimeSync.isActive()) {
+      try {
+        const firebaseVotes = await realtimeSync.loadVotesFromFirebase();
+        if (firebaseVotes.length > 0) {
+          // Usar o maior ID do Firebase + 1
+          const maxId = Math.max(...firebaseVotes.map((v) => v.id));
+          nextId = Math.max(nextId, maxId + 1);
+        }
+      } catch (error) {
+        console.warn(
+          "[AuditManager] ⚠️ Erro ao calcular nextId do Firebase, usando local:",
+          error
+        );
+      }
+    }
+
+    return nextId;
+  }
+
+  /**
    * Obter contagem total de votos registrados
    */
+  /**
+   * ✅ V2: Obter contagem de votos (híbrido local + validação remota)
+   * Retorna imediatamente o valor local para performance
+   * Valida com Firebase em background para garantir sincronização
+   */
   getVotesCount(): number {
-    return this.votes.length;
+    const localCount = this.votes.length;
+
+    // Validação em background (não bloqueia UI)
+    const realtimeSync = RealtimeSync.getInstance();
+    if (realtimeSync.isActive()) {
+      this.validateVotesCountWithFirebase(localCount).catch((err) => {
+        console.warn(
+          "[AuditManager] ⚠️ Erro ao validar contador com Firebase:",
+          err
+        );
+      });
+    }
+
+    return localCount;
+  }
+
+  /**
+   * Validar contador local com Firebase (background)
+   * Se divergir, recarrega dados do Firebase
+   */
+  private async validateVotesCountWithFirebase(
+    localCount: number
+  ): Promise<void> {
+    if (!database) {
+      return; // Firebase não configurado
+    }
+
+    const realtimeSync = RealtimeSync.getInstance();
+
+    try {
+      // Tentar buscar metadata primeiro (mais leve)
+      const metadataRef = ref(database, "audit/metadata");
+      const metadataSnapshot = await get(metadataRef);
+
+      if (metadataSnapshot.exists()) {
+        const metadata = metadataSnapshot.val();
+        const firebaseCount = metadata.totalVotes || 0;
+
+        // Divergência detectada
+        if (firebaseCount !== localCount) {
+          console.warn(
+            `[AuditManager] ⚠️ Contador divergente! Local: ${localCount}, Firebase: ${firebaseCount}`
+          );
+
+          // Recarregar votos do Firebase
+          const firebaseVotes = await realtimeSync.loadVotesFromFirebase();
+
+          if (firebaseVotes.length > localCount) {
+            console.log(
+              `[AuditManager] 🔄 Sincronizando ${firebaseVotes.length - localCount} votos faltantes...`
+            );
+
+            this.votes = firebaseVotes;
+            localStorage.setItem(
+              StorageKeys.AUDIT_LOG,
+              JSON.stringify(this.votes)
+            );
+
+            // Emitir evento para atualizar UI
+            this.eventSystem.emit(EventTypes.VOTE_RECORDED, {
+              voteId: firebaseVotes.length - 1,
+            });
+
+            console.log(
+              `[AuditManager] ✅ Contador corrigido: ${this.votes.length} votos`
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error(
+        "[AuditManager] ❌ Erro ao validar contador com Firebase:",
+        error
+      );
+    }
   }
 
   /**
@@ -226,6 +428,18 @@ export class AuditManager {
     ) {
       this.votes = [];
       this.saveToStorage();
+
+      // Limpar Firebase também
+      const realtimeSync = RealtimeSync.getInstance();
+      if (realtimeSync.isActive()) {
+        realtimeSync.clearAuditData().catch((err) => {
+          console.warn(
+            "[AuditManager] ⚠️ Erro ao limpar audit no Firebase:",
+            err
+          );
+        });
+      }
+
       console.log(
         "[AuditManager] 🗑️ Todos os registros de auditoria foram apagados"
       );
@@ -305,17 +519,72 @@ export class AuditManager {
   }
 
   /**
-   * Carregar votos do localStorage
+   * ✅ ATUALIZADO: Carregar votos do localStorage e Firebase
+   * Prioriza Firebase, faz merge se necessário
    */
-  private loadFromStorage(): void {
+  private async loadFromStorage(): Promise<void> {
     try {
+      // Carregar do localStorage
       const stored = localStorage.getItem(StorageKeys.AUDIT_LOG);
+      let localVotes: AuditVote[] = [];
+
       if (stored) {
-        this.votes = JSON.parse(stored);
+        localVotes = JSON.parse(stored);
         console.log(
-          `[AuditManager] 📥 ${this.votes.length} votos carregados do localStorage`
+          `[AuditManager] 📥 ${localVotes.length} votos carregados do localStorage`
         );
       }
+
+      // Tentar carregar do Firebase
+      const realtimeSync = RealtimeSync.getInstance();
+      if (realtimeSync.isActive()) {
+        try {
+          const firebaseVotes = await realtimeSync.loadVotesFromFirebase();
+
+          if (firebaseVotes.length > 0) {
+            console.log(
+              `[AuditManager] 🔥 ${firebaseVotes.length} votos carregados do Firebase`
+            );
+
+            // Merge: usar Firebase como fonte da verdade
+            // Se Firebase tem mais votos, usar Firebase
+            if (firebaseVotes.length >= localVotes.length) {
+              this.votes = firebaseVotes;
+              console.log(
+                `[AuditManager] ✅ Usando ${firebaseVotes.length} votos do Firebase (mais completo)`
+              );
+            } else {
+              // Se local tem mais, manter local mas avisar
+              this.votes = localVotes;
+              console.warn(
+                `[AuditManager] ⚠️ localStorage tem mais votos (${localVotes.length}) que Firebase (${firebaseVotes.length})`
+              );
+            }
+
+            // Atualizar localStorage com dados mesclados
+            localStorage.setItem(
+              StorageKeys.AUDIT_LOG,
+              JSON.stringify(this.votes)
+            );
+          } else {
+            // Firebase vazio, usar local
+            this.votes = localVotes;
+          }
+        } catch (error) {
+          console.warn(
+            "[AuditManager] ⚠️ Erro ao carregar do Firebase, usando localStorage:",
+            error
+          );
+          this.votes = localVotes;
+        }
+      } else {
+        // Firebase inativo, usar local
+        this.votes = localVotes;
+      }
+
+      console.log(
+        `[AuditManager] ✅ Total: ${this.votes.length} votos carregados`
+      );
     } catch (error) {
       console.error("[AuditManager] Erro ao carregar votos:", error);
       this.votes = [];
@@ -323,7 +592,9 @@ export class AuditManager {
   }
 
   /**
-   * Salvar votos no localStorage e sincronizar com Firebase
+   * ✅ ATUALIZADO: Salvar votos no localStorage
+   * Firebase é atualizado individualmente em recordVote()
+   * @deprecated Este método agora apenas salva localmente
    */
   private saveToStorage(): void {
     try {
@@ -332,17 +603,8 @@ export class AuditManager {
         `[AuditManager] 💾 ${this.votes.length} votos salvos no localStorage`
       );
 
-      // Sincronizar com Firebase se estiver ativo
-      const realtimeSync = RealtimeSync.getInstance();
-      if (realtimeSync.isActive()) {
-        const auditLog = this.exportAuditLog();
-        realtimeSync.syncAuditLog(auditLog).catch((err) => {
-          console.warn(
-            "[AuditManager] ⚠️ Erro ao sincronizar audit log com Firebase:",
-            err
-          );
-        });
-      }
+      // ⚠️ NOTA: Firebase é atualizado individualmente em recordVote()
+      // Não usar syncAuditLog() aqui para evitar sobrescrita da estrutura incremental
     } catch (error) {
       console.error("[AuditManager] Erro ao salvar votos:", error);
     }

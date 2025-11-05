@@ -38,9 +38,10 @@ exports.getUsers = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 exports.getUsers = functions.https.onCall(async (data, context) => {
-    var _a, _b, _c, _d, _e;
-    // Verificar se caller é admin
-    if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.admin)) {
+    var _a, _b, _c, _d, _e, _f;
+    // Verificar se caller é admin (verificar tanto admin quanto role)
+    const isAdmin = ((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.admin) === true || ((_b = context.auth) === null || _b === void 0 ? void 0 : _b.token.role) === "admin";
+    if (!context.auth || !isAdmin) {
         throw new functions.https.HttpsError("permission-denied", "Apenas administradores podem listar usuários");
     }
     try {
@@ -62,16 +63,16 @@ exports.getUsers = functions.https.onCall(async (data, context) => {
                 email: userData.email || "",
                 displayName: userData.displayName || "",
                 role: userData.role || "user",
-                createdAt: ((_b = userData.createdAt) === null || _b === void 0 ? void 0 : _b.toDate)
+                createdAt: ((_c = userData.createdAt) === null || _c === void 0 ? void 0 : _c.toDate)
                     ? userData.createdAt.toDate()
                     : new Date(),
-                updatedAt: ((_c = userData.updatedAt) === null || _c === void 0 ? void 0 : _c.toDate)
+                updatedAt: ((_d = userData.updatedAt) === null || _d === void 0 ? void 0 : _d.toDate)
                     ? userData.updatedAt.toDate()
                     : new Date(),
-                lastLoginAt: ((_d = userData.lastLoginAt) === null || _d === void 0 ? void 0 : _d.toDate)
+                lastLoginAt: ((_e = userData.lastLoginAt) === null || _e === void 0 ? void 0 : _e.toDate)
                     ? userData.lastLoginAt.toDate()
                     : null,
-                isActive: (_e = userData.isActive) !== null && _e !== void 0 ? _e : true,
+                isActive: (_f = userData.isActive) !== null && _f !== void 0 ? _f : true,
                 permissions: userData.permissions || [],
             };
             users.push(userProfile);

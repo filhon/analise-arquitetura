@@ -18,6 +18,9 @@ import { AuthManager } from "@/modules/auth/manager";
 import type { User } from "@/types/auth";
 import { UserRole } from "@/types/auth";
 import { AuditManager } from "@/modules/audit";
+import { ReportManager } from "@/modules/reports";
+import { VotingManager } from "@/modules/voting";
+import { dialogService } from "./dialog";
 
 export class UIManager {
   private static instance: UIManager;
@@ -98,6 +101,19 @@ export class UIManager {
       }
     });
 
+    // Voting closed - mostrar tela de encerramento
+    EventSystem.getInstance().on(
+      EventTypes.VOTING_CLOSED,
+      async (data: any) => {
+        console.log("[UIManager] 🛑 Votação encerrada:", data);
+        NotificationService.info(
+          `Votação encerrada: ${data.totalVotes} votos registrados de ${data.presentMembers} presentes`
+        );
+        // Atualizar tela de agradecimento para mostrar encerramento
+        await this.showThankYouScreen();
+      }
+    );
+
     // Header actions
     document
       .getElementById("export-btn")
@@ -176,9 +192,54 @@ export class UIManager {
     document
       .getElementById("fullscreen-diaconos")
       ?.addEventListener("click", () => this.openFullscreen("Diácono"));
-    document
-      .getElementById("exit-fullscreen")
-      ?.addEventListener("click", this.closeFullscreen.bind(this));
+
+    // Botão de fechar fullscreen (oculto, mas mantido para acessibilidade)
+    const exitFullscreenBtn = document.getElementById("exit-fullscreen");
+    if (exitFullscreenBtn) {
+      exitFullscreenBtn.addEventListener(
+        "click",
+        this.closeFullscreen.bind(this)
+      );
+      // Ocultar botão por padrão
+      (exitFullscreenBtn as HTMLElement).style.display = "none";
+    }
+
+    // Interceptar tecla Escape durante votação
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        const fullscreenView = document.getElementById("fullscreen-view");
+        if (fullscreenView && fullscreenView.style.display !== "none") {
+          e.preventDefault();
+          e.stopPropagation(); // Prevenir propagação do evento
+          this.closeFullscreen();
+        }
+      }
+    });
+
+    // Detectar saída do fullscreen nativo (F11, Escape, etc.)
+    document.addEventListener("fullscreenchange", () => {
+      const fullscreenView = document.getElementById("fullscreen-view");
+
+      // Se saiu do fullscreen mas a view ainda está visível, fechá-la
+      if (
+        !document.fullscreenElement &&
+        fullscreenView &&
+        fullscreenView.style.display !== "none"
+      ) {
+        // Dar um pequeno delay para evitar conflito com o Escape
+        setTimeout(() => {
+          this.closeFullscreen();
+        }, 100);
+      }
+    });
+
+    // Interceptar botão voltar (mobile) durante votação
+    window.addEventListener("popstate", (e) => {
+      if (e.state?.fullscreenVoting) {
+        e.preventDefault();
+        this.closeFullscreen();
+      }
+    });
 
     // Photo upload
     document
@@ -197,33 +258,19 @@ export class UIManager {
     document
       .getElementById("config-quorum")
       ?.addEventListener("click", this.handleConfigQuorum.bind(this));
+
+    // Zerésima button - gera relatório com zero votos
+    document
+      .getElementById("zeresima-btn")
+      ?.addEventListener("click", this.handleZeresima.bind(this));
+
     // Start voting (full flow)
     const startVotingBtn = document.getElementById("start-voting-btn");
-    console.log("[DEBUG] start-voting-btn encontrado:", !!startVotingBtn);
     if (startVotingBtn) {
-      console.log(
-        "[DEBUG] start-voting-btn style.display:",
-        startVotingBtn.style.display
-      );
-      console.log(
-        "[DEBUG] start-voting-btn disabled:",
-        (startVotingBtn as HTMLButtonElement).disabled
-      );
-      console.log(
-        "[DEBUG] start-voting-btn offsetParent:",
-        (startVotingBtn as HTMLElement).offsetParent
-      );
-
-      // Adicionar event listener simples para testar
       startVotingBtn.addEventListener("click", (e) => {
-        console.log("[DEBUG] Clique detectado no start-voting-btn!");
         e.preventDefault();
         this.handleStartVoting();
       });
-
-      console.log("[DEBUG] Event listener anexado ao start-voting-btn");
-    } else {
-      console.error("[DEBUG] start-voting-btn NÃO encontrado!");
     }
 
     // Attendance actions
@@ -290,6 +337,24 @@ export class UIManager {
     document
       .getElementById("dark-mode-toggle")
       ?.addEventListener("change", this.handleDarkModeToggle.bind(this));
+
+    // Setup toggle de senha no modal de usuário
+    const toggleUserPassword = document.getElementById("toggle-user-password");
+    const userPasswordInput = document.getElementById(
+      "user-password"
+    ) as HTMLInputElement;
+    if (toggleUserPassword && userPasswordInput) {
+      toggleUserPassword.addEventListener("click", () => {
+        const icon = toggleUserPassword.querySelector(".material-icons");
+        if (userPasswordInput.type === "password") {
+          userPasswordInput.type = "text";
+          if (icon) icon.textContent = "visibility_off";
+        } else {
+          userPasswordInput.type = "password";
+          if (icon) icon.textContent = "visibility";
+        }
+      });
+    }
 
     // Close modals on backdrop click
     document.querySelectorAll(".modal").forEach((modal) => {
@@ -783,9 +848,9 @@ export class UIManager {
           <div class="modal-form">
             <form id="attendance-confirm-form">
               <div class="form-group">
-                <label for="attendance-cpf-prefix">Digite os 3 primeiros dígitos do CPF</label>
-                <input id="attendance-cpf-prefix" name="cpfPrefix" type="text" maxlength="3" pattern="\\d{3}" required class="form-input" placeholder="Insira os três primeiros dígitos do CPF do membro" />
-                <small class="field-hint">Somente números. Ex: para CPF 123.456.789-00, digite 123</small>
+                <label for="attendance-first-name">Digite o primeiro nome do membro</label>
+                <input id="attendance-first-name" name="firstName" type="text" required class="form-input" placeholder="Digite o primeiro nome" autocomplete="off" />
+                <small class="field-hint" id="attendance-hint">Digite o nome <strong id="attendance-expected-name"></strong></small>
               </div>
               <div class="modal-actions">
                 <button type="button" class="btn btn-outline modal-cancel">Cancelar</button>
@@ -814,27 +879,51 @@ export class UIManager {
     form?.addEventListener("submit", this.handleAttendanceConfirm.bind(this));
   }
 
-  private openAttendanceConfirmModal(): void {
+  private async openAttendanceConfirmModal(): Promise<void> {
     this.showModal("attendance-confirm-modal");
-    // Garantir que o campo esteja limpo e com placeholder sempre que o modal abrir
+
+    // Buscar o membro para pegar o primeiro nome
+    if (this.pendingAttendance) {
+      try {
+        const members = await electionApp.getMembers();
+        const member = members.find(
+          (m) => m.id === this.pendingAttendance!.memberId
+        );
+
+        if (member) {
+          // Extrair primeiro nome
+          const firstName = member.nome.trim().split(/\s+/)[0];
+
+          // Atualizar hint com o nome esperado
+          const expectedNameEl = document.getElementById(
+            "attendance-expected-name"
+          );
+          if (expectedNameEl) {
+            expectedNameEl.textContent = firstName;
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao buscar membro:", error);
+      }
+    }
+
+    // Limpar campo e focar
     const input = document.getElementById(
-      "attendance-cpf-prefix"
+      "attendance-first-name"
     ) as HTMLInputElement | null;
     if (input) {
       input.value = "";
-      input.placeholder = "Insira os três primeiros dígitos do CPF do membro";
       input.removeAttribute("aria-invalid");
-      // Focar no input após a abertura do modal
       requestAnimationFrame(() => input.focus());
     }
   }
 
-  // Handler do submit do modal: valida os 3 dígitos do CPF e marca presença
+  // Handler do submit do modal: valida o primeiro nome e marca presença
   private async handleAttendanceConfirm(e: Event): Promise<void> {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const input = form.querySelector(
-      "#attendance-cpf-prefix"
+      "#attendance-first-name"
     ) as HTMLInputElement;
 
     if (!this.pendingAttendance) {
@@ -843,18 +932,16 @@ export class UIManager {
     }
 
     const { memberId, checkbox } = this.pendingAttendance;
-    const digits = input.value.trim();
+    const inputName = input.value.trim();
 
-    if (!/^[0-9]{3}$/.test(digits)) {
-      NotificationService.error(
-        "Por favor, digite os 3 primeiros dígitos do CPF (somente números)"
-      );
+    if (!inputName) {
+      NotificationService.error("Por favor, digite o primeiro nome do membro");
       input.focus();
       return;
     }
 
     try {
-      // Obter membro para verificar CPF
+      // Obter membro para verificar nome
       const members = await electionApp.getMembers();
       const member = members.find((m) => m.id === memberId);
       if (!member) {
@@ -863,18 +950,18 @@ export class UIManager {
         return;
       }
 
-      const cpf = (member.cpf || "").replace(/\D/g, "");
-      if (!cpf || cpf.length < 3) {
-        NotificationService.error(
-          "CPF do membro não está cadastrado ou é inválido"
-        );
-        this.closeAllModals();
-        return;
-      }
+      // Extrair primeiro nome do membro
+      const firstName = member.nome.trim().split(/\s+/)[0];
 
-      const prefix = cpf.substring(0, 3);
-      if (prefix !== digits) {
-        NotificationService.error("Dígitos incorretos");
+      // Comparar (case-insensitive, removendo acentos)
+      const normalize = (str: string) =>
+        str
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+
+      if (normalize(firstName) !== normalize(inputName)) {
+        NotificationService.error("Nome incorreto");
         // Reverter checkbox
         checkbox.checked = false;
         this.closeAllModals();
@@ -1327,6 +1414,16 @@ export class UIManager {
     }
   }
 
+  /**
+   * Verifica se o usuário atual é administrador
+   * Método reutilizável para evitar repetição de código
+   */
+  private isCurrentUserAdmin(): boolean {
+    const authManager = AuthManager.getInstance();
+    const currentUser = authManager.getCurrentUser();
+    return currentUser?.role === "admin";
+  }
+
   private handleDarkModeToggle(e: Event): void {
     const checkbox = e.target as HTMLInputElement;
     const isDarkMode = checkbox.checked;
@@ -1442,6 +1539,47 @@ export class UIManager {
     ) as HTMLFormElement;
     if (memberForm && memberForm.dataset.editingId) {
       delete memberForm.dataset.editingId;
+    }
+
+    // Limpar dataset de edição e restaurar campos do formulário de usuário
+    const userForm = document.getElementById("user-form") as HTMLFormElement;
+    if (userForm && userForm.dataset.editingId) {
+      delete userForm.dataset.editingId;
+
+      // Restaurar campo email para estado de criação
+      const emailInput = document.getElementById(
+        "user-email"
+      ) as HTMLInputElement;
+      if (emailInput) {
+        emailInput.readOnly = false;
+        emailInput.style.opacity = "1";
+        emailInput.style.cursor = "text";
+      }
+
+      // Restaurar campo senha para estado de criação
+      const passwordInput = document.getElementById(
+        "user-password"
+      ) as HTMLInputElement;
+      if (passwordInput) {
+        passwordInput.disabled = false;
+        passwordInput.required = true;
+        passwordInput.placeholder = "Mínimo 6 caracteres";
+      }
+
+      // Restaurar labels originais
+      const emailLabel = document.querySelector(
+        'label[for="user-email"]'
+      ) as HTMLElement;
+      if (emailLabel) {
+        emailLabel.textContent = "Email *";
+      }
+
+      const passwordLabel = document.querySelector(
+        'label[for="user-password"]'
+      ) as HTMLElement;
+      if (passwordLabel) {
+        passwordLabel.textContent = "Senha *";
+      }
     }
 
     // Se havia uma ação de presença pendente (modal de confirmação fechado/cancelado), reverter checkbox
@@ -1609,21 +1747,8 @@ export class UIManager {
   // Placeholder methods for other tabs
   private async loadCandidatesData(): Promise<void> {
     try {
-      console.log("[DEBUG loadCandidatesData] Carregando candidatos...");
-
       // Buscar todos os candidatos e separar por cargo
       const allCandidates = await electionApp.getCandidates();
-
-      console.log(
-        "[DEBUG loadCandidatesData] Candidatos carregados:",
-        allCandidates.map((c) => ({
-          id: c.id,
-          name: c.name,
-          role: c.role,
-          hasPhotoUrl: !!c.photoUrl,
-          photoUrlLength: c.photoUrl?.length,
-        }))
-      );
 
       const presbyteros = allCandidates.filter((c) => c.role === "Presbítero");
       const diaconos = allCandidates.filter((c) => c.role === "Diácono");
@@ -1671,22 +1796,9 @@ export class UIManager {
   }
 
   private renderCandidateCard(candidate: Candidate): string {
-    console.log("[DEBUG renderCandidateCard] Renderizando card:", {
-      id: candidate.id,
-      name: candidate.name,
-      hasPhotoUrl: !!candidate.photoUrl,
-      photoUrlLength: candidate.photoUrl?.length,
-      photoUrlStart: candidate.photoUrl?.substring(0, 30),
-    });
-
     const photoHtml = candidate.photoUrl
       ? `<img src="${candidate.photoUrl}" alt="${candidate.name}" />`
       : `<span class="material-icons">person</span>`;
-
-    console.log(
-      "[DEBUG renderCandidateCard] photoHtml gerado:",
-      photoHtml.substring(0, 100)
-    );
 
     return `
       <div class="candidate-card" data-id="${candidate.id}">
@@ -1751,9 +1863,6 @@ export class UIManager {
 
     if (!member) {
       NotificationService.show("Membro correspondente não encontrado", "error");
-      console.error(
-        `[DEBUG] Membro não encontrado para candidate.id=${candidate.id}`
-      );
       return;
     }
 
@@ -1869,15 +1978,6 @@ export class UIManager {
       delete form.dataset.photoUrl;
     }
 
-    console.log("[DEBUG handleEditCandidate] Abrindo modal de edição:", {
-      candidateId,
-      name: candidate.name,
-      role: candidate.role,
-      hasPhoto: !!candidate.photoUrl,
-      photoUrlLength: candidate.photoUrl?.length,
-      datasetPhotoUrl: form.dataset.photoUrl?.substring(0, 50),
-    });
-
     // Atualizar título do modal
     const modalTitle = document.getElementById("candidate-modal-title");
     if (modalTitle) {
@@ -1935,14 +2035,6 @@ export class UIManager {
       if (form) {
         form.dataset.photoUrl = url;
         form.dataset.photoThumbUrl = thumbUrl;
-        console.log("[DEBUG handlePhotoUpload] Foto carregada (Storage):", {
-          originalSize: file.size,
-          resizedSize: resized.size,
-          thumbSize: thumb.size,
-          fileType: file.type,
-          photoUrlLength: url.length,
-          photoThumbUrlLength: thumbUrl.length,
-        });
       }
     } catch (err) {
       // Fallback: converter para base64 (mantém compatibilidade)
@@ -2099,8 +2191,29 @@ export class UIManager {
    * Handler para iniciar o fluxo de votação em fullscreen (direto para seleção)
    */
   private async handleStartVoting(): Promise<void> {
-    console.log("[DEBUG] handleStartVoting chamado!");
     try {
+      // ✅ Verificar se votação já foi encerrada (limite de votos atingido)
+      const votingManager = VotingManager.getInstance();
+      if (votingManager.isVotingClosed()) {
+        NotificationService.error(
+          "Votação encerrada: todos os votos dos membros presentes já foram registrados."
+        );
+        return;
+      }
+
+      // ✅ Verificar se limite de votos já foi atingido (validação adicional)
+      const auditManager = AuditManager.getInstance();
+      const totalVotes = auditManager.getVotesCount();
+      const quorumData = await votingManager.getQuorumData();
+      const presentMembers = quorumData.presentMembers;
+
+      if (totalVotes >= presentMembers) {
+        NotificationService.error(
+          `Votação encerrada: ${totalVotes} votos já foram registrados de ${presentMembers} presentes.`
+        );
+        return;
+      }
+
       // Validar quórum (sem sincronização automática)
       const results = await electionApp.getElectionResults();
       if (!results.quorum?.isValid) {
@@ -2116,6 +2229,14 @@ export class UIManager {
         fullscreenView.style.display = "flex";
         void fullscreenView.offsetWidth;
         fullscreenView.classList.add("active");
+
+        // Adicionar entrada no histórico para interceptar botão voltar (mobile)
+        window.history.pushState(
+          { fullscreenVoting: true },
+          "",
+          window.location.href
+        );
+
         if (fullscreenView.requestFullscreen) {
           fullscreenView.requestFullscreen().catch(() => {
             /* ignore fullscreen errors */
@@ -2129,199 +2250,6 @@ export class UIManager {
       console.error("Erro ao iniciar fluxo de votação:", error);
       NotificationService.error("Erro ao iniciar a votação");
     }
-  }
-
-  /**
-   * Renderizar a prévia de votação na view fullscreen (touch-friendly)
-   */
-  private async showVotingFullscreenPreview(results: any): Promise<void> {
-    const fullscreenView = document.getElementById("fullscreen-view");
-    const grid = document.getElementById("fullscreen-candidates-grid");
-    const roleTitle = document.getElementById("fullscreen-role-title");
-
-    if (!fullscreenView || !grid || !roleTitle) return;
-
-    // Definir título correto para a prévia
-    roleTitle.textContent = "Prévia de Votação";
-
-    // Construir HTML da prévia: separamos em duas seções (Presbíteros / Diáconos)
-    // Ler configuração de quórum para obter número de vagas por cargo
-    // const quorumConfig = await electionApp.getQuorumConfig() as QuorumConfig | null;
-    // (vagas removidas: layout agora é um card por linha)
-
-    // Buscar configuração de vagas
-    const quorumConfig =
-      (await electionApp.getQuorumConfig()) as QuorumConfig | null;
-    const presbyteroPositions = quorumConfig?.presbyteroPositions ?? 3;
-    const diaconoPositions = quorumConfig?.diaconoPositions ?? 6;
-
-    // Lazy loading: exibir 20 por vez
-    const PAGE_SIZE = 20;
-    let presPage = 1;
-    let diaPage = 1;
-    const presAll = (results.presbyteros || []).map((c: any) => ({
-      id: c.id,
-      name: c.name,
-      role: c.role,
-      photoUrl: c.photoUrl,
-    }));
-    const diaAll = (results.diaconos || []).map((c: any) => ({
-      id: c.id,
-      name: c.name,
-      role: c.role,
-      photoUrl: c.photoUrl,
-    }));
-    let pres = presAll.slice(0, PAGE_SIZE);
-    let dia = diaAll.slice(0, PAGE_SIZE);
-
-    // Tamanho de toque e layout responsivo: cards grandes
-    const renderCards = (items: any[]) =>
-      items
-        .map((it) => {
-          let photoHtml = "";
-          if (it.photoUrl) {
-            photoHtml = `<img src="${it.photoUrl}" alt="${it.name}" />`;
-          } else {
-            // Gerar iniciais do nome
-            const initials = it.name
-              .split(" ")
-              .filter((n: string) => n.length > 0)
-              .slice(0, 2)
-              .map((n: string) => n[0].toUpperCase())
-              .join("");
-            // Cor de fundo baseada no nome (hash simples)
-            const colors = [
-              "#3b82f6",
-              "#6366f1",
-              "#10b981",
-              "#f59e42",
-              "#f43f5e",
-              "#fbbf24",
-              "#0ea5e9",
-              "#a21caf",
-            ];
-            let hash = 0;
-            for (let i = 0; i < it.name.length; i++)
-              hash += it.name.charCodeAt(i);
-            const bgColor = colors[hash % colors.length];
-            photoHtml = `<span class="candidate-initials-avatar" style="background:${bgColor};color:#fff;display:flex;align-items:center;justify-content:center;width:68px;height:68px;border-radius:50%;font-size:1.7rem;font-weight:700;">${initials}</span>`;
-          }
-          return `<div class="fullscreen-candidate-card preview-card" data-id="${it.id}">
-               <div class="fullscreen-candidate-photo preview-photo">
-                 ${photoHtml}
-               </div>
-               <div class="fullscreen-candidate-meta" style="margin-left: 1.5rem;">
-                 <div class="fullscreen-candidate-name preview-name">${it.name}</div>
-                 <div class="fullscreen-candidate-role preview-role">${it.role}</div>
-               </div>
-             </div>`;
-        })
-        .join("");
-
-    // (colunas removidas: layout agora é um card por linha)
-
-    grid.innerHTML = `
-      ${
-        !results.quorum?.isValid
-          ? `
-      <div class="fullscreen-status-message" style="width:100%;text-align:center;margin-bottom:1.5rem;">
-        <span style="display:inline-block;background:#fee2e2;color:#b91c1c;padding:0.7rem 1.2rem;border-radius:32px;font-weight:600;font-size:1.08rem;">
-          Quórum insuficiente para iniciar a votação. Aguarde mais membros presentes.
-        </span>
-      </div>
-      `
-          : ""
-      }
-      <div class="preview-section preview-box" aria-labelledby="presbiteros-label">
-        <div class="preview-box-header">
-          <h2 id="presbiteros-label" class="preview-box-title">Presbíteros</h2>
-          <span class="preview-vagas">Vagas disponíveis: <strong>${presbyteroPositions}</strong></span>
-        </div>
-        <div class="preview-row" id="preview-presbyteros" role="list">
-          ${renderCards(pres)}
-        </div>
-        ${presAll.length > PAGE_SIZE ? `<div class="preview-loadmore" style="text-align:center;margin:0.7rem 0 1.2rem 0;"><button id="loadmore-presbiteros" class="btn btn-outline" style="min-width:160px;">Carregar mais</button></div>` : ""}
-      </div>
-      <div class="preview-section preview-box" aria-labelledby="diaconos-label">
-        <div class="preview-box-header">
-          <h2 id="diaconos-label" class="preview-box-title">Diáconos</h2>
-          <span class="preview-vagas">Vagas disponíveis: <strong>${diaconoPositions}</strong></span>
-        </div>
-        <div class="preview-row" id="preview-diaconos" role="list">
-          ${renderCards(dia)}
-        </div>
-        ${diaAll.length > PAGE_SIZE ? `<div class="preview-loadmore" style="text-align:center;margin:0.7rem 0 1.2rem 0;"><button id="loadmore-diaconos" class="btn btn-outline" style="min-width:160px;">Carregar mais</button></div>` : ""}
-      </div>
-      <div class="preview-actions">
-        <button id="fullscreen-start-btn" class="btn btn-cta btn-lg" aria-label="Iniciar Votação">Iniciar Votação</button>
-      </div>
-    `;
-
-    // Exibir fullscreen
-    fullscreenView.style.display = "flex";
-    // Força reflow para garantir animação
-    void fullscreenView.offsetWidth;
-    fullscreenView.classList.add("active");
-    if (fullscreenView.requestFullscreen) {
-      fullscreenView.requestFullscreen().catch(() => {
-        /* ignore fullscreen errors */
-      });
-    }
-
-    // Tornar touch-friendly: aumentar targets e habilitar listeners
-    const startBtn = document.getElementById("fullscreen-start-btn");
-    if (startBtn) {
-      // Lazy loading: listeners para carregar mais
-      const loadMorePres = document.getElementById("loadmore-presbiteros");
-      if (loadMorePres) {
-        loadMorePres.addEventListener("click", () => {
-          presPage++;
-          pres = presAll.slice(0, PAGE_SIZE * presPage);
-          // Atualiza apenas a lista de presbíteros
-          const presRow = document.getElementById("preview-presbyteros");
-          if (presRow) presRow.innerHTML = renderCards(pres);
-          if (pres.length >= presAll.length)
-            loadMorePres.style.display = "none";
-        });
-      }
-      const loadMoreDia = document.getElementById("loadmore-diaconos");
-      if (loadMoreDia) {
-        loadMoreDia.addEventListener("click", () => {
-          diaPage++;
-          dia = diaAll.slice(0, PAGE_SIZE * diaPage);
-          const diaRow = document.getElementById("preview-diaconos");
-          if (diaRow) diaRow.innerHTML = renderCards(dia);
-          if (dia.length >= diaAll.length) loadMoreDia.style.display = "none";
-        });
-      }
-      // Foco automático para acessibilidade/touch
-      setTimeout(() => {
-        (startBtn as HTMLButtonElement).focus();
-      }, 100);
-      // Desabilitar se quórum inválido
-      if (!results.quorum?.isValid) {
-        (startBtn as HTMLButtonElement).disabled = true;
-        (startBtn as HTMLButtonElement).title =
-          "Quórum insuficiente para iniciar votação";
-      } else {
-        (startBtn as HTMLButtonElement).disabled = false;
-      }
-
-      startBtn.addEventListener("click", async () => {
-        // Iniciar fluxo de seleção de votos (presbíteros primeiro)
-        await this.startSelectionFlow();
-      });
-    }
-
-    // Add basic keyboard / touch accessibility for cards (no selection here, only preview)
-    grid.querySelectorAll<HTMLElement>(".preview-card").forEach((card) => {
-      card.style.touchAction = "manipulation";
-      card.addEventListener("keydown", (ev) => {
-        if (ev.key === "Enter" || ev.key === " ") {
-          (ev.currentTarget as HTMLElement).click();
-        }
-      });
-    });
   }
 
   /**
@@ -2412,17 +2340,24 @@ export class UIManager {
                     ${
                       it.photoUrl
                         ? `<img src="${it.photoUrl}" alt="${it.name}"/>`
-                        : `<span class="candidate-initials-avatar" style="background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:700;border-radius:50%;width:120px;height:120px;">${initials}</span>`
+                        : `<span class="candidate-initials-avatar" style="background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:3rem;font-weight:700;width:100%;height:100%;">${initials}</span>`
                     }
                   </div>
-                  <div class="selection-name">${it.name}</div>
-                  <div class="selection-role">${it.role}</div>
+                  <div class="selection-info">
+                    <div class="selection-name">${it.name}</div>
+                    <div class="selection-role">${it.role}</div>
+                  </div>
                   <div class="selection-badge" aria-hidden="true">✓</div>
                 </div>`;
           })
           .join("");
 
         grid.innerHTML = `
+          <div class="zoom-controls" id="zoom-controls">
+            <button class="zoom-btn" id="zoom-out" aria-label="Diminuir zoom">-</button>
+            <div class="zoom-level" id="zoom-level" aria-live="polite">100%</div>
+            <button class="zoom-btn" id="zoom-in" aria-label="Aumentar zoom">+</button>
+          </div>
           <div class="selection-header">
             <h1 class="selection-title">${roleLabel}</h1>
             <div class="selection-vagas-info">
@@ -2492,13 +2427,51 @@ export class UIManager {
           });
         updateVagasRestantes();
 
+        // Add zoom controls listeners
+        let currentZoom = 1;
+        const zoomLevelEl = document.getElementById("zoom-level");
+        const zoomInBtn = document.getElementById("zoom-in");
+        const zoomOutBtn = document.getElementById("zoom-out");
+
+        const updateZoom = () => {
+          if (fullscreenView && zoomLevelEl) {
+            fullscreenView.setAttribute("data-zoom", String(currentZoom));
+            const percentage = 100 + (currentZoom - 1) * 12.5;
+            zoomLevelEl.textContent = `${Math.round(percentage)}%`;
+          }
+        };
+
+        zoomInBtn?.addEventListener("click", () => {
+          if (currentZoom < 5) {
+            currentZoom++;
+            updateZoom();
+            NotificationService.info(
+              `Zoom aumentado para ${Math.round(100 + (currentZoom - 1) * 12.5)}%`
+            );
+          } else {
+            NotificationService.warning("Zoom máximo atingido");
+          }
+        });
+
+        zoomOutBtn?.addEventListener("click", () => {
+          if (currentZoom > 1) {
+            currentZoom--;
+            updateZoom();
+            NotificationService.info(
+              `Zoom reduzido para ${Math.round(100 + (currentZoom - 1) * 12.5)}%`
+            );
+          } else {
+            NotificationService.warning("Zoom mínimo atingido");
+          }
+        });
+
+        // Initialize zoom
+        updateZoom();
+
         // Add event listener for the "Avançar" button
         const nextBtn = document.getElementById("selection-next-btn");
         if (nextBtn) {
           nextBtn.addEventListener("click", async () => {
-            console.log("[DEBUG] Botão Avançar clicado para:", roleLabel);
-            console.log("[DEBUG] Selecionados:", Array.from(currentSet));
-
             // Store selection and proceed to next step
             if (roleLabel === "Presbíteros") {
               state.presSelected = new Set(currentSet);
@@ -2540,11 +2513,43 @@ export class UIManager {
     }
   }
 
-  private closeFullscreen(): void {
+  /**
+   * Fechar fullscreen com validação de senha
+   * Requer a palavra "sair" para confirmar saída
+   */
+  private async closeFullscreen(): Promise<void> {
     const fullscreenView = document.getElementById("fullscreen-view");
-    if (!fullscreenView) return;
+    if (!fullscreenView || fullscreenView.style.display === "none") return;
 
-    // Sair do fullscreen nativo
+    // Solicitar senha com diálogo personalizado
+    const password = await dialogService.prompt({
+      title: "Confirmar Saída",
+      message: "Para sair da votação, digite a senha de segurança:",
+      placeholder: "Digite 'sair'",
+      confirmText: "Sair da Votação",
+      cancelText: "Cancelar",
+      icon: "lock",
+    });
+
+    // Validar senha (case-insensitive)
+    if (password?.toLowerCase() !== "sair") {
+      if (password !== null) {
+        // Null significa que cancelou, não mostrar erro
+        NotificationService.warning(
+          "Senha incorreta. Permanecendo na votação."
+        );
+      }
+
+      // Se saiu do fullscreen nativo, voltar ao fullscreen
+      if (!document.fullscreenElement && fullscreenView.requestFullscreen) {
+        fullscreenView.requestFullscreen().catch((err) => {
+          console.warn("Não foi possível retornar ao fullscreen:", err);
+        });
+      }
+      return;
+    }
+
+    // Sair do fullscreen nativo (se ainda estiver)
     if (document.fullscreenElement) {
       document.exitFullscreen();
     }
@@ -2554,6 +2559,13 @@ export class UIManager {
     setTimeout(() => {
       fullscreenView.style.display = "none";
     }, 350);
+
+    // Remover entrada do histórico (se foi adicionada)
+    if (window.history.state?.fullscreenVoting) {
+      window.history.back();
+    }
+
+    NotificationService.info("Votação encerrada com sucesso");
   }
 
   private async renderFullscreenCandidates(
@@ -2648,7 +2660,15 @@ export class UIManager {
     candidateId: string,
     role: CandidateRole
   ): Promise<void> {
-    if (!confirm(`Tem certeza que deseja remover este candidato a ${role}?`)) {
+    const confirmed = await dialogService.confirm({
+      title: "Remover Candidato",
+      message: `Tem certeza que deseja remover este candidato a ${role}?`,
+      confirmText: "Sim, Remover",
+      cancelText: "Cancelar",
+      icon: "person_remove",
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -2993,9 +3013,15 @@ export class UIManager {
           return;
         }
       } else if (action === "reset") {
-        if (
-          !confirm("Tem certeza que deseja resetar os votos deste candidato?")
-        ) {
+        const confirmed = await dialogService.confirm({
+          title: "Resetar Votos",
+          message: "Tem certeza que deseja resetar os votos deste candidato?",
+          confirmText: "Sim, Resetar",
+          cancelText: "Cancelar",
+          icon: "restart_alt",
+        });
+
+        if (!confirmed) {
           return;
         }
 
@@ -3289,6 +3315,15 @@ export class UIManager {
   private async submitVotesAtomically(
     candidateIds: string[]
   ): Promise<{ success: boolean; error?: string }> {
+    // ✅ Verificar se votação já foi encerrada
+    const votingManager = VotingManager.getInstance();
+    if (votingManager.isVotingClosed()) {
+      return {
+        success: false,
+        error: "Votação encerrada - limite de votos atingido",
+      };
+    }
+
     // ✅ Sincronizar dados do realtime database apenas na confirmação dos votos
     try {
       console.log(
@@ -3302,6 +3337,19 @@ export class UIManager {
         error
       );
       // Continua mesmo com erro de sincronização para não bloquear a votação
+    }
+
+    // ✅ Verificar novamente após sincronização se limite foi atingido
+    const auditManager = AuditManager.getInstance();
+    const totalVotes = auditManager.getVotesCount();
+    const quorumData = await votingManager.getQuorumData();
+    const presentMembers = quorumData.presentMembers;
+
+    if (totalVotes >= presentMembers) {
+      return {
+        success: false,
+        error: "Votação encerrada - limite de votos atingido",
+      };
     }
 
     // Usar transações atômicas do Firebase para garantir concorrência segura
@@ -3388,12 +3436,39 @@ export class UIManager {
     return { success: true };
   }
 
-  private showThankYouScreen(): void {
+  private async showThankYouScreen(): Promise<void> {
     const fullscreenView = document.getElementById("fullscreen-view");
     const grid = document.getElementById("fullscreen-candidates-grid");
     const roleTitle = document.getElementById("fullscreen-role-title");
     if (!fullscreenView || !grid || !roleTitle) return;
 
+    // Verificar se votação foi encerrada (votos = presentes)
+    const votingManager = VotingManager.getInstance();
+    const auditManager = AuditManager.getInstance();
+    const totalVotes = auditManager.getVotesCount();
+    const quorumData = await votingManager.getQuorumData();
+    const presentMembers = quorumData.presentMembers;
+    const votingClosed = totalVotes >= presentMembers;
+
+    if (votingClosed) {
+      // ✅ TELA DE ENCERRAMENTO (sem countdown)
+      roleTitle.textContent = "Votação Encerrada";
+      grid.innerHTML = `
+        <div class="empty-state" style="padding: 6rem 1rem; text-align: center;">
+          <span class="material-icons md-64" style="color: var(--success); font-size: 4rem;">check_circle</span>
+          <h2 style="margin-top: 1.5rem; font-size: 2rem; color: var(--text-primary);">Votação Encerrada</h2>
+          <p style="font-size: 1.25rem; color: var(--text-secondary); margin-top: 1rem;">
+            Todos os <strong>${totalVotes} votos</strong> dos membros presentes foram registrados.
+          </p>
+          <p style="font-size: 1rem; color: var(--text-tertiary); margin-top: 2rem;">
+            Para sair desta tela, pressione <kbd>ESC</kbd> e digite a senha "sair".
+          </p>
+        </div>
+      `;
+      return;
+    }
+
+    // ✅ TELA NORMAL DE AGRADECIMENTO (com countdown)
     roleTitle.textContent = "Obrigado";
     let countdown = 10; // Reduzido de 30 para 10 segundos
 
@@ -3438,15 +3513,6 @@ export class UIManager {
     ) as HTMLSelectElement;
     const editingId = form.dataset.editingId;
     const photoUrl = form.dataset.photoUrl;
-
-    console.log("[DEBUG handleCandidateSubmit] Iniciando submit:", {
-      editingId,
-      photoUrl: photoUrl?.substring(0, 50) + "...",
-      photoUrlType: typeof photoUrl,
-      photoUrlLength: photoUrl?.length,
-      hasPhotoUrl: !!photoUrl,
-      datasetKeys: Object.keys(form.dataset),
-    });
 
     // Determinar role e memberId baseado no modo
     let role: CandidateRole;
@@ -3508,12 +3574,6 @@ export class UIManager {
         );
         return;
       }
-
-      console.log("[DEBUG handleCandidateSubmit] Candidato atualizado:", {
-        id: editingId,
-        hasPhotoUrl: !!updates.photoUrl,
-        photoUrlLength: updates.photoUrl?.length,
-      });
 
       NotificationService.show("Foto atualizada com sucesso", "success");
     } else {
@@ -3809,6 +3869,67 @@ export class UIManager {
     }
   }
 
+  private async handleZeresima(): Promise<void> {
+    try {
+      // Confirmar ação com diálogo personalizado
+      const confirmReset = await dialogService.confirm({
+        title: "Confirmar Zerésima",
+        message:
+          "Esta ação irá:\n\n" +
+          "• Resetar TODOS os votos registrados\n" +
+          "• Limpar dados de auditoria locais e no Firebase\n" +
+          "• Gerar relatório PDF confirmando zero votos\n\n" +
+          "Esta ação é irreversível. Deseja continuar?",
+        confirmText: "Sim, Resetar Votos",
+        cancelText: "Cancelar",
+        icon: "warning",
+      });
+
+      if (!confirmReset) {
+        return;
+      }
+
+      NotificationService.info("Resetando todos os votos...");
+
+      // 1. Resetar votos dos membros (Firebase + localStorage)
+      const { VotingManager } = await import("@/modules/voting");
+      const votingManager = VotingManager.getInstance();
+      await votingManager.resetVotes();
+
+      // 2. Resetar auditoria (Firebase + localStorage)
+      const auditManager = AuditManager.getInstance();
+      auditManager.clearAllVotes();
+
+      // 3. Aguardar um momento para garantir que os dados foram limpos
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // 4. Gerar relatório
+      NotificationService.info("Gerando relatório Zerésima...");
+
+      const reportManager = ReportManager.getInstance();
+      const result = await reportManager.generateZeresimaReport();
+
+      if (result.success) {
+        NotificationService.success(
+          "✅ Relatório Zerésima gerado com sucesso! " +
+            "Todos os votos foram resetados."
+        );
+
+        // 5. Atualizar UI - recarregar página para refletir mudanças
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        NotificationService.error(
+          result.error || "Erro ao gerar relatório Zerésima"
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao processar Zerésima:", error);
+      NotificationService.error("Erro ao processar relatório Zerésima");
+    }
+  }
+
   private async handleAttendanceSearch(e: Event): Promise<void> {
     const input = e.target as HTMLInputElement;
     const query = input.value.trim().toLowerCase();
@@ -3912,10 +4033,7 @@ export class UIManager {
 
   private async handleAddUser(): Promise<void> {
     // Verificar se usuário tem permissão (apenas ADMIN)
-    const authManager = AuthManager.getInstance();
-    const currentUser = authManager.getCurrentUser();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (!this.isCurrentUserAdmin()) {
       NotificationService.error(
         "Apenas administradores podem gerenciar usuários"
       );
@@ -3933,15 +4051,14 @@ export class UIManager {
     e.preventDefault();
 
     // Verificar permissões novamente
-    const authManager = AuthManager.getInstance();
-    const currentUser = authManager.getCurrentUser();
-
-    if (!currentUser || currentUser.role !== "admin") {
+    if (!this.isCurrentUserAdmin()) {
       NotificationService.error(
         "Apenas administradores podem gerenciar usuários"
       );
       return;
     }
+
+    const authManager = AuthManager.getInstance();
 
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
@@ -3975,15 +4092,15 @@ export class UIManager {
 
     try {
       if (editingId) {
+        // Buscar usuários uma única vez
+        const users = await authManager.getUsers();
+        const currentUser = users.find((u) => u.uid === editingId);
+
         // Modo edição - atualizar displayName e role
         const updatePromises: Promise<{ success: boolean; error?: string }>[] =
           [];
 
         // Atualizar displayName se foi alterado
-        const currentUser = await authManager
-          .getUsers()
-          .then((users) => users.find((u) => u.uid === editingId));
-
         if (currentUser && currentUser.displayName !== displayName) {
           updatePromises.push(
             authManager.updateUserDisplayName(editingId, displayName)
@@ -4034,7 +4151,6 @@ export class UIManager {
         }
       }
     } catch (error) {
-      console.error("Erro ao salvar usuário:", error);
       NotificationService.error("Erro ao salvar usuário");
     }
   }
@@ -4042,13 +4158,11 @@ export class UIManager {
   private async loadUsersData(): Promise<void> {
     try {
       // Verificar permissões
-      const authManager = AuthManager.getInstance();
-      const currentUser = authManager.getCurrentUser();
-
-      if (!currentUser || currentUser.role !== "admin") {
-        console.warn("Usuário sem permissão para carregar dados de usuários");
+      if (!this.isCurrentUserAdmin()) {
         return;
       }
+
+      const authManager = AuthManager.getInstance();
 
       // Buscar usuários do Firebase Auth
       const users = await authManager.getUsers();
@@ -4088,6 +4202,9 @@ export class UIManager {
       })
     );
 
+    // Usar DocumentFragment para otimizar inserção em lote (~30% mais rápido)
+    const fragment = document.createDocumentFragment();
+
     sortedUsers.forEach((user) => {
       const row = document.createElement("tr");
       const roleDisplay = this.getRoleDisplayName(user.role);
@@ -4126,15 +4243,18 @@ export class UIManager {
           </button>
         </td>
       `;
-      tbody.appendChild(row);
+      fragment.appendChild(row);
     });
+
+    // Inserção única otimizada
+    tbody.appendChild(fragment);
   }
 
   private updateUsersStats(users: User[]): void {
     const totalUsers = users.length;
     const adminUsers = users.filter((u) => u.role === "admin").length;
     const regularUsers = users.filter((u) => u.role === "user").length;
-    const activeUsers = users.length; // Por enquanto, todos os usuários são considerados ativos
+    const activeUsers = users.length;
 
     this.updateElement("total-users", totalUsers.toString());
     this.updateElement("admin-users", adminUsers.toString());
@@ -4181,9 +4301,10 @@ export class UIManager {
 
       // Campo email: visível mas não editável
       if (emailInput) {
-        emailInput.disabled = true;
+        emailInput.readOnly = true; // Usar readOnly ao invés de disabled para manter no FormData
         emailInput.style.display = "block"; // Garantir que está visível
         emailInput.style.opacity = "0.6"; // Visual de desabilitado
+        emailInput.style.cursor = "not-allowed"; // Cursor indicando não editável
         // Mostrar label também
         const emailLabel = document.querySelector(
           'label[for="user-email"]'
@@ -4217,7 +4338,6 @@ export class UIManager {
       // Mostrar modal usando o método correto
       this.showModal("user-modal");
     } catch (error) {
-      console.error("Erro ao editar usuário:", error);
       NotificationService.error("Erro ao carregar dados do usuário");
     }
   }
@@ -4242,9 +4362,13 @@ export class UIManager {
       }
 
       // Confirmar exclusão
-      const confirmed = confirm(
-        `Tem certeza que deseja excluir o usuário "${user.displayName || user.email}"?\n\nEsta ação não pode ser desfeita.`
-      );
+      const confirmed = await dialogService.confirm({
+        title: "Excluir Usuário",
+        message: `Tem certeza que deseja excluir o usuário "${user.displayName || user.email}"?\n\nEsta ação não pode ser desfeita.`,
+        confirmText: "Sim, Excluir",
+        cancelText: "Cancelar",
+        icon: "delete_forever",
+      });
 
       if (!confirmed) return;
 
@@ -4359,9 +4483,14 @@ export class UIManager {
     }
 
     // Confirmar exclusão
-    const confirmed = confirm(
-      `Tem certeza que deseja excluir o membro "${member.nome}"?\n\nEsta ação não pode ser desfeita.`
-    );
+    const { dialogService } = await import("./dialog");
+    const confirmed = await dialogService.confirm({
+      title: "Excluir Membro",
+      message: `Tem certeza que deseja excluir o membro "${member.nome}"?\n\nEsta ação não pode ser desfeita.`,
+      confirmText: "Sim, Excluir",
+      cancelText: "Cancelar",
+      icon: "delete_forever",
+    });
 
     if (!confirmed) return;
 

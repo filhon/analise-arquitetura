@@ -8,9 +8,10 @@ import {
   User as FirebaseUser,
   AuthError,
 } from "firebase/auth";
-import { auth, isConfigured } from "@/config/firebase";
+import { auth, isConfigured, firestore } from "@/config/firebase";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/config/firebase";
+import { doc, getDoc, onSnapshot, Unsubscribe } from "firebase/firestore";
 import {
   User,
   AuthState,
@@ -24,6 +25,7 @@ export class AuthManager {
   private state: AuthState;
   private listeners: ((state: AuthState) => void)[] = [];
   private authStateUnsubscribe: (() => void) | null = null;
+  private firestoreUnsubscribe: Unsubscribe | null = null;
 
   private constructor() {
     this.state = {
@@ -49,23 +51,13 @@ export class AuthManager {
       return;
     }
 
-    console.log("🔄 Inicializando listener de autenticação...");
-
     // Escutar mudanças no estado de autenticação
     this.authStateUnsubscribe = onAuthStateChanged(
       auth,
       async (firebaseUser) => {
-        console.log(
-          "📡 onAuthStateChanged chamado:",
-          firebaseUser ? "usuário logado" : "usuário não logado"
-        );
-
         if (firebaseUser) {
           // Usuário logado
-          console.log("👤 Usuário Firebase detectado:", firebaseUser.email);
           const user = await this.firebaseUserToUser(firebaseUser);
-          console.log("🔄 Atualizando estado para autenticado:", user.email);
-
           this.setState({
             isAuthenticated: true,
             user,
@@ -73,77 +65,142 @@ export class AuthManager {
             error: null,
           });
 
-          console.log("✅ Estado atualizado - usuário autenticado");
+          // Escutar mudanças no Firestore para este usuário
+          this.listenToFirestoreChanges(firebaseUser.uid);
         } else {
           // Usuário não logado
-          console.log("🚪 Nenhum usuário logado detectado");
+          // Parar de escutar mudanças no Firestore
+          if (this.firestoreUnsubscribe) {
+            this.firestoreUnsubscribe();
+            this.firestoreUnsubscribe = null;
+          }
+
           this.setState({
             isAuthenticated: false,
             user: null,
             isLoading: false,
             error: null,
           });
-
-          console.log("✅ Estado atualizado - usuário não autenticado");
         }
       }
     );
   }
 
-  private async firebaseUserToUser(firebaseUser: FirebaseUser): Promise<User> {
-    // Aguardar obtenção dos custom claims
-    let role = UserRole.USER;
-    const email = firebaseUser.email || "";
+  /**
+   * Escuta mudanças em tempo real no documento Firestore do usuário
+   * e atualiza o estado quando houver alterações
+   */
+  private listenToFirestoreChanges(uid: string): void {
+    // Parar listener anterior se existir
+    if (this.firestoreUnsubscribe) {
+      this.firestoreUnsubscribe();
+    }
 
-    // Lista de emails admin (fallback se não houver custom claims)
-    const adminEmails = [
-      "admin@igreja.com",
-      "fcbfilipesantos@gmail.com", // Adicionado email do usuário
-    ];
+    if (!firestore) {
+      console.warn("Firestore não está configurado");
+      return;
+    }
+
+    try {
+      const userDocRef = doc(firestore, "users", uid);
+
+      this.firestoreUnsubscribe = onSnapshot(
+        userDocRef,
+        async (docSnap) => {
+          if (docSnap.exists() && this.state.user) {
+            const firestoreData = docSnap.data();
+
+            // Atualizar apenas se houver mudanças relevantes
+            let needsUpdate = false;
+            const updatedUser = { ...this.state.user };
+
+            if (
+              firestoreData.displayName &&
+              firestoreData.displayName !== this.state.user.displayName
+            ) {
+              updatedUser.displayName = firestoreData.displayName;
+              needsUpdate = true;
+            }
+
+            if (
+              firestoreData.role &&
+              firestoreData.role !== this.state.user.role
+            ) {
+              updatedUser.role = firestoreData.role as UserRole;
+              needsUpdate = true;
+            }
+
+            if (needsUpdate) {
+              console.log("📡 Dados do usuário atualizados do Firestore");
+              this.setState({
+                user: updatedUser,
+              });
+            }
+          }
+        },
+        (error) => {
+          console.error("Erro ao escutar mudanças do Firestore:", error);
+        }
+      );
+    } catch (error) {
+      console.error("Erro ao configurar listener do Firestore:", error);
+    }
+  }
+
+  private async firebaseUserToUser(firebaseUser: FirebaseUser): Promise<User> {
+    // Obter role dos custom claims do Firebase
+    let role = UserRole.USER;
+    let displayName =
+      firebaseUser.displayName ||
+      firebaseUser.email?.split("@")[0] ||
+      "Usuário";
 
     try {
       const idTokenResult = await firebaseUser.getIdTokenResult();
-      console.log("🔑 Custom Claims obtidos:", idTokenResult.claims);
 
+      // Verificar custom claim 'role' (padrão)
       if (idTokenResult.claims.role) {
         role = idTokenResult.claims.role as UserRole;
-        console.log("👑 Role definida por Custom Claims:", role);
-      } else if (idTokenResult.claims.admin === true) {
-        role = UserRole.ADMIN;
-        console.log("👑 Role definida por claim 'admin':", role);
-      } else {
-        // Fallback para lista de emails admin
-        if (adminEmails.includes(email)) {
-          role = UserRole.ADMIN;
-          console.log("👑 Role definida por lista de emails admin:", role);
-        } else {
-          console.log(
-            "👤 Role padrão (USER) - nenhum critério admin encontrado"
-          );
-        }
       }
-    } catch (error) {
-      console.warn("⚠️ Erro ao obter custom claims, usando fallback:", error);
-
-      // Fallback para lista de emails admin
-      if (adminEmails.includes(email)) {
+      // Verificar custom claim 'admin' (compatibilidade)
+      else if (idTokenResult.claims.admin === true) {
         role = UserRole.ADMIN;
-        console.log(
-          "👑 Role definida por lista de emails admin (fallback):",
-          role
-        );
-      } else {
-        console.log("👤 Role padrão (USER) - fallback sem critério admin");
+      }
+      // Caso contrário, usar role padrão (USER)
+    } catch (error) {
+      console.error("Erro ao obter custom claims:", error);
+      // Em caso de erro, usar role padrão (USER)
+    }
+
+    // Buscar dados adicionais do Firestore
+    if (firestore) {
+      try {
+        const userDocRef = doc(firestore, "users", firebaseUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (userDocSnap.exists()) {
+          const firestoreData = userDocSnap.data();
+
+          // Priorizar displayName do Firestore se disponível
+          if (firestoreData.displayName) {
+            displayName = firestoreData.displayName;
+          }
+
+          // Atualizar role do Firestore se disponível
+          if (firestoreData.role) {
+            role = firestoreData.role as UserRole;
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao buscar dados do Firestore:", error);
+        // Continuar com dados do Auth se falhar
       }
     }
 
     return {
       uid: firebaseUser.uid,
       email: firebaseUser.email || "",
-      displayName:
-        firebaseUser.displayName ||
-        firebaseUser.email?.split("@")[0] ||
-        "Usuário",
+      displayName,
       emailVerified: firebaseUser.emailVerified,
       role,
       createdAt: firebaseUser.metadata.creationTime
@@ -175,38 +232,29 @@ export class AuthManager {
     this.notifyListeners();
   }
 
-  async login(credentials: LoginCredentials): Promise<AuthResult> {
-    console.log("🔐 Tentando login com:", credentials.email);
+  private validateFirebaseConfig(): boolean {
+    return isConfigured && !!auth;
+  }
 
-    if (!isConfigured || !auth) {
-      console.error("❌ Firebase Auth não está configurado");
+  async login(credentials: LoginCredentials): Promise<AuthResult> {
+    if (!this.validateFirebaseConfig()) {
+      console.error("Firebase Auth não está configurado");
       return {
         success: false,
         error: "Firebase Auth não está configurado",
       };
     }
 
-    console.log("✅ Firebase Auth configurado, iniciando login...");
     this.setState({ isLoading: true, error: null });
 
     try {
-      console.log("📡 Fazendo chamada para signInWithEmailAndPassword...");
       const userCredential = await signInWithEmailAndPassword(
-        auth,
+        auth!,
         credentials.email,
         credentials.password
       );
 
-      console.log(
-        "✅ Login bem-sucedido no Firebase:",
-        userCredential.user.email
-      );
       const user = await this.firebaseUserToUser(userCredential.user);
-
-      console.log("👤 Usuário mapeado:", {
-        email: user.email,
-        role: user.role,
-      });
 
       // O estado será atualizado automaticamente pelo onAuthStateChanged
       // Mas vamos garantir que esteja consistente
@@ -217,11 +265,10 @@ export class AuthManager {
         error: null,
       });
 
-      console.log("🎉 Login completo - aguardando redirecionamento automático");
       return { success: true, user };
     } catch (error) {
       const authError = error as AuthError;
-      console.error("❌ Erro no login:", authError.code, authError.message);
+      console.error("Erro no login:", authError.code);
 
       let errorMessage = "Erro desconhecido no login";
 
@@ -263,7 +310,6 @@ export class AuthManager {
             "Erro inesperado no login. Tente novamente em alguns instantes.";
       }
 
-      console.error("📝 Mensagem de erro final:", errorMessage);
       this.setState({
         isAuthenticated: false,
         user: null,
@@ -276,13 +322,13 @@ export class AuthManager {
   }
 
   async logout(): Promise<void> {
-    if (!isConfigured || !auth) {
+    if (!this.validateFirebaseConfig()) {
       console.warn("Firebase Auth não está configurado");
       return;
     }
 
     try {
-      await signOut(auth);
+      await signOut(auth!);
       this.setState({
         isAuthenticated: false,
         user: null,
@@ -308,7 +354,7 @@ export class AuthManager {
     role: UserRole = UserRole.USER,
     displayName?: string
   ): Promise<AuthResult> {
-    if (!isConfigured || !functions) {
+    if (!this.validateFirebaseConfig() || !functions) {
       return {
         success: false,
         error: "Firebase Functions não está configurado",
@@ -357,7 +403,7 @@ export class AuthManager {
   async resetPassword(
     email: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!isConfigured || !auth) {
+    if (!this.validateFirebaseConfig()) {
       return {
         success: false,
         error: "Firebase Auth não está configurado",
@@ -365,7 +411,7 @@ export class AuthManager {
     }
 
     try {
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(auth!, email);
       return { success: true };
     } catch (error) {
       const authError = error as AuthError;
@@ -413,7 +459,7 @@ export class AuthManager {
 
   // Método para obter todos os usuários (usando Cloud Functions)
   async getUsers(): Promise<User[]> {
-    if (!isConfigured || !functions) {
+    if (!this.validateFirebaseConfig() || !functions) {
       console.warn("Firebase Functions não está configurado");
       return [];
     }
@@ -447,7 +493,7 @@ export class AuthManager {
 
   // Método para excluir usuário (usando Cloud Functions)
   async deleteUser(uid: string): Promise<{ success: boolean; error?: string }> {
-    if (!isConfigured || !functions) {
+    if (!this.validateFirebaseConfig() || !functions) {
       return {
         success: false,
         error: "Firebase Functions não está configurado",
@@ -481,7 +527,7 @@ export class AuthManager {
     uid: string,
     role: UserRole
   ): Promise<{ success: boolean; error?: string }> {
-    if (!isConfigured || !functions) {
+    if (!this.validateFirebaseConfig() || !functions) {
       return {
         success: false,
         error: "Firebase Functions não está configurado",
@@ -514,7 +560,7 @@ export class AuthManager {
     uid: string,
     displayName: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!isConfigured || !functions) {
+    if (!this.validateFirebaseConfig() || !functions) {
       return {
         success: false,
         error: "Firebase Functions não está configurado",
@@ -548,7 +594,7 @@ export class AuthManager {
 
   // Método para verificar se Firebase Auth está configurado
   isFirebaseConfigured(): boolean {
-    return isConfigured && !!auth;
+    return this.validateFirebaseConfig();
   }
 
   // Cleanup
@@ -556,6 +602,10 @@ export class AuthManager {
     if (this.authStateUnsubscribe) {
       this.authStateUnsubscribe();
       this.authStateUnsubscribe = null;
+    }
+    if (this.firestoreUnsubscribe) {
+      this.firestoreUnsubscribe();
+      this.firestoreUnsubscribe = null;
     }
     this.listeners = [];
   }

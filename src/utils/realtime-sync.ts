@@ -9,10 +9,17 @@
  */
 
 import { database, isConfigured } from "@/config/firebase";
-import { ref, set, onValue, get, runTransaction } from "firebase/database";
+import {
+  ref,
+  set,
+  onValue,
+  onChildAdded,
+  get,
+  runTransaction,
+} from "firebase/database";
 import { EventSystem } from "./events";
 import { EventTypes } from "@/types";
-import type { Member, QuorumConfig, ConfigData } from "@/types";
+import type { Member, QuorumConfig, ConfigData, AuditVote } from "@/types";
 
 export class RealtimeSync {
   private static instance: RealtimeSync;
@@ -147,8 +154,9 @@ export class RealtimeSync {
   }
 
   /**
-   * Sincronizar logs de auditoria de votos
+   * Sincronizar logs de auditoria de votos (LEGADO - será descontinuado)
    * PADRÃO: { data, updatedBy, timestamp }
+   * @deprecated Usar syncVoteToFirebase() para estrutura incremental
    */
   async syncAuditLog(auditLog: string): Promise<void> {
     if (!this.isActive() || !database) return;
@@ -164,6 +172,176 @@ export class RealtimeSync {
       console.log("[RealtimeSync] ✓ Audit log sincronizado");
     } catch (error) {
       console.error("[RealtimeSync] ✗ Erro ao sincronizar audit log:", error);
+    }
+  }
+
+  /**
+   * ✅ NOVO: Sincronizar voto individual no Firebase (estrutura incremental)
+   * Cada voto é salvo em /audit/{voteId}/ como nó independente
+   * Elimina race conditions e permite votação simultânea
+   *
+   * @param vote - Voto completo com id, timestamp, candidatos e hash
+   * @returns Promise com sucesso/erro
+   */
+  async syncVoteToFirebase(
+    vote: AuditVote
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.isActive() || !database) {
+      return {
+        success: false,
+        error: "Firebase não configurado ou inativo",
+      };
+    }
+
+    try {
+      // Criar referência para o voto específico: /audit/{voteId}/
+      const voteRef = ref(database, `audit/${vote.id}`);
+
+      // Salvar voto com metadados
+      await set(voteRef, {
+        id: vote.id,
+        timestamp: vote.timestamp,
+        presbyteros: vote.presbyteros,
+        diaconos: vote.diaconos,
+        hash: vote.hash,
+        createdBy: this.sessionId,
+        createdAt: Date.now(),
+      });
+
+      console.log(
+        `[RealtimeSync] ✅ Voto ${vote.id} sincronizado atomicamente`
+      );
+
+      // Atualizar metadata em background (não bloqueia)
+      this.updateAuditMetadata().catch((err) => {
+        console.warn("[RealtimeSync] ⚠️ Erro ao atualizar metadata:", err);
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error(
+        `[RealtimeSync] ❌ Erro ao sincronizar voto ${vote.id}:`,
+        error
+      );
+      return {
+        success: false,
+        error: `Erro ao sincronizar voto: ${String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * ✅ NOVO: Atualizar metadata de auditoria
+   * Atualiza /audit/metadata/ com total de votos e timestamp
+   * Executa em background sem bloquear
+   */
+  private async updateAuditMetadata(): Promise<void> {
+    if (!this.isActive() || !database) return;
+
+    try {
+      const metadataRef = ref(database, "audit/metadata");
+
+      // Contar total de votos (nós numéricos em /audit/)
+      const auditRef = ref(database, "audit");
+      const snapshot = await get(auditRef);
+
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        // Contar apenas nós numéricos (votos), ignorar 'metadata'
+        const totalVotes = Object.keys(data).filter((key) =>
+          /^\d+$/.test(key)
+        ).length;
+
+        await set(metadataRef, {
+          totalVotes,
+          lastUpdated: Date.now(),
+          version: "2.0",
+        });
+
+        console.log(
+          `[RealtimeSync] ✓ Metadata atualizada: ${totalVotes} votos`
+        );
+      }
+    } catch (error) {
+      console.error("[RealtimeSync] ✗ Erro ao atualizar metadata:", error);
+    }
+  }
+
+  /**
+   * ✅ NOVO: Carregar votos do Firebase (estrutura incremental)
+   * Lê todos os nós em /audit/ e retorna array de votos ordenado
+   *
+   * @returns Array de votos ordenados por ID
+   */
+  async loadVotesFromFirebase(): Promise<AuditVote[]> {
+    if (!this.isActive() || !database) {
+      console.log("[RealtimeSync] ⚠️ Firebase inativo ou não configurado");
+      return [];
+    }
+
+    try {
+      const auditRef = ref(database, "audit");
+      const snapshot = await get(auditRef);
+
+      if (!snapshot.exists()) {
+        console.log("[RealtimeSync] 📭 Nenhum voto encontrado no Firebase");
+        return [];
+      }
+
+      const data = snapshot.val();
+      const votes: AuditVote[] = [];
+
+      // Extrair apenas nós numéricos (votos), ignorar 'metadata'
+      Object.keys(data).forEach((key) => {
+        if (/^\d+$/.test(key)) {
+          const voteData = data[key];
+          votes.push({
+            id: voteData.id,
+            timestamp: voteData.timestamp,
+            presbyteros: voteData.presbyteros || [],
+            diaconos: voteData.diaconos || [],
+            hash: voteData.hash,
+          });
+        }
+      });
+
+      // Ordenar por ID
+      votes.sort((a, b) => a.id - b.id);
+
+      console.log(
+        `[RealtimeSync] ✅ ${votes.length} votos carregados do Firebase`
+      );
+
+      return votes;
+    } catch (error) {
+      console.error("[RealtimeSync] ❌ Erro ao carregar votos:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Limpar todos os dados de auditoria do Firebase
+   * Remove todos os votos e metadata
+   */
+  async clearAuditData(): Promise<{ success: boolean; error?: string }> {
+    if (!this.isActive() || !database) {
+      return {
+        success: false,
+        error: "Firebase inativo ou não configurado",
+      };
+    }
+
+    try {
+      const auditRef = ref(database, "audit");
+      await set(auditRef, null);
+      console.log("[RealtimeSync] 🗑️ Dados de auditoria limpos no Firebase");
+      return { success: true };
+    } catch (error) {
+      console.error("[RealtimeSync] ❌ Erro ao limpar auditoria:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+      };
     }
   }
 
@@ -279,7 +457,34 @@ export class RealtimeSync {
     });
     this.listeners.set("config", configUnsubscribe);
 
-    console.log("[RealtimeSync] 👂 Listeners configurados (2)");
+    // ✅ V2: Listener incremental de auditoria (onChildAdded)
+    // Escuta apenas novos votos individuais, evitando race conditions
+    const auditRef = ref(database, "audit");
+    const auditUnsubscribe = onChildAdded(auditRef, (snapshot) => {
+      const key = snapshot.key;
+
+      // Ignorar nó de metadata (não é um voto)
+      if (key === "metadata") {
+        return;
+      }
+
+      // Validar que é um nó numérico (voto válido)
+      if (key && /^\d+$/.test(key)) {
+        const vote = snapshot.val() as AuditVote;
+
+        // Ignorar votos criados pela própria sessão (prevenir loop)
+        if (vote.createdBy !== this.sessionId) {
+          console.log(`[RealtimeSync] 🔄 Novo voto recebido: ID ${vote.id}`);
+          // Emitir evento com voto individual
+          this.eventSystem.emit(EventTypes.SYNC_VOTE_ADDED, vote);
+        }
+      }
+    });
+    this.listeners.set("audit", auditUnsubscribe);
+
+    console.log(
+      "[RealtimeSync] �� Listeners configurados (3 - audit incremental)"
+    );
   }
 
   /**

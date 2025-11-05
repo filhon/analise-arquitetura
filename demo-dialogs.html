@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Demonstração de Diálogos Personalizados</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+    />
+    <link rel="stylesheet" href="/assets/css/main.css" />
+    <link rel="stylesheet" href="/assets/css/dialog.css" />
+    <style>
+      body {
+        padding: 2rem;
+        font-family: "Inter", sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+      }
+      .demo-container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .demo-section {
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background: var(--bg-secondary);
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      .demo-section h2 {
+        margin-top: 0;
+        color: var(--primary);
+      }
+      .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+      .demo-code {
+        background: var(--gray-800);
+        color: var(--gray-100);
+        padding: 1rem;
+        border-radius: 8px;
+        font-family: "Courier New", monospace;
+        font-size: 0.875rem;
+        overflow-x: auto;
+        margin-top: 1rem;
+      }
+      .result-box {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: var(--info-alpha-10);
+        border-left: 4px solid var(--info);
+        border-radius: 4px;
+        font-weight: 500;
+      }
+      .dark-mode-toggle {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 1000;
+      }
+    </style>
+  </head>
+  <body>
+    <button class="dark-mode-toggle btn btn-icon" onclick="toggleDarkMode()">
+      <span class="material-icons md-24">dark_mode</span>
+    </button>
+
+    <div class="demo-container">
+      <h1>🎭 Demonstração de Diálogos Personalizados</h1>
+      <p>
+        Sistema completo de diálogos que substitui alert(), confirm() e prompt()
+        nativos do navegador.
+      </p>
+
+      <!-- Confirm Dialog -->
+      <div class="demo-section">
+        <h2>1. Diálogo de Confirmação (Confirm)</h2>
+        <p>Diálogo com dois botões: Confirmar e Cancelar. Retorna boolean.</p>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="demoConfirm()">
+            <span class="material-icons md-20">help</span>
+            Confirmar Padrão
+          </button>
+          <button class="btn btn-danger" onclick="demoConfirmDelete()">
+            <span class="material-icons md-20">delete_forever</span>
+            Confirmar Exclusão
+          </button>
+          <button class="btn btn-warning" onclick="demoConfirmWarning()">
+            <span class="material-icons md-20">warning</span>
+            Confirmar Ação Crítica
+          </button>
+        </div>
+        <div class="demo-code">
+          const confirmed = await dialogService.confirm({ title: "Confirmar
+          Ação", message: "Tem certeza que deseja continuar?", confirmText:
+          "Sim, Continuar", cancelText: "Cancelar", icon: "help", });
+        </div>
+        <div id="confirm-result" class="result-box" style="display: none"></div>
+      </div>
+
+      <!-- Prompt Dialog -->
+      <div class="demo-section">
+        <h2>2. Diálogo com Input (Prompt)</h2>
+        <p>Diálogo com campo de texto. Retorna string ou null se cancelado.</p>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="demoPrompt()">
+            <span class="material-icons md-20">edit</span>
+            Input de Texto
+          </button>
+          <button class="btn btn-secondary" onclick="demoPromptPassword()">
+            <span class="material-icons md-20">lock</span>
+            Senha de Segurança
+          </button>
+        </div>
+        <div class="demo-code">
+          const value = await dialogService.prompt({ title: "Digite um valor",
+          message: "Insira o texto desejado:", placeholder: "Digite aqui...",
+          confirmText: "Enviar", cancelText: "Cancelar", icon: "edit", });
+        </div>
+        <div id="prompt-result" class="result-box" style="display: none"></div>
+      </div>
+
+      <!-- Alert Dialog -->
+      <div class="demo-section">
+        <h2>3. Diálogo de Alerta (Alert)</h2>
+        <p>
+          Diálogo com apenas um botão (OK). Usado para notificações simples.
+        </p>
+        <div class="btn-group">
+          <button class="btn btn-info" onclick="demoAlertInfo()">
+            <span class="material-icons md-20">info</span>
+            Informação
+          </button>
+          <button class="btn btn-success" onclick="demoAlertSuccess()">
+            <span class="material-icons md-20">check_circle</span>
+            Sucesso
+          </button>
+          <button class="btn btn-danger" onclick="demoAlertError()">
+            <span class="material-icons md-20">error</span>
+            Erro
+          </button>
+        </div>
+        <div class="demo-code">
+          await dialogService.alert({ title: "Operação Concluída", message: "Os
+          dados foram salvos com sucesso!", confirmText: "OK", icon:
+          "check_circle", });
+        </div>
+      </div>
+
+      <!-- Custom Icons -->
+      <div class="demo-section">
+        <h2>4. Ícones Personalizados</h2>
+        <p>Qualquer ícone do Material Icons pode ser usado.</p>
+        <div class="btn-group">
+          <button
+            class="btn btn-primary"
+            onclick="demoCustomIcon('favorite', 'pink')"
+          >
+            <span class="material-icons md-20">favorite</span>
+            Coração
+          </button>
+          <button
+            class="btn btn-primary"
+            onclick="demoCustomIcon('star', 'gold')"
+          >
+            <span class="material-icons md-20">star</span>
+            Estrela
+          </button>
+          <button
+            class="btn btn-primary"
+            onclick="demoCustomIcon('thumb_up', 'blue')"
+          >
+            <span class="material-icons md-20">thumb_up</span>
+            Like
+          </button>
+          <button
+            class="btn btn-primary"
+            onclick="demoCustomIcon('notification_important', 'orange')"
+          >
+            <span class="material-icons md-20">notification_important</span>
+            Notificação
+          </button>
+        </div>
+      </div>
+
+      <!-- Real World Examples -->
+      <div class="demo-section">
+        <h2>5. Exemplos do Mundo Real</h2>
+        <p>Casos de uso práticos do sistema de eleição.</p>
+        <div class="btn-group">
+          <button class="btn btn-warning" onclick="demoRealZeresima()">
+            <span class="material-icons md-20">assignment</span>
+            Zerésima
+          </button>
+          <button class="btn btn-danger" onclick="demoRealRemoveCandidate()">
+            <span class="material-icons md-20">person_remove</span>
+            Remover Candidato
+          </button>
+          <button class="btn btn-secondary" onclick="demoRealResetVotes()">
+            <span class="material-icons md-20">restart_alt</span>
+            Resetar Votos
+          </button>
+          <button class="btn btn-secondary" onclick="demoRealExitVoting()">
+            <span class="material-icons md-20">exit_to_app</span>
+            Sair da Votação
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { dialogService } from "./src/ui/dialog.ts";
+      window.dialogService = dialogService;
+    </script>
+
+    <script>
+      function toggleDarkMode() {
+        document.body.classList.toggle("dark-mode");
+      }
+
+      async function demoConfirm() {
+        const confirmed = await window.dialogService.confirm({
+          title: "Confirmar Ação",
+          message: "Tem certeza que deseja continuar com esta operação?",
+          confirmText: "Sim, Continuar",
+          cancelText: "Cancelar",
+          icon: "help",
+        });
+        showResult(
+          "confirm-result",
+          confirmed ? "✅ Confirmado!" : "❌ Cancelado"
+        );
+      }
+
+      async function demoConfirmDelete() {
+        const confirmed = await window.dialogService.confirm({
+          title: "Excluir Item",
+          message:
+            "Esta ação não pode ser desfeita. Tem certeza que deseja excluir?",
+          confirmText: "Sim, Excluir",
+          cancelText: "Cancelar",
+          icon: "delete_forever",
+        });
+        showResult(
+          "confirm-result",
+          confirmed ? "🗑️ Item excluído!" : "❌ Cancelado"
+        );
+      }
+
+      async function demoConfirmWarning() {
+        const confirmed = await window.dialogService.confirm({
+          title: "Atenção!",
+          message:
+            "Esta ação irá resetar todos os dados do sistema. Deseja continuar?",
+          confirmText: "Sim, Resetar",
+          cancelText: "Não",
+          icon: "warning",
+        });
+        showResult(
+          "confirm-result",
+          confirmed ? "⚠️ Sistema resetado!" : "❌ Cancelado"
+        );
+      }
+
+      async function demoPrompt() {
+        const value = await window.dialogService.prompt({
+          title: "Digite seu Nome",
+          message: "Qual é o seu nome completo?",
+          placeholder: "João da Silva",
+          confirmText: "Enviar",
+          cancelText: "Cancelar",
+          icon: "edit",
+        });
+        showResult(
+          "prompt-result",
+          value ? `👋 Olá, ${value}!` : "❌ Cancelado"
+        );
+      }
+
+      async function demoPromptPassword() {
+        const password = await window.dialogService.prompt({
+          title: "Senha de Segurança",
+          message: "Digite a senha para confirmar:",
+          placeholder: "Digite 'admin'",
+          confirmText: "Verificar",
+          cancelText: "Cancelar",
+          icon: "lock",
+        });
+        if (password === "admin") {
+          showResult("prompt-result", "🔓 Senha correta!");
+        } else if (password === null) {
+          showResult("prompt-result", "❌ Cancelado");
+        } else {
+          showResult("prompt-result", "🔒 Senha incorreta!");
+        }
+      }
+
+      async function demoAlertInfo() {
+        await window.dialogService.alert({
+          title: "Informação",
+          message: "Esta é uma mensagem informativa para o usuário.",
+          confirmText: "Entendi",
+          icon: "info",
+        });
+      }
+
+      async function demoAlertSuccess() {
+        await window.dialogService.alert({
+          title: "Sucesso!",
+          message: "A operação foi concluída com sucesso!",
+          confirmText: "Ótimo!",
+          icon: "check_circle",
+        });
+      }
+
+      async function demoAlertError() {
+        await window.dialogService.alert({
+          title: "Erro",
+          message:
+            "Ocorreu um erro ao processar sua solicitação. Tente novamente.",
+          confirmText: "OK",
+          icon: "error",
+        });
+      }
+
+      async function demoCustomIcon(icon, color) {
+        await window.dialogService.alert({
+          title: "Ícone Personalizado",
+          message: `Este diálogo usa o ícone "${icon}"!`,
+          confirmText: "Legal!",
+          icon: icon,
+        });
+      }
+
+      async function demoRealZeresima() {
+        const confirmed = await window.dialogService.confirm({
+          title: "Confirmar Zerésima",
+          message:
+            "Esta ação irá:\n\n• Resetar TODOS os votos registrados\n• Limpar dados de auditoria\n• Gerar relatório PDF\n\nEsta ação é irreversível. Deseja continuar?",
+          confirmText: "Sim, Resetar Votos",
+          cancelText: "Cancelar",
+          icon: "warning",
+        });
+        if (confirmed) {
+          await window.dialogService.alert({
+            title: "Zerésima Concluída",
+            message:
+              "✅ Relatório Zerésima gerado! Todos os votos foram resetados.",
+            confirmText: "OK",
+            icon: "check_circle",
+          });
+        }
+      }
+
+      async function demoRealRemoveCandidate() {
+        const confirmed = await window.dialogService.confirm({
+          title: "Remover Candidato",
+          message:
+            "Tem certeza que deseja remover este candidato a Presbítero?",
+          confirmText: "Sim, Remover",
+          cancelText: "Cancelar",
+          icon: "person_remove",
+        });
+        if (confirmed) {
+          await window.dialogService.alert({
+            title: "Candidato Removido",
+            message: "O candidato foi removido com sucesso!",
+            confirmText: "OK",
+            icon: "check_circle",
+          });
+        }
+      }
+
+      async function demoRealResetVotes() {
+        const confirmed = await window.dialogService.confirm({
+          title: "Resetar Votos",
+          message: "Tem certeza que deseja resetar os votos deste candidato?",
+          confirmText: "Sim, Resetar",
+          cancelText: "Cancelar",
+          icon: "restart_alt",
+        });
+        if (confirmed) {
+          await window.dialogService.alert({
+            title: "Votos Resetados",
+            message: "Os votos do candidato foram resetados para 0.",
+            confirmText: "OK",
+            icon: "check_circle",
+          });
+        }
+      }
+
+      async function demoRealExitVoting() {
+        const password = await window.dialogService.prompt({
+          title: "Confirmar Saída",
+          message: "Para sair da votação, digite a senha de segurança:",
+          placeholder: "Digite 'sair'",
+          confirmText: "Sair da Votação",
+          cancelText: "Cancelar",
+          icon: "lock",
+        });
+        if (password?.toLowerCase() === "sair") {
+          await window.dialogService.alert({
+            title: "Votação Encerrada",
+            message: "Você saiu da votação com sucesso.",
+            confirmText: "OK",
+            icon: "exit_to_app",
+          });
+        } else if (password !== null) {
+          await window.dialogService.alert({
+            title: "Senha Incorreta",
+            message:
+              "A senha digitada está incorreta. Permanecendo na votação.",
+            confirmText: "OK",
+            icon: "error",
+          });
+        }
+      }
+
+      function showResult(id, message) {
+        const resultBox = document.getElementById(id);
+        resultBox.textContent = message;
+        resultBox.style.display = "block";
+        setTimeout(() => {
+          resultBox.style.display = "none";
+        }, 5000);
+      }
+    </script>
+  </body>
+</html>

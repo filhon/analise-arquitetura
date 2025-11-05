@@ -204,6 +204,7 @@ export enum EventTypes {
   VOTE_CAST = "vote:cast",
   RESULTS_UPDATED = "results:updated",
   VOTE_RECORDED = "vote:recorded",
+  VOTING_CLOSED = "voting:closed", // Votação encerrada (votos = presentes)
 
   // Attendance
   ATTENDANCE_MARKED = "attendance:marked",
@@ -220,6 +221,8 @@ export enum EventTypes {
   // Real-time Sync (Firebase) - Arquitetura Centralizada
   SYNC_MEMBERS_UPDATED = "sync:members:updated", // Inclui dados pessoais, presença, candidatura, votos
   SYNC_CONFIG_UPDATED = "sync:config:updated", // Configurações do sistema (quórum, etc)
+  SYNC_AUDIT_UPDATED = "sync:audit:updated", // Registros de auditoria de votos (DEPRECATED - V1)
+  SYNC_VOTE_ADDED = "sync:vote:added", // ✅ V2: Novo voto individual adicionado (estrutura incremental)
 }
 
 // Types utilitários
@@ -273,6 +276,8 @@ export type EventMap = {
   // Real-time Sync Events (centralized in Member)
   [EventTypes.SYNC_MEMBERS_UPDATED]: Member[];
   [EventTypes.SYNC_CONFIG_UPDATED]: ConfigData;
+  [EventTypes.SYNC_AUDIT_UPDATED]: string; // JSON string com todos os votos (DEPRECATED - V1)
+  [EventTypes.SYNC_VOTE_ADDED]: AuditVote; // ✅ V2: Voto individual adicionado
   [EventTypes.VOTE_RECORDED]: { voteId: number };
 };
 
@@ -297,6 +302,10 @@ export interface AuditVote {
   hash: string;
   /** Ordem aleatória para exibição no relatório (preserva anonimato) */
   randomOrder?: number;
+  /** ✅ V2: ID da sessão que criou o voto (previne loops de sincronização) */
+  createdBy?: string;
+  /** ✅ V2: Timestamp de criação no Firebase (tracking) */
+  createdAt?: number;
 }
 
 // ============================================

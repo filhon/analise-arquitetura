@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.getUsers = exports.updateUserRole = exports.createUser = void 0;
+exports.deleteUser = exports.getUsers = exports.updateUserDisplayName = exports.updateUserRole = exports.createUser = void 0;
 // src/index.ts
 const admin = __importStar(require("firebase-admin"));
 // Inicializar Firebase Admin SDK
@@ -43,6 +43,8 @@ const createUser_1 = require("./auth/createUser");
 Object.defineProperty(exports, "createUser", { enumerable: true, get: function () { return createUser_1.createUser; } });
 const updateUserRole_1 = require("./auth/updateUserRole");
 Object.defineProperty(exports, "updateUserRole", { enumerable: true, get: function () { return updateUserRole_1.updateUserRole; } });
+const updateUserDisplayName_1 = require("./auth/updateUserDisplayName");
+Object.defineProperty(exports, "updateUserDisplayName", { enumerable: true, get: function () { return updateUserDisplayName_1.updateUserDisplayName; } });
 const getUsers_1 = require("./auth/getUsers");
 Object.defineProperty(exports, "getUsers", { enumerable: true, get: function () { return getUsers_1.getUsers; } });
 const deleteUser_1 = require("./auth/deleteUser");

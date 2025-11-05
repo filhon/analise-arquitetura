@@ -12,7 +12,6 @@ export class LoginUI {
   private passwordInput!: HTMLInputElement;
   private submitButton!: HTMLButtonElement;
   private togglePasswordButton!: HTMLButtonElement;
-  private loadingElement!: HTMLElement;
   private errorMessageElement!: HTMLElement;
   private errorTitleElement!: HTMLElement;
   private errorDescriptionElement!: HTMLElement;
@@ -38,7 +37,6 @@ export class LoginUI {
     this.togglePasswordButton = document.getElementById(
       "toggle-password"
     ) as HTMLButtonElement;
-    this.loadingElement = document.getElementById("login-loading")!;
     this.errorMessageElement = document.getElementById("login-error-message")!;
     this.errorTitleElement = document.getElementById("error-title")!;
     this.errorDescriptionElement =
@@ -157,13 +155,11 @@ export class LoginUI {
         <div class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px;"></div>
         Entrando...
       `;
-      this.loadingElement.style.display = "flex";
     } else {
       this.submitButton.innerHTML = `
         <span class="material-icons md-20">login</span>
         Entrar
       `;
-      this.loadingElement.style.display = "none";
     }
   }
 
@@ -195,10 +191,56 @@ export class LoginUI {
     this.errorMessageElement.className = "login-error-message";
   }
 
+  // Mapeamento de erros (consolidado)
+  private readonly ERROR_INFO: Record<
+    string,
+    { title: string; description: string; focusField?: "email" | "password" }
+  > = {
+    "user-not-found": {
+      title: "Email não encontrado",
+      description:
+        "Este email não está cadastrado no sistema. Verifique se digitou corretamente ou entre em contato com o administrador.",
+      focusField: "email",
+    },
+    "wrong-password": {
+      title: "Senha incorreta",
+      description:
+        "A senha digitada está incorreta. Tente novamente ou clique em 'Esqueci minha senha' se necessário.",
+      focusField: "password",
+    },
+    "invalid-email": {
+      title: "Email inválido",
+      description:
+        "O formato do email digitado é inválido. Digite um email válido no formato nome@dominio.com.",
+      focusField: "email",
+    },
+    "disabled-account": {
+      title: "Conta desabilitada",
+      description:
+        "Esta conta foi desabilitada pelo administrador. Entre em contato com o administrador do sistema.",
+    },
+    "too-many-requests": {
+      title: "Muitas tentativas",
+      description:
+        "Detectamos muitas tentativas de login. Aguarde alguns minutos antes de tentar novamente.",
+    },
+    "network-error": {
+      title: "Erro de conexão",
+      description:
+        "Não foi possível conectar ao servidor. Verifique sua conexão com a internet e tente novamente.",
+    },
+    "generic-error": {
+      title: "Erro no login",
+      description:
+        "Ocorreu um erro inesperado. Tente novamente em alguns instantes ou entre em contato com o administrador.",
+    },
+  };
+
   // Método para exibir mensagem de erro específica
   private showErrorMessage(errorMessage: string): void {
     const errorType = this.categorizeError(errorMessage);
-    const errorInfo = this.getErrorInfo(errorType);
+    const errorInfo =
+      this.ERROR_INFO[errorType] || this.ERROR_INFO["generic-error"];
 
     // Atualizar conteúdo
     this.errorTitleElement.textContent = errorInfo.title;
@@ -209,104 +251,30 @@ export class LoginUI {
     this.errorMessageElement.style.display = "block";
 
     // Focar no campo apropriado baseado no tipo de erro
-    if (errorType === "user-not-found" || errorType === "invalid-email") {
+    if (errorInfo.focusField === "email") {
       this.emailInput.focus();
-    } else if (errorType === "wrong-password") {
+    } else if (errorInfo.focusField === "password") {
       this.passwordInput.focus();
     }
   }
 
   // Método para categorizar o tipo de erro baseado na mensagem
   private categorizeError(errorMessage: string): string {
-    if (
-      errorMessage.includes("não está cadastrado") ||
-      errorMessage.includes("user-not-found")
-    ) {
-      return "user-not-found";
-    } else if (
-      errorMessage.includes("senha está incorreta") ||
-      errorMessage.includes("wrong-password")
-    ) {
-      return "wrong-password";
-    } else if (
-      errorMessage.includes("formato do email é inválido") ||
-      errorMessage.includes("invalid-email")
-    ) {
-      return "invalid-email";
-    } else if (
-      errorMessage.includes("conta foi desabilitada") ||
-      errorMessage.includes("user-disabled")
-    ) {
-      return "disabled-account";
-    } else if (
-      errorMessage.includes("muitas tentativas") ||
-      errorMessage.includes("too-many-requests")
-    ) {
-      return "too-many-requests";
-    } else if (
-      errorMessage.includes("conexão") ||
-      errorMessage.includes("network")
-    ) {
-      return "network-error";
-    } else {
-      return "generic-error";
+    const errorPatterns: Record<string, RegExp> = {
+      "user-not-found": /não está cadastrado|user-not-found/i,
+      "wrong-password": /senha está incorreta|wrong-password/i,
+      "invalid-email": /formato do email é inválido|invalid-email/i,
+      "disabled-account": /conta foi desabilitada|user-disabled/i,
+      "too-many-requests": /muitas tentativas|too-many-requests/i,
+      "network-error": /conexão|network/i,
+    };
+
+    for (const [errorType, pattern] of Object.entries(errorPatterns)) {
+      if (pattern.test(errorMessage)) {
+        return errorType;
+      }
     }
-  }
 
-  // Método para obter informações do erro baseado no tipo
-  private getErrorInfo(errorType: string): {
-    title: string;
-    description: string;
-  } {
-    switch (errorType) {
-      case "user-not-found":
-        return {
-          title: "Email não encontrado",
-          description:
-            "Este email não está cadastrado no sistema. Verifique se digitou corretamente ou entre em contato com o administrador.",
-        };
-
-      case "wrong-password":
-        return {
-          title: "Senha incorreta",
-          description:
-            "A senha digitada está incorreta. Tente novamente ou clique em 'Esqueci minha senha' se necessário.",
-        };
-
-      case "invalid-email":
-        return {
-          title: "Email inválido",
-          description:
-            "O formato do email digitado é inválido. Digite um email válido no formato nome@dominio.com.",
-        };
-
-      case "disabled-account":
-        return {
-          title: "Conta desabilitada",
-          description:
-            "Esta conta foi desabilitada pelo administrador. Entre em contato com o administrador do sistema.",
-        };
-
-      case "too-many-requests":
-        return {
-          title: "Muitas tentativas",
-          description:
-            "Detectamos muitas tentativas de login. Aguarde alguns minutos antes de tentar novamente.",
-        };
-
-      case "network-error":
-        return {
-          title: "Erro de conexão",
-          description:
-            "Não foi possível conectar ao servidor. Verifique sua conexão com a internet e tente novamente.",
-        };
-
-      default:
-        return {
-          title: "Erro no login",
-          description:
-            "Ocorreu um erro inesperado. Tente novamente em alguns instantes ou entre em contato com o administrador.",
-        };
-    }
+    return "generic-error";
   }
 }

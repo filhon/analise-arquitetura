@@ -35,6 +35,7 @@
     <link rel="stylesheet" href="/assets/css/main.css" />
     <link rel="stylesheet" href="/assets/css/candidate-select.css" />
     <link rel="stylesheet" href="/assets/css/selection-improved.css" />
+    <link rel="stylesheet" href="/assets/css/dialog.css" />
   </head>
   <body>
     <!-- Loading Screen -->
@@ -133,11 +134,6 @@
               </p>
             </div>
           </div>
-        </div>
-
-        <div class="login-loading" id="login-loading" style="display: none">
-          <div class="loading-spinner"></div>
-          <p>Verificando credenciais...</p>
         </div>
       </div>
     </div>
@@ -401,6 +397,14 @@
                 Configurar Quórum
               </button>
               <button
+                id="zeresima-btn"
+                class="btn btn-warning"
+                title="Emitir relatório Zerésima - Confirma zero votos antes da eleição"
+              >
+                <span class="material-icons md-20">assignment</span>
+                Zerésima
+              </button>
+              <button
                 id="start-voting-btn"
                 class="btn btn-primary"
                 title="Iniciar Votação"
@@ -564,6 +568,10 @@
             <div class="stat-card">
               <h3 id="regular-users">0</h3>
               <p>Usuários Regulares</p>
+            </div>
+            <div class="stat-card">
+              <h3 id="active-users">0</h3>
+              <p>Usuários Ativos</p>
             </div>
           </div>
 

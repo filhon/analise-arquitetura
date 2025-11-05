@@ -38,9 +38,10 @@ exports.updateUserRole = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 exports.updateUserRole = functions.https.onCall(async (data, context) => {
-    var _a;
-    // Verificar se caller é admin
-    if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.admin)) {
+    var _a, _b;
+    // Verificar se caller é admin (verificar tanto admin quanto role)
+    const isAdmin = ((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.admin) === true || ((_b = context.auth) === null || _b === void 0 ? void 0 : _b.token.role) === "admin";
+    if (!context.auth || !isAdmin) {
         throw new functions.https.HttpsError("permission-denied", "Apenas administradores podem atualizar funções de usuários");
     }
     const { uid, role } = data;

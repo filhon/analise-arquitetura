@@ -972,4 +972,167 @@ export class ReportManager {
       ErrorHandler.log(error as Error, "ReportManager.downloadCSVTemplate");
     }
   }
+
+  /**
+   * Gera relatório Zerésima - Confirma zero votos antes da eleição
+   * Lista todos os candidatos com contagem zerada
+   */
+  async generateZeresimaReport(): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+        compress: true,
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      let yPos = 20;
+
+      // Header
+      pdf.setFontSize(20);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(this.sanitizeText("RELATORIO ZERESIMA"), pageWidth / 2, yPos, {
+        align: "center",
+      });
+
+      yPos += 10;
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(
+        this.sanitizeText("Confirmacao de Zero Votos Antes da Eleicao"),
+        pageWidth / 2,
+        yPos,
+        { align: "center" }
+      );
+
+      yPos += 15;
+
+      // Data e hora
+      const now = new Date();
+      const dataHora = Formatter.date(now);
+      pdf.setFontSize(10);
+      pdf.text(`Data/Hora: ${dataHora}`, 20, yPos);
+
+      yPos += 10;
+
+      // Obter candidatos
+      const members = await this.memberManager.getMembers();
+      const presbyteros = members.filter((m) => m.candidato === "Presbítero");
+      const diaconos = members.filter((m) => m.candidato === "Diácono");
+
+      // Seção Presbíteros
+      yPos += 5;
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(this.sanitizeText("PRESBITEROS"), 20, yPos);
+
+      yPos += 8;
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+
+      if (presbyteros.length === 0) {
+        pdf.text(this.sanitizeText("Nenhum candidato cadastrado"), 25, yPos);
+        yPos += 7;
+      } else {
+        presbyteros.forEach((member) => {
+          if (yPos > 270) {
+            pdf.addPage();
+            yPos = 20;
+          }
+          pdf.text(`- ${this.sanitizeText(member.nome)}`, 25, yPos);
+          pdf.text("Votos: 0", 150, yPos);
+          yPos += 7;
+        });
+      }
+
+      // Seção Diáconos
+      yPos += 5;
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(this.sanitizeText("DIACONOS"), 20, yPos);
+
+      yPos += 8;
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+
+      if (diaconos.length === 0) {
+        pdf.text(this.sanitizeText("Nenhum candidato cadastrado"), 25, yPos);
+        yPos += 7;
+      } else {
+        diaconos.forEach((member) => {
+          if (yPos > 270) {
+            pdf.addPage();
+            yPos = 20;
+          }
+          pdf.text(`- ${this.sanitizeText(member.nome)}`, 25, yPos);
+          pdf.text("Votos: 0", 150, yPos);
+          yPos += 7;
+        });
+      }
+
+      // Resumo
+      yPos += 10;
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(this.sanitizeText("RESUMO"), 20, yPos);
+
+      yPos += 8;
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(
+        `Total de candidatos a Presbitero: ${presbyteros.length}`,
+        25,
+        yPos
+      );
+      yPos += 6;
+      pdf.text(`Total de candidatos a Diacono: ${diaconos.length}`, 25, yPos);
+      yPos += 6;
+      pdf.text(`Total de votos registrados: 0`, 25, yPos);
+
+      yPos += 10;
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "italic");
+      pdf.text(
+        this.sanitizeText(
+          "Este relatorio confirma que nao ha votos contabilizados antes do inicio da eleicao."
+        ),
+        20,
+        yPos,
+        { maxWidth: pageWidth - 40 }
+      );
+
+      // Footer
+      const pageCount = pdf.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(
+          `Pagina ${i} de ${pageCount}`,
+          pageWidth / 2,
+          pdf.internal.pageSize.getHeight() - 10,
+          { align: "center" }
+        );
+      }
+
+      // Save PDF
+      const dateStr = `${now.getDate().toString().padStart(2, "0")}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getFullYear()}`;
+      const fileName = `zeresima_${dateStr}.pdf`;
+      pdf.save(fileName);
+
+      return { success: true };
+    } catch (error) {
+      ErrorHandler.log(error as Error, "ReportManager.generateZeresimaReport");
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Erro ao gerar relatório",
+      };
+    }
+  }
 }

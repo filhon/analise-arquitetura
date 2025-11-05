@@ -5,8 +5,12 @@ import { UpdateUserRoleData } from "../types/user";
 
 export const updateUserRole = functions.https.onCall(
   async (data: UpdateUserRoleData, context) => {
-    // Verificar se caller é admin
-    if (!context.auth?.token.admin) {
+    // Verificar se caller é admin (verificar tanto admin quanto role)
+    const isAdmin =
+      context.auth?.token.admin === true ||
+      context.auth?.token.role === "admin";
+
+    if (!context.auth || !isAdmin) {
       throw new functions.https.HttpsError(
         "permission-denied",
         "Apenas administradores podem atualizar funções de usuários"

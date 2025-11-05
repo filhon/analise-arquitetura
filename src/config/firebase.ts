@@ -14,6 +14,7 @@ import { getDatabase, Database } from "firebase/database";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 import { getAuth, Auth } from "firebase/auth";
 import { getFunctions, Functions } from "firebase/functions";
+import { getFirestore, Firestore } from "firebase/firestore";
 
 // ⚠️ SUBSTITUA COM SUAS CREDENCIAIS DO FIREBASE
 const firebaseConfig = {
@@ -39,6 +40,7 @@ let database: Database | null = null;
 let storage: FirebaseStorage | null = null;
 let auth: Auth | null = null;
 let functions: Functions | null = null;
+let firestore: Firestore | null = null;
 
 if (isConfigured) {
   try {
@@ -51,10 +53,12 @@ if (isConfigured) {
     app = initializeApp(firebaseConfig);
     database = getDatabase(app);
     auth = getAuth(app);
+    firestore = getFirestore(app);
 
     console.log("✅ Firebase App inicializado");
     console.log("✅ Firebase Database inicializado");
     console.log("✅ Firebase Auth inicializado");
+    console.log("✅ Firebase Firestore inicializado");
 
     // Inicializar Functions
     try {
@@ -84,5 +88,5 @@ if (isConfigured) {
   console.warn("📚 Veja docs/CONFIGURACAO-FIREBASE-PASSO-A-PASSO.md");
 }
 
-export { app, database, storage, auth, functions, isConfigured };
+export { app, database, storage, auth, functions, firestore, isConfigured };
 export default database;
