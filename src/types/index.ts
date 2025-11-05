@@ -187,6 +187,7 @@ export type MemberType =
 export enum StorageKeys {
   MEMBERS = "MEMBERS", // ✅ SSOT - Single Source of Truth
   CONFIG = "CONFIG", // ✅ System configuration (quorum + system settings)
+  AUDIT_LOG = "AUDIT_LOG", // ✅ Vote audit logs
 }
 
 export enum EventTypes {
@@ -202,6 +203,7 @@ export enum EventTypes {
   // Voting
   VOTE_CAST = "vote:cast",
   RESULTS_UPDATED = "results:updated",
+  VOTE_RECORDED = "vote:recorded",
 
   // Attendance
   ATTENDANCE_MARKED = "attendance:marked",
@@ -271,7 +273,31 @@ export type EventMap = {
   // Real-time Sync Events (centralized in Member)
   [EventTypes.SYNC_MEMBERS_UPDATED]: Member[];
   [EventTypes.SYNC_CONFIG_UPDATED]: ConfigData;
+  [EventTypes.VOTE_RECORDED]: { voteId: number };
 };
+
+// ============================================
+// Auditoria de Votos
+// ============================================
+
+/**
+ * Registro de auditoria de um voto individual
+ * Mantém total anonimato enquanto permite verificação de integridade
+ */
+export interface AuditVote {
+  /** ID sequencial anônimo (0, 1, 2...) */
+  id: number;
+  /** Timestamp da votação */
+  timestamp: string;
+  /** IDs dos candidatos a Presbítero selecionados */
+  presbyteros: string[];
+  /** IDs dos candidatos a Diácono selecionados */
+  diaconos: string[];
+  /** Hash SHA-256 para garantir integridade dos dados */
+  hash: string;
+  /** Ordem aleatória para exibição no relatório (preserva anonimato) */
+  randomOrder?: number;
+}
 
 // ============================================
 // FASE 8: Helper Functions - Conversão para compatibilidade

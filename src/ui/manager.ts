@@ -11,11 +11,13 @@ import type {
 } from "@/types";
 import { EventTypes, StorageKeys } from "@/types";
 import { RealtimeSync } from "@/utils";
+import { EventSystem } from "@/utils/events";
 import { uploadImage, deleteFileByUrl } from "@/utils/storage";
 import { resizeImage, generateThumbnail } from "@/utils/image";
 import { AuthManager } from "@/modules/auth/manager";
 import type { User } from "@/types/auth";
 import { UserRole } from "@/types/auth";
+import { AuditManager } from "@/modules/audit";
 
 export class UIManager {
   private static instance: UIManager;
@@ -87,6 +89,15 @@ export class UIManager {
   }
 
   private setupEventListeners(): void {
+    // Audit system - atualizar contador quando voto é registrado
+    EventSystem.getInstance().on(EventTypes.VOTE_RECORDED, () => {
+      const votesCountEl = document.getElementById("votes-count");
+      if (votesCountEl) {
+        const auditManager = AuditManager.getInstance();
+        votesCountEl.textContent = String(auditManager.getVotesCount());
+      }
+    });
+
     // Header actions
     document
       .getElementById("export-btn")
@@ -2717,6 +2728,10 @@ export class UIManager {
     const statusClass = quorum.isValid ? "status-valid" : "status-invalid";
     const statusText = quorum.isValid ? "✓ VÁLIDO" : "✗ INSUFICIENTE";
 
+    // Obter contagem de votos registrados
+    const auditManager = AuditManager.getInstance();
+    const votesCount = auditManager.getVotesCount();
+
     quorumInfo.innerHTML = `
       <div class="quorum-grid">
         <div class="quorum-item">
@@ -2734,6 +2749,10 @@ export class UIManager {
         <div class="quorum-item">
           <span class="quorum-label">Votos Necessários</span>
           <span class="quorum-value">${quorum.votesRequired}</span>
+        </div>
+        <div class="quorum-item">
+          <span class="quorum-label">Votos Registrados</span>
+          <span class="quorum-value" id="votes-count">${votesCount}</span>
         </div>
         <div class="quorum-item quorum-status-item quorum-status-highlight ${statusClass}">
           <span class="quorum-label">Status do Quórum</span>
@@ -3231,6 +3250,10 @@ export class UIManager {
         const res = await this.submitVotesAtomically(allCandidateIds);
 
         if (res.success) {
+          // ✅ Registrar voto na auditoria
+          const auditManager = AuditManager.getInstance();
+          await auditManager.recordVote(presIds, diaIds);
+
           NotificationService.success("Votos submetidos com sucesso");
           this.showThankYouScreen();
         } else {

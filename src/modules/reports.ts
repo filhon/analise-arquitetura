@@ -6,6 +6,7 @@ import generateValidCPF from "@/utils/cpf";
 import { MemberManager } from "./members";
 import { VotingManager } from "./voting";
 import { AttendanceManager } from "./attendance";
+import { AuditManager } from "./audit";
 
 // Utiliza a implementação centralizada de geração de CPF em `src/utils/cpf.ts`
 
@@ -101,6 +102,14 @@ export class ReportManager {
         currentY = 20;
       }
       currentY = await this.addAttendanceSection(pdf, currentY);
+
+      // Seção de auditoria de votos
+      if (currentY > 220) {
+        // Verificar espaço antes da seção de auditoria
+        pdf.addPage();
+        currentY = 20;
+      }
+      currentY = await this.addAuditSection(pdf, currentY);
 
       // Rodapé
       this.addFooter(pdf);
@@ -509,6 +518,225 @@ export class ReportManager {
       pdf.setTextColor(239, 68, 68);
       pdf.text(
         this.sanitizeText("Erro ao carregar dados de presença"),
+        20,
+        currentY
+      );
+      pdf.setTextColor(0, 0, 0);
+      currentY += 10;
+    }
+
+    return currentY;
+  }
+
+  private async addAuditSection(pdf: any, startY: number): Promise<number> {
+    let currentY = startY;
+    const auditManager = AuditManager.getInstance();
+
+    try {
+      const auditData = await auditManager.getReportData();
+
+      // Se não há votos registrados, pular seção
+      if (auditData.totalVotes === 0) {
+        return currentY;
+      }
+
+      // Nova página para auditoria
+      pdf.addPage();
+      currentY = 20;
+
+      // Título da seção com fundo azul claro
+      pdf.setFillColor(240, 248, 255);
+      pdf.rect(15, currentY - 3, 180, 10, "F");
+
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(41, 128, 185);
+      pdf.text(this.sanitizeText("REGISTRO DE AUDITORIA"), 20, currentY + 3);
+      currentY += 15;
+
+      // Resetar cor do texto
+      pdf.setTextColor(0, 0, 0);
+
+      // Informações gerais
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(this.sanitizeText("RESUMO GERAL"), 20, currentY);
+      currentY += 8;
+
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(
+        `Total de Votos Registrados: ${auditData.totalVotes}`,
+        25,
+        currentY
+      );
+      currentY += 6;
+
+      // Status de integridade
+      const integrityColor = auditData.integrity.isValid
+        ? [34, 197, 94]
+        : [239, 68, 68];
+      const integrityText = auditData.integrity.isValid
+        ? "VALIDO"
+        : "COMPROMETIDA";
+      pdf.setTextColor(...integrityColor);
+      pdf.text(`Integridade dos Dados: ${integrityText}`, 25, currentY);
+      pdf.setTextColor(0, 0, 0);
+      currentY += 10;
+
+      // Estatísticas por candidato
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(this.sanitizeText("ESTATISTICAS POR CANDIDATO"), 20, currentY);
+      currentY += 8;
+
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+
+      // Agrupar por cargo
+      const presbíteros = auditData.statistics.filter(
+        (s) => s.role === "Presbítero"
+      );
+      const diáconos = auditData.statistics.filter((s) => s.role === "Diácono");
+
+      if (presbíteros.length > 0) {
+        pdf.setFont("helvetica", "bold");
+        pdf.text(this.sanitizeText("Presbiteros:"), 25, currentY);
+        currentY += 5;
+        pdf.setFont("helvetica", "normal");
+
+        for (const stat of presbíteros) {
+          pdf.text(
+            `  • ${this.sanitizeText(stat.name)}: ${stat.votes} votos (${stat.percentage}%)`,
+            25,
+            currentY
+          );
+          currentY += 5;
+        }
+        currentY += 3;
+      }
+
+      if (diáconos.length > 0) {
+        pdf.setFont("helvetica", "bold");
+        pdf.text(this.sanitizeText("Diaconos:"), 25, currentY);
+        currentY += 5;
+        pdf.setFont("helvetica", "normal");
+
+        for (const stat of diáconos) {
+          pdf.text(
+            `  • ${this.sanitizeText(stat.name)}: ${stat.votes} votos (${stat.percentage}%)`,
+            25,
+            currentY
+          );
+          currentY += 5;
+        }
+        currentY += 3;
+      }
+
+      currentY += 5;
+
+      // Lista aleatória de votos (para verificação manual)
+      pdf.addPage();
+      currentY = 20;
+
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(
+        this.sanitizeText("LISTA COMPLETA DE VOTOS (ORDEM ALEATORIA)"),
+        20,
+        currentY
+      );
+      currentY += 8;
+
+      pdf.setFontSize(8);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(
+        this.sanitizeText(
+          "Os votos abaixo estao em ordem aleatoria para preservar o anonimato dos votantes."
+        ),
+        20,
+        currentY
+      );
+      currentY += 5;
+      pdf.text(
+        this.sanitizeText(
+          "Cada linha representa uma cedula de votacao completa."
+        ),
+        20,
+        currentY
+      );
+      currentY += 10;
+
+      pdf.setTextColor(0, 0, 0);
+
+      // Renderizar votos aleatorizados
+      const randomizedVotes = auditData.randomizedVotes;
+
+      for (let i = 0; i < randomizedVotes.length; i++) {
+        const vote = randomizedVotes[i];
+
+        // Verificar espaço na página
+        if (currentY > 270) {
+          pdf.addPage();
+          currentY = 20;
+        }
+
+        // ID e timestamp
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(9);
+        const voteHeader = `Voto ${vote.id} - ${new Date(vote.timestamp).toLocaleString("pt-BR")}`;
+        pdf.text(this.sanitizeText(voteHeader), 20, currentY);
+        currentY += 5;
+
+        // Candidatos selecionados
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+
+        // Buscar nomes dos candidatos
+        const members = await this.memberManager.getMembers();
+        const membersMap = new Map(members.map((m) => [m.id, m]));
+
+        const presNames = vote.presbyteros
+          .map((id) => {
+            const member = membersMap.get(id);
+            return member?.nome || id;
+          })
+          .join(", ");
+
+        const diaNames = vote.diaconos
+          .map((id) => {
+            const member = membersMap.get(id);
+            return member?.nome || id;
+          })
+          .join(", ");
+
+        pdf.text(
+          `  PRE: ${this.sanitizeText(presNames) || "Nenhum"}`,
+          25,
+          currentY
+        );
+        currentY += 4;
+        pdf.text(
+          `  DIA: ${this.sanitizeText(diaNames) || "Nenhum"}`,
+          25,
+          currentY
+        );
+        currentY += 4;
+
+        // Hash (primeiros 16 caracteres)
+        pdf.setFontSize(7);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text(`  Hash: ${vote.hash.substring(0, 16)}...`, 25, currentY);
+        pdf.setTextColor(0, 0, 0);
+        currentY += 8;
+      }
+    } catch (error) {
+      ErrorHandler.log(error as Error, "ReportManager.addAuditSection");
+      pdf.setFont("helvetica", "italic");
+      pdf.setTextColor(239, 68, 68);
+      pdf.text(
+        this.sanitizeText("Erro ao carregar dados de auditoria"),
         20,
         currentY
       );

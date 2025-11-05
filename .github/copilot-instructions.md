@@ -238,6 +238,18 @@
   - Processo mais direto: 1 clique ao invés de 2
   - Mantidas validações de quórum e modo fullscreen
   - Documentação completa em docs/REMOCAO-TELA-PREVIA-VOTACAO.md
+- [x] Implementar Sistema de Auditoria de Votos
+  - Registro anônimo de votos com ID sequencial (0, 1, 2...)
+  - Hash SHA-256 para integridade de cada voto
+  - Contador de "Votos Registrados" no quorum card
+  - Seção completa de auditoria no relatório PDF
+  - Lista aleatorizada de votos para verificação manual
+  - Sincronização automática com Firebase (/audit)
+  - Exportação/importação de logs completos em JSON
+  - Validação de integridade com detecção de adulterações
+  - Estatísticas por candidato (quantidade e percentual)
+  - Event system (VOTE_RECORDED) para atualizações em tempo real
+  - Documentação completa em docs/IMPLEMENTACAO-SISTEMA-AUDITORIA.md
 
 ## Arquitetura do Sistema
 

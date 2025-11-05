@@ -147,6 +147,27 @@ export class RealtimeSync {
   }
 
   /**
+   * Sincronizar logs de auditoria de votos
+   * PADRÃO: { data, updatedBy, timestamp }
+   */
+  async syncAuditLog(auditLog: string): Promise<void> {
+    if (!this.isActive() || !database) return;
+
+    try {
+      const auditRef = ref(database, "audit");
+
+      await set(auditRef, {
+        data: auditLog,
+        updatedBy: this.sessionId,
+        timestamp: Date.now(),
+      });
+      console.log("[RealtimeSync] ✓ Audit log sincronizado");
+    } catch (error) {
+      console.error("[RealtimeSync] ✗ Erro ao sincronizar audit log:", error);
+    }
+  }
+
+  /**
    * Carregar estado inicial do Firebase
    * PADRÃO: Ambos usam { data, updatedBy, timestamp }
    *
