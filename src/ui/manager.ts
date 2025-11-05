@@ -2085,7 +2085,7 @@ export class UIManager {
   }
 
   /**
-   * Handler para iniciar o fluxo de votação em fullscreen (prévia -> iniciar)
+   * Handler para iniciar o fluxo de votação em fullscreen (direto para seleção)
    */
   private async handleStartVoting(): Promise<void> {
     console.log("[DEBUG] handleStartVoting chamado!");
@@ -2098,7 +2098,22 @@ export class UIManager {
         );
         return;
       }
-      this.showVotingFullscreenPreview(results);
+
+      // Ativar fullscreen view
+      const fullscreenView = document.getElementById("fullscreen-view");
+      if (fullscreenView) {
+        fullscreenView.style.display = "flex";
+        void fullscreenView.offsetWidth;
+        fullscreenView.classList.add("active");
+        if (fullscreenView.requestFullscreen) {
+          fullscreenView.requestFullscreen().catch(() => {
+            /* ignore fullscreen errors */
+          });
+        }
+      }
+
+      // Iniciar fluxo de seleção diretamente (sem tela de prévia)
+      await this.startSelectionFlow();
     } catch (error) {
       console.error("Erro ao iniciar fluxo de votação:", error);
       NotificationService.error("Erro ao iniciar a votação");

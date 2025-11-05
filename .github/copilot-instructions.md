@@ -232,6 +232,12 @@
   - Compatibilidade completa com modo escuro
   - Espaçamento adequado do conteúdo principal (padding-bottom)
   - Documentação completa em docs/IMPLEMENTACAO-NAVEGACAO-MOVEL.md
+- [x] Remover Tela de Prévia da Votação
+  - Fluxo simplificado: botão "Iniciar Votação" vai direto para seleção
+  - Removida etapa intermediária de prévia com todos os candidatos
+  - Processo mais direto: 1 clique ao invés de 2
+  - Mantidas validações de quórum e modo fullscreen
+  - Documentação completa em docs/REMOCAO-TELA-PREVIA-VOTACAO.md
 
 ## Arquitetura do Sistema
 
