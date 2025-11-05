@@ -3371,6 +3371,12 @@ body.dark-mode tbody tr:hover {
   background: var(--bg-tertiary);
 }
 
+/* Dark mode para containers de tabelas */
+body.dark-mode .table-container {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
 body.dark-mode .btn-outline {
   background: var(--bg-secondary);
   color: var(--text-primary);

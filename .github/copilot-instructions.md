@@ -79,6 +79,11 @@
   - Toggle dark/light mode funcional
   - Preferência salva em localStorage
   - Documentação completa em docs/ALTERACAO-DARK-MODE.md
+- [x] Corrigir Dark Mode nas Tabelas
+  - Problema: Tabelas mantinham fundo branco no modo escuro
+  - Solução: Adicionada regra CSS body.dark-mode .table-container
+  - Fundo escuro consistente em todas as telas (membros, usuários, candidatos)
+  - Documentação completa em docs/CORRECAO-DARK-MODE-TABELAS.md
 - [x] Modificar Projeção para Visualização Apenas
   - Tela de projeção transformada em interface exclusivamente visual
   - Removidos todos os controles de interação (botões + / - / reset)
