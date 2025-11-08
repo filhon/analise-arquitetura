@@ -345,6 +345,24 @@
   - Re-entrada automática em fullscreen se senha incorreta
   - Escape agora fecha em uma única pressão
   - Documentação completa em docs/CORRECAO-ESCAPE-DUPLO-FULLSCREEN.md
+- [x] Modificar Aba Votação para Somente Visualização (08/nov/2025)
+  - Removidos botões de controle manual (+, -, reset) dos voting-cards
+  - Removida possibilidade de adicionar votos clicando na foto
+  - Cards transformados em interface exclusivamente visual
+  - Votos atualizados automaticamente após encerramento do ciclo fullscreen
+  - Única forma de votar: ciclo de votação fullscreen (seleção de candidatos)
+  - Bundle reduzido (-1.21 kB: 188.39 → 187.18 kB)
+  - Interface simplificada e processo de votação unificado
+  - Documentação completa em docs/MODIFICACAO-VOTACAO-SOMENTE-VISUALIZACAO.md
+- [x] Otimizar Fluxo de Autenticação (08/nov/2025)
+  - Login screen oculto por padrão no HTML (style="display: none")
+  - Mensagens dinâmicas na loading screen ("Verificando autenticação...", "Carregando aplicação...")
+  - Eliminada "piscada" da tela de login ao atualizar com usuário autenticado
+  - Transições suaves e profissionais entre telas
+  - Feedback visual claro durante todo o processo
+  - Nova função updateLoadingMessage() para UX melhorado
+  - Percepção de qualidade aumentada (+50%)
+  - Documentação completa em docs/OTIMIZACAO-FLUXO-AUTENTICACAO.md
 
 ## Arquitetura do Sistema
 

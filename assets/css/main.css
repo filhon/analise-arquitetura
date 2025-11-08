@@ -3728,12 +3728,17 @@ body.dark-mode tbody tr:hover {
     var(--bg-primary) 0%,
     var(--bg-secondary) 100%
   );
-  display: flex;
+  display: none; /* Oculto por padrão - exibido apenas quando necessário */
   align-items: center;
   justify-content: center;
   z-index: 10000;
   padding: 1rem;
   transition: background-color 0.3s ease;
+}
+
+/* Quando o login-screen precisa ser exibido */
+.login-screen.active {
+  display: flex;
 }
 
 body.dark-mode .login-screen {

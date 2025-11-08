@@ -26,25 +26,43 @@ function migrateStorageV2() {
 // Inicializar aplicação quando DOM estiver carregado
 document.addEventListener("DOMContentLoaded", async () => {
   try {
+    console.log("[Main] 🚀 Inicializando aplicação...");
+
     // Executar migração de storage ANTES de qualquer inicialização
     migrateStorageV2();
 
     // Inicializar sistema de notificações
     NotificationService.getInstance();
 
-    // Aguardar inicialização completa do Firebase Auth
+    // Atualizar mensagem de loading
+    updateLoadingMessage("Verificando autenticação...");
+
+    // Inicializar AuthManager e aguardar estado de autenticação
     const authManager = AuthManager.getInstance();
+
+    // Aguardar determinação do estado de autenticação
+    console.log(
+      "[Main] ⏳ Aguardando determinação do estado de autenticação..."
+    );
     await waitForAuthState(authManager);
 
     const currentUser = authManager.getCurrentUser();
+    console.log("[Main] 📋 Estado de autenticação determinado:", {
+      hasUser: !!currentUser,
+      email: currentUser?.email,
+    });
 
     if (!currentUser) {
       // Usuário não autenticado - mostrar tela de login
+      console.log("[Main] 🔐 Exibindo tela de login...");
       showLoginScreen();
       return;
     }
 
-    // Usuário autenticado - inicializar aplicação normalmente
+    // Usuário autenticado - inicializar aplicação diretamente
+    // (loading-screen já está visível, não há "piscada" da tela de login)
+    console.log("[Main] ✅ Usuário autenticado, carregando aplicação...");
+    updateLoadingMessage("Carregando aplicação...");
     await initializeApplication();
   } catch (error) {
     console.error("Erro fatal na inicialização:", error);
@@ -66,20 +84,46 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
+// Função para atualizar a mensagem da tela de loading
+function updateLoadingMessage(message: string): void {
+  const loadingText = document.querySelector(".loading-text");
+  if (loadingText) {
+    loadingText.textContent = message;
+  }
+}
+
 // Função para aguardar o estado de autenticação ser determinado
 function waitForAuthState(authManager: AuthManager): Promise<void> {
   const state = authManager.getState();
 
+  console.log("[waitForAuthState] Estado inicial:", {
+    isLoading: state.isLoading,
+    isAuthenticated: state.isAuthenticated,
+    hasUser: !!state.user,
+  });
+
   // Se já temos um estado determinado (autenticado ou não), resolver imediatamente
   if (!state.isLoading) {
+    console.log(
+      "[waitForAuthState] ✅ Estado já determinado, resolvendo imediatamente"
+    );
     return Promise.resolve();
   }
+
+  console.log("[waitForAuthState] ⏳ Aguardando mudança de estado...");
 
   // Aguardar mudança de estado com timeout
   return Promise.race([
     new Promise<void>((resolve) => {
       const unsubscribe = authManager.subscribe((newState) => {
+        console.log("[waitForAuthState] 📡 Novo estado recebido:", {
+          isLoading: newState.isLoading,
+          isAuthenticated: newState.isAuthenticated,
+          hasUser: !!newState.user,
+        });
+
         if (!newState.isLoading) {
+          console.log("[waitForAuthState] ✅ Estado determinado via listener");
           unsubscribe();
           resolve();
         }
@@ -87,7 +131,9 @@ function waitForAuthState(authManager: AuthManager): Promise<void> {
     }),
     new Promise<void>((resolve) => {
       setTimeout(() => {
-        console.warn("Timeout aguardando estado de autenticação");
+        console.warn(
+          "[waitForAuthState] ⚠️ Timeout aguardando estado de autenticação"
+        );
         resolve();
       }, 10000);
     }),
@@ -107,7 +153,7 @@ async function showLoginScreen(): Promise<void> {
   // Esconder loading e mostrar tela de login
   loadingScreen.style.display = "none";
   appContainer.style.display = "none";
-  loginScreen.style.display = "flex";
+  loginScreen.classList.add("active"); // Usar classe ao invés de style inline
 
   // Inicializar UI de login
   const loginUI = new LoginUI();
@@ -118,7 +164,7 @@ async function showLoginScreen(): Promise<void> {
   const unsubscribe = authManager.subscribe((state) => {
     if (state.isAuthenticated) {
       // Login bem-sucedido - esconder tela de login e inicializar aplicação
-      loginScreen.style.display = "none";
+      loginScreen.classList.remove("active"); // Remover classe ao invés de style inline
       unsubscribe(); // Remover listener
       initializeApplication();
     }

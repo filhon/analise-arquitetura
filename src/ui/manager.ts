@@ -93,6 +93,47 @@ export class UIManager {
     }
   }
 
+  /**
+   * Tocar som de confirmação de voto (sucesso)
+   * Usa Web Audio API para gerar um som agradável
+   */
+  private playSuccessSound(): void {
+    try {
+      // Criar contexto de áudio
+      const audioContext = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
+
+      // Frequências harmônicas para um som agradável (acorde maior)
+      const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5
+      const duration = 0.3; // 300ms
+      const now = audioContext.currentTime;
+
+      frequencies.forEach((freq, index) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.type = "sine";
+        oscillator.frequency.value = freq;
+
+        // Envelope ADSR suave
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.15, now + 0.05); // Attack
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration); // Decay e Release
+
+        oscillator.start(now + index * 0.05); // Arpejo suave
+        oscillator.stop(now + duration + index * 0.05);
+      });
+    } catch (error) {
+      console.warn(
+        "[UIManager] Não foi possível tocar som de confirmação:",
+        error
+      );
+    }
+  }
+
   private setupEventListeners(): void {
     // Audit system - atualizar contador quando voto é registrado
     EventSystem.getInstance().on(EventTypes.VOTE_RECORDED, () => {
@@ -2922,17 +2963,6 @@ export class UIManager {
                 <span class="votes-count">${candidate.votes}</span>
               </div>
             </div>
-            <div class="voting-card-actions">
-              <button class="btn-vote btn-vote-decrease" data-candidate-id="${candidate.id}" data-action="decrease" ${!isQuorumValid ? "disabled" : ""}>
-                <span class="material-icons md-24">remove</span>
-              </button>
-              <button class="btn-vote btn-vote-reset" data-candidate-id="${candidate.id}" data-action="reset" title="Resetar votos" ${!isQuorumValid ? "disabled" : ""}>
-                <span class="material-icons md-24">refresh</span>
-              </button>
-              <button class="btn-vote btn-vote-increase" data-candidate-id="${candidate.id}" data-action="increase" ${!isQuorumValid ? "disabled" : ""}>
-                <span class="material-icons md-24">add</span>
-              </button>
-            </div>
           </div>
         `;
     });
@@ -2965,34 +2995,8 @@ export class UIManager {
     // Renderizar todos os cards (candidatos + vazios)
     container.innerHTML = [...candidateCards, ...emptyCards].join("");
 
-    // Adicionar event listeners aos botões de voto APENAS se quórum for válido
-    if (isQuorumValid) {
-      container.querySelectorAll(".btn-vote").forEach((btn) => {
-        btn.addEventListener("click", this.handleVoteAction.bind(this));
-      });
-
-      // Adicionar event listeners para clique na foto (adiciona voto)
-      container.querySelectorAll(".voting-card-header").forEach((header) => {
-        const card = header.closest(".voting-card");
-        if (!card?.classList.contains("voting-card-empty")) {
-          header.addEventListener("click", async () => {
-            const increaseBtn = card?.querySelector(
-              ".btn-vote-increase"
-            ) as HTMLElement;
-            if (increaseBtn) {
-              increaseBtn.click();
-            }
-          });
-          // Adicionar cursor pointer para indicar que é clicável
-          (header as HTMLElement).style.cursor = "pointer";
-        }
-      });
-    } else {
-      // Remover cursor pointer quando quórum é inválido
-      container.querySelectorAll(".voting-card-header").forEach((header) => {
-        (header as HTMLElement).style.cursor = "not-allowed";
-      });
-    }
+    // Cards agora são apenas para visualização
+    // Os votos são atualizados automaticamente quando o ciclo de votação fullscreen for encerrado
   }
 
   private async handleVoteAction(e: Event): Promise<void> {
@@ -3471,6 +3475,13 @@ export class UIManager {
     const grid = document.getElementById("fullscreen-candidates-grid");
     const roleTitle = document.getElementById("fullscreen-role-title");
     if (!fullscreenView || !grid || !roleTitle) return;
+
+    // Remover classe summary-mode para centralizar conteúdo
+    grid.classList.remove("summary-mode");
+    grid.classList.remove("selection-mode");
+
+    // Tocar som de confirmação
+    this.playSuccessSound();
 
     // Verificar se votação foi encerrada (votos = presentes)
     const votingManager = VotingManager.getInstance();
