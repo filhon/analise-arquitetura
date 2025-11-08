@@ -15,6 +15,7 @@ export interface DialogOptions {
 export class DialogService {
   private static instance: DialogService;
   private activeDialog: HTMLElement | null = null;
+  private escapeHandler: ((e: KeyboardEvent) => void) | null = null;
 
   static getInstance(): DialogService {
     if (!DialogService.instance) {
@@ -175,10 +176,12 @@ export class DialogService {
         e.stopPropagation();
         this.close();
         onCancel?.();
-        document.removeEventListener("keydown", handleEscape);
       }
     };
-    document.addEventListener("keydown", handleEscape);
+
+    // Armazenar referência e adicionar listener
+    this.escapeHandler = handleEscape;
+    document.addEventListener("keydown", this.escapeHandler);
 
     // Enter no input submete
     if (input) {
@@ -206,10 +209,24 @@ export class DialogService {
   close(): void {
     if (!this.activeDialog) return;
 
+    // Remover listener de ESC se existir
+    if (this.escapeHandler) {
+      document.removeEventListener("keydown", this.escapeHandler);
+      this.escapeHandler = null;
+    }
+
+    // Remover classe active imediatamente
     this.activeDialog.classList.remove("active");
+
+    // Remover do DOM após animação
+    const dialogToRemove = this.activeDialog;
+    this.activeDialog = null; // Limpar referência imediatamente
+
     setTimeout(() => {
-      this.activeDialog?.remove();
-      this.activeDialog = null;
+      // Garantir remoção completa
+      if (dialogToRemove && dialogToRemove.parentNode) {
+        dialogToRemove.remove();
+      }
     }, 300); // Tempo da animação
   }
 

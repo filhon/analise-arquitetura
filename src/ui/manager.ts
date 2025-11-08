@@ -28,6 +28,8 @@ export class UIManager {
   // Acessibilidade: Armazena o elemento que abriu o modal
   private lastFocusedElement: HTMLElement | null = null;
   private activeModal: HTMLElement | null = null;
+  // Flag para evitar chamadas duplicadas ao fechar fullscreen
+  private isClosingFullscreen: boolean = false;
   // Pending attendance toggle awaiting confirmation
   private pendingAttendance: {
     memberId: string;
@@ -2518,54 +2520,78 @@ export class UIManager {
    * Requer a palavra "sair" para confirmar saída
    */
   private async closeFullscreen(): Promise<void> {
-    const fullscreenView = document.getElementById("fullscreen-view");
-    if (!fullscreenView || fullscreenView.style.display === "none") return;
-
-    // Solicitar senha com diálogo personalizado
-    const password = await dialogService.prompt({
-      title: "Confirmar Saída",
-      message: "Para sair da votação, digite a senha de segurança:",
-      placeholder: "Digite 'sair'",
-      confirmText: "Sair da Votação",
-      cancelText: "Cancelar",
-      icon: "lock",
-    });
-
-    // Validar senha (case-insensitive)
-    if (password?.toLowerCase() !== "sair") {
-      if (password !== null) {
-        // Null significa que cancelou, não mostrar erro
-        NotificationService.warning(
-          "Senha incorreta. Permanecendo na votação."
-        );
-      }
-
-      // Se saiu do fullscreen nativo, voltar ao fullscreen
-      if (!document.fullscreenElement && fullscreenView.requestFullscreen) {
-        fullscreenView.requestFullscreen().catch((err) => {
-          console.warn("Não foi possível retornar ao fullscreen:", err);
-        });
-      }
+    // Prevenir chamadas duplicadas
+    if (this.isClosingFullscreen) {
+      console.log(
+        "[UIManager] Fechamento já em andamento, ignorando chamada duplicada"
+      );
       return;
     }
 
-    // Sair do fullscreen nativo (se ainda estiver)
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
+    const fullscreenView = document.getElementById("fullscreen-view");
+    if (!fullscreenView || fullscreenView.style.display === "none") return;
+
+    // Marcar que o fechamento está em andamento
+    this.isClosingFullscreen = true;
+
+    try {
+      // Solicitar senha com diálogo personalizado
+      const password = await dialogService.prompt({
+        title: "Confirmar Saída",
+        message: "Para sair da votação, digite a senha de segurança:",
+        placeholder: "Digite 'sair'",
+        confirmText: "Sair da Votação",
+        cancelText: "Cancelar",
+        icon: "lock",
+      });
+
+      // Validar senha (case-insensitive)
+      if (password?.toLowerCase() !== "sair") {
+        if (password !== null) {
+          // Null significa que cancelou, não mostrar erro
+          NotificationService.warning(
+            "Senha incorreta. Permanecendo na votação."
+          );
+        }
+
+        // Se saiu do fullscreen nativo, voltar ao fullscreen
+        if (!document.fullscreenElement && fullscreenView.requestFullscreen) {
+          try {
+            await fullscreenView.requestFullscreen();
+          } catch (err) {
+            console.warn("Não foi possível retornar ao fullscreen:", err);
+          }
+        }
+
+        // Resetar flag antes de retornar
+        this.isClosingFullscreen = false;
+        return;
+      }
+
+      // Sair do fullscreen nativo (se ainda estiver)
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+
+      // Remover animação e ocultar após transição
+      fullscreenView.classList.remove("active");
+      setTimeout(() => {
+        fullscreenView.style.display = "none";
+        // Resetar flag após fechar completamente
+        this.isClosingFullscreen = false;
+      }, 350);
+
+      // Remover entrada do histórico (se foi adicionada)
+      if (window.history.state?.fullscreenVoting) {
+        window.history.back();
+      }
+
+      NotificationService.info("Votação encerrada com sucesso");
+    } catch (error) {
+      console.error("[UIManager] Erro ao fechar fullscreen:", error);
+      // Resetar flag em caso de erro
+      this.isClosingFullscreen = false;
     }
-
-    // Remover animação e ocultar após transição
-    fullscreenView.classList.remove("active");
-    setTimeout(() => {
-      fullscreenView.style.display = "none";
-    }, 350);
-
-    // Remover entrada do histórico (se foi adicionada)
-    if (window.history.state?.fullscreenVoting) {
-      window.history.back();
-    }
-
-    NotificationService.info("Votação encerrada com sucesso");
   }
 
   private async renderFullscreenCandidates(
@@ -3207,6 +3233,10 @@ export class UIManager {
     if (!fullscreenView || !grid || !roleTitle) return;
 
     roleTitle.textContent = "Confirmação da Votação";
+
+    // Adicionar classe para layout lado a lado
+    grid.classList.add("summary-mode");
+    grid.classList.remove("selection-mode");
 
     // Carregar dados atualizados dos candidatos
     const allCandidates = await electionApp.getCandidates();
