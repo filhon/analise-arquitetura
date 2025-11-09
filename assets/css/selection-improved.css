@@ -96,25 +96,30 @@
   padding: 0 0.75rem;
 }
 
-/* Estilos de zoom aplicados dinamicamente */
-.fullscreen-view[data-zoom="1"] {
-  font-size: 100%;
+/* Estilos de zoom aplicados dinamicamente usando transform: scale() */
+.fullscreen-view[data-zoom="1"] .fullscreen-candidates-grid {
+  transform: scale(1);
 }
 
-.fullscreen-view[data-zoom="2"] {
-  font-size: 112.5%;
+.fullscreen-view[data-zoom="2"] .fullscreen-candidates-grid {
+  transform: scale(1.125);
 }
 
-.fullscreen-view[data-zoom="3"] {
-  font-size: 125%;
+.fullscreen-view[data-zoom="3"] .fullscreen-candidates-grid {
+  transform: scale(1.25);
 }
 
-.fullscreen-view[data-zoom="4"] {
-  font-size: 137.5%;
+.fullscreen-view[data-zoom="4"] .fullscreen-candidates-grid {
+  transform: scale(1.375);
 }
 
-.fullscreen-view[data-zoom="5"] {
-  font-size: 150%;
+.fullscreen-view[data-zoom="5"] .fullscreen-candidates-grid {
+  transform: scale(1.5);
+}
+
+.fullscreen-candidates-grid {
+  transform-origin: top center;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .selection-title {
@@ -148,7 +153,7 @@
 
 .selection-grid {
   display: grid;
-  gap: 1rem; /* Reduzido de 2rem para 1rem */
+  gap: 1rem;
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
@@ -156,7 +161,19 @@
   justify-items: center;
   /* Grid fixo em 2 colunas */
   grid-template-columns: repeat(2, 1fr);
-  margin-top: 1.5rem; /* Reduzido de 3rem para 1.5rem */
+  margin-top: 1.5rem;
+  /* Altura máxima para garantir que cards caibam sem scroll */
+  max-height: calc(
+    100vh - 280px
+  ); /* Espaço para header, zoom controls e actions */
+  overflow: visible; /* Sem scroll - cards devem caber na tela */
+}
+
+/* Ajuste dinâmico dos cards baseado na quantidade */
+.selection-grid .selection-card {
+  /* Altura calculada dinamicamente via CSS para caber todos os cards */
+  max-height: calc((100vh - 280px) / 2 - 1rem); /* 2 linhas máximo */
+  min-height: min(140px, calc((100vh - 280px) / 2 - 1rem));
 }
 
 /* Container específico para seleção - força empilhamento vertical */
@@ -178,12 +195,13 @@
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  min-height: 140px; /* Reduzido de 180px para 140px */
   width: 100%;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   user-select: none;
   touch-action: manipulation;
-  overflow: hidden; /* Garante que foto não ultrapasse bordas arredondadas */
+  overflow: hidden;
+  /* Altura consistente para todos os cards */
+  height: 100%;
 }
 
 .selection-card:hover {
@@ -206,9 +224,9 @@
 
 .selection-photo {
   width: 50%; /* Ocupa 50% do card */
-  min-height: 140px; /* Reduzido de 180px para 140px */
-  border-radius: 0; /* Sem bordas arredondadas - reto em todos os lados */
-  margin: 0; /* Remove margem */
+  height: 100%; /* Ocupa toda altura do card */
+  border-radius: 0;
+  margin: 0;
   border: none;
   box-shadow: none;
   overflow: hidden;
@@ -217,7 +235,7 @@
   justify-content: center;
   background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0; /* Não encolhe */
+  flex-shrink: 0;
 }
 
 .selection-photo img {

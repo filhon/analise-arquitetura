@@ -298,9 +298,9 @@ Loading Screen (sempre visível) → JS detecta auth → Mostra app
 ```html
 <!-- Antes -->
 <div id="login-screen" class="login-screen" style="display: none;">
-
-<!-- Depois -->
-<div id="login-screen" class="login-screen">
+  <!-- Depois -->
+  <div id="login-screen" class="login-screen"></div>
+</div>
 ```
 
 **Impacto:** HTML mais limpo, controle via CSS.
@@ -331,10 +331,11 @@ loginScreen.classList.add("active");
 ```
 
 **Linhas 36, 54:** Chamadas para `updateLoadingMessage()`
-    loadingText.textContent = message;
-  }
+loadingText.textContent = message;
 }
-```
+}
+
+````
 
 **Linhas 36, 54:** Chamadas para `updateLoadingMessage()`
 
@@ -342,7 +343,7 @@ loginScreen.classList.add("active");
 updateLoadingMessage("Verificando autenticação...");
 // ...
 updateLoadingMessage("Carregando aplicação...");
-```
+````
 
 ---
 
