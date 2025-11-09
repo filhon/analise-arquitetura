@@ -273,9 +273,16 @@ body.dark-mode
     opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .fullscreen-voting-view.active {
   opacity: 1;
   transform: translateY(0) scale(1);
+}
+
+/* Ocultar footer quando fullscreen estiver ativo */
+.fullscreen-voting-view.active ~ .app-footer,
+body:has(.fullscreen-voting-view.active) .app-footer {
+  display: none;
 }
 
 /* Animação para cards de candidato */
@@ -791,6 +798,71 @@ button {
   width: 100%;
 }
 
+/* App Footer */
+.app-footer {
+  background: var(--gray-50);
+  border-top: 1px solid var(--gray-200);
+  padding: 1.5rem 2rem;
+  margin-top: auto;
+}
+
+.footer-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.footer-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.footer-text .material-icons {
+  color: var(--primary-color);
+}
+
+.footer-version {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  background: var(--gray-100);
+  padding: 0.375rem 0.75rem;
+  border-radius: 12px;
+}
+
+.footer-version .material-icons {
+  font-size: 14px;
+}
+
+body.dark-mode .app-footer {
+  background: var(--bg-secondary);
+  border-top-color: var(--border-color);
+}
+
+body.dark-mode .footer-text {
+  color: var(--text-secondary);
+}
+
+body.dark-mode .footer-text .material-icons {
+  color: var(--primary-color);
+}
+
+body.dark-mode .footer-version {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+}
+
 .tab-content {
   display: none;
   opacity: 0;
@@ -828,6 +900,20 @@ button {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+body.dark-mode .section-header h2 {
+  color: var(--text-primary);
+}
+
+/* Dark mode para todos os headings */
+body.dark-mode h1,
+body.dark-mode h2,
+body.dark-mode h3,
+body.dark-mode h4,
+body.dark-mode h5,
+body.dark-mode h6 {
+  color: var(--text-primary);
 }
 
 .section-actions {
@@ -2883,6 +2969,21 @@ body.dark-mode .voting-category.quorum-blur::after {
     right: 1rem;
     max-width: none;
   }
+
+  .app-footer {
+    padding: 1rem;
+  }
+
+  .footer-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+
+  .footer-text {
+    flex-direction: column;
+    gap: 0.375rem;
+  }
 }
 
 /* Utility Classes */
@@ -3392,9 +3493,19 @@ body.dark-mode .nav-tab {
   color: var(--text-secondary);
 }
 
+body.dark-mode .nav-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
 body.dark-mode .nav-tab.active {
-  color: var(--primary-color);
-  border-bottom-color: var(--primary-color);
+  color: white;
+  background: linear-gradient(
+    135deg,
+    var(--primary-color) 0%,
+    var(--primary-dark) 100%
+  );
+  border-bottom-color: transparent;
 }
 
 body.dark-mode .card,
@@ -3403,9 +3514,17 @@ body.dark-mode .modal-content {
   border-color: var(--border-color);
 }
 
-body.dark-mode .stats-grid .stat-card {
+body.dark-mode .stat-card {
   background: var(--bg-secondary);
   border-color: var(--border-color);
+}
+
+body.dark-mode .stat-card h3 {
+  color: var(--primary-color);
+}
+
+body.dark-mode .stat-card p {
+  color: var(--text-secondary);
 }
 
 body.dark-mode input,
@@ -3602,17 +3721,94 @@ body.dark-mode .modal-content {
     var(--bg-secondary);
 }
 
-body.dark-mode .stats-grid .stat-card {
-  background:
-    linear-gradient(var(--elevation-02dp), var(--elevation-02dp)),
-    var(--bg-primary);
-}
-
 body.dark-mode .candidate-card,
 body.dark-mode .result-card {
   background:
     linear-gradient(var(--elevation-04dp), var(--elevation-04dp)),
     var(--bg-primary);
+}
+
+/* Dark mode para candidate-category */
+body.dark-mode .candidate-category {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+body.dark-mode .candidate-category h3 {
+  background: linear-gradient(
+    135deg,
+    var(--primary-color) 0%,
+    var(--primary-dark) 100%
+  );
+  color: white;
+}
+
+/* Dark mode para quorum-card */
+body.dark-mode .quorum-card {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+body.dark-mode .quorum-card h3 {
+  color: var(--text-primary);
+}
+
+body.dark-mode .quorum-label {
+  color: var(--text-secondary);
+}
+
+body.dark-mode .quorum-value {
+  color: var(--text-primary);
+}
+
+/* Dark mode para voting-category */
+body.dark-mode .voting-category {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+body.dark-mode .voting-category-header {
+  border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .voting-category-header h3 {
+  color: var(--text-primary);
+}
+
+/* Dark mode para results-table */
+body.dark-mode .results-table {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+body.dark-mode .results-table th {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+body.dark-mode .results-table td {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .results-table tbody tr:hover {
+  background: var(--bg-tertiary);
+}
+
+body.dark-mode .results-table tbody tr:hover td {
+  background: var(--bg-tertiary);
+}
+
+/* Dark mode para labels */
+body.dark-mode .form-group label {
+  color: var(--text-secondary);
+}
+
+/* Dark mode para notification-content */
+body.dark-mode .notification-content {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 body.dark-mode .app-header {

@@ -2318,19 +2318,23 @@ export class UIManager {
       const presbyteroPositions = quorumConfig?.presbyteroPositions ?? 3;
       const diaconoPositions = quorumConfig?.diaconoPositions ?? 6;
 
-      const pres = (results.presbyteros || []).map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        role: c.role,
-        photoUrl: c.photoUrl,
-      }));
+      const pres = (results.presbyteros || [])
+        .map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          role: c.role,
+          photoUrl: c.photoUrl,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")); // Ordem alfabética
 
-      const dia = (results.diaconos || []).map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        role: c.role,
-        photoUrl: c.photoUrl,
-      }));
+      const dia = (results.diaconos || [])
+        .map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          role: c.role,
+          photoUrl: c.photoUrl,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")); // Ordem alfabética
 
       // Estado local de seleção
       const state = {
@@ -2580,7 +2584,7 @@ export class UIManager {
       const password = await dialogService.prompt({
         title: "Confirmar Saída",
         message: "Para sair da votação, digite a senha de segurança:",
-        placeholder: "Digite 'sair'",
+        placeholder: "Digite a senha",
         confirmText: "Sair da Votação",
         cancelText: "Cancelar",
         icon: "lock",
@@ -3093,6 +3097,7 @@ export class UIManager {
   private async loadResultsData(): Promise<void> {
     try {
       const results = await electionApp.getElectionResults();
+      const auditData = await AuditManager.getInstance().getReportData();
 
       // Atualizar lista de presbíteros eleitos (apenas candidatos marcados como eleitos)
       const presbyterosList = document.getElementById("elected-presbyteros");
@@ -3190,7 +3195,7 @@ export class UIManager {
               </table>
             </div>
             <div class="results-summary-stats">
-              <p><strong>Total de votos:</strong> ${results.totalVotes}</p>
+              <p><strong>Total de votos:</strong> ${auditData.totalVotes}</p>
               <p><strong>Quórum:</strong> ${results.quorum.isValid ? "✅ Válido" : "❌ Inválido"}</p>
               <p><strong>Presentes:</strong> ${results.quorum.presentMembers} / ${results.quorum.totalMembers}</p>
             </div>
@@ -3247,8 +3252,19 @@ export class UIManager {
     const presList = allCandidates.filter((c) => c.role === "Presbítero");
     const diaList = allCandidates.filter((c) => c.role === "Diácono");
 
-    const renderList = (items: any[], selectedIds: string[]) =>
-      items
+    const renderList = (items: any[], selectedIds: string[]) => {
+      // Separar selecionados e não selecionados
+      const selected = items
+        .filter((it) => selectedIds.includes(it.id))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      const notSelected = items
+        .filter((it) => !selectedIds.includes(it.id))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+      // Concatenar: selecionados primeiro, depois não selecionados
+      const orderedItems = [...selected, ...notSelected];
+
+      return orderedItems
         .map(
           (it) => `
             <div class="preview-card summary-item ${selectedIds.includes(it.id) ? "voted" : "not-voted"}">
@@ -3262,6 +3278,7 @@ export class UIManager {
             </div>`
         )
         .join("");
+    };
 
     grid.innerHTML = `
       <div class="preview-section">

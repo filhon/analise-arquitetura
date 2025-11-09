@@ -14,6 +14,22 @@ let presenceChart: any = null;
 let presbyteroBar: any = null;
 let diaconoBar: any = null;
 
+// Função para destruir charts existentes
+function destroyCharts() {
+  if (presenceChart) {
+    presenceChart.destroy();
+    presenceChart = null;
+  }
+  if (presbyteroBar) {
+    presbyteroBar.destroy();
+    presbyteroBar = null;
+  }
+  if (diaconoBar) {
+    diaconoBar.destroy();
+    diaconoBar = null;
+  }
+}
+
 export async function initCharts() {
   if (typeof window === "undefined") return;
   if (!Chart) {
@@ -22,11 +38,14 @@ export async function initCharts() {
     Chart = mod.default || mod;
   }
 
+  // Destruir charts existentes antes de recriar
+  destroyCharts();
+
   // Inicializar apenas se elementos existirem
   const presenceCtx = document.getElementById(
     "chart-presence"
   ) as HTMLCanvasElement;
-  if (presenceCtx && !presenceChart) {
+  if (presenceCtx) {
     presenceChart = new Chart(presenceCtx, {
       type: "doughnut",
       data: {
@@ -70,22 +89,6 @@ export async function updateCharts(
   if (typeof window === "undefined") return;
   if (!Chart) {
     await initCharts();
-  }
-
-  // Update presence chart
-  if (presenceChart) {
-    const present = attendance.presentMembers || 0;
-    const total = attendance.totalMembers || 0;
-    const absent = Math.max(total - present, 0);
-    // Se não houver membros totais registrados, mostramos um estado vazio/fallback
-    if (total === 0) {
-      presenceChart.data.datasets[0].data = [0, 1];
-      presenceChart.data.labels = ["Presentes", "Sem dados"];
-    } else {
-      presenceChart.data.datasets[0].data = [present, absent];
-      presenceChart.data.labels = ["Presentes", "Ausentes"];
-    }
-    presenceChart.update();
   }
 
   // Prepare bar charts for presbíteros and diáconos
@@ -156,16 +159,45 @@ export async function updateCharts(
     }
   }
 
-  // Initialize or update presbytero bar
-  const presCtx = document.getElementById(
+  // Verificar se elementos canvas ainda existem no DOM
+  const presenceCtx = document.getElementById(
+    "chart-presence"
+  ) as HTMLCanvasElement;
+  const presbyterosCtx = document.getElementById(
     "chart-votes-presbyteros"
   ) as HTMLCanvasElement;
-  if (presCtx) {
+  const diaconosCtx = document.getElementById(
+    "chart-votes-diaconos"
+  ) as HTMLCanvasElement;
+
+  // Se canvas de presença existe mas chart foi destruído, recriar
+  if (presenceCtx && !presenceChart) {
+    await initCharts();
+  }
+
+  // Update presence chart
+  if (presenceChart && presenceCtx) {
+    const present = attendance.presentMembers || 0;
+    const total = attendance.totalMembers || 0;
+    const absent = Math.max(total - present, 0);
+    // Se não houver membros totais registrados, mostramos um estado vazio/fallback
+    if (total === 0) {
+      presenceChart.data.datasets[0].data = [0, 1];
+      presenceChart.data.labels = ["Presentes", "Sem dados"];
+    } else {
+      presenceChart.data.datasets[0].data = [present, absent];
+      presenceChart.data.labels = ["Presentes", "Ausentes"];
+    }
+    presenceChart.update();
+  }
+
+  // Initialize or update presbytero bar
+  if (presbyterosCtx) {
     const labels = pres.map((p) => p.name);
     const data = pres.map((p) => p.votes);
 
     if (!presbyteroBar) {
-      presbyteroBar = new Chart(presCtx, {
+      presbyteroBar = new Chart(presbyterosCtx, {
         type: "bar",
         data: {
           labels,
@@ -193,15 +225,12 @@ export async function updateCharts(
   }
 
   // Initialize or update diacono bar
-  const diaCtx = document.getElementById(
-    "chart-votes-diaconos"
-  ) as HTMLCanvasElement;
-  if (diaCtx) {
+  if (diaconosCtx) {
     const labels = dia.map((p) => p.name);
     const data = dia.map((p) => p.votes);
 
     if (!diaconoBar) {
-      diaconoBar = new Chart(diaCtx, {
+      diaconoBar = new Chart(diaconosCtx, {
         type: "bar",
         data: {
           labels,

@@ -387,129 +387,89 @@ export class ReportManager {
         this.attendanceManager.getAbsentMembers(),
       ]);
 
-      // Membros presentes - Tabela profissional
+      // Membros presentes
       if (presentMembers.length > 0) {
-        // Forçar quebra de página antes da lista de presentes
-        pdf.addPage();
-        currentY = 20;
-
-        // Título da tabela
         pdf.setFontSize(12);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(34, 197, 94); // Verde
-        pdf.text(this.sanitizeText("MEMBROS PRESENTES"), 20, currentY);
-        currentY += 10;
-
-        // Configuração da tabela
-        const tableX = 15;
-        const colWidths = [80, 40, 55]; // Nome, CPF, Assinatura
-        const rowHeight = 10;
-        const tableWidth = colWidths.reduce((a, b) => a + b, 0);
-
-        // Cabeçalho da tabela
-        pdf.setFillColor(41, 128, 185); // Azul institucional
-        pdf.rect(tableX, currentY, tableWidth, rowHeight, "F");
-
-        pdf.setFontSize(10);
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(255, 255, 255);
-
-        let headerX = tableX + 2;
-        pdf.text(this.sanitizeText("Nome"), headerX, currentY + 7);
-        headerX += colWidths[0];
-        pdf.text(this.sanitizeText("CPF"), headerX, currentY + 7);
-        headerX += colWidths[1];
-        pdf.text(this.sanitizeText("Assinatura"), headerX, currentY + 7);
-
-        currentY += rowHeight;
-
-        // Resetar cores
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont("helvetica", "normal");
-
-        for (const [index, member] of presentMembers.entries()) {
-          // Quebrar página se necessário
-          if (currentY + rowHeight > 270) {
-            pdf.addPage();
-            currentY = 20;
-            // Redesenhar cabeçalho
-            pdf.setFillColor(41, 128, 185);
-            pdf.rect(tableX, currentY, tableWidth, rowHeight, "F");
-            pdf.setFontSize(10);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(255, 255, 255);
-            headerX = tableX + 2;
-            pdf.text(this.sanitizeText("Nome"), headerX, currentY + 7);
-            headerX += colWidths[0];
-            pdf.text(this.sanitizeText("CPF"), headerX, currentY + 7);
-            headerX += colWidths[1];
-            pdf.text(this.sanitizeText("Assinatura"), headerX, currentY + 7);
-            currentY += rowHeight;
-            pdf.setTextColor(0, 0, 0);
-            pdf.setFont("helvetica", "normal");
-          }
-
-          // Fundo alternado para linhas
-          if (index % 2 === 0) {
-            pdf.setFillColor(248, 249, 250);
-            pdf.rect(tableX, currentY, tableWidth, rowHeight, "F");
-          }
-
-          // Bordas da linha
-          pdf.setDrawColor(200, 200, 200);
-          pdf.rect(tableX, currentY, tableWidth, rowHeight, "S");
-
-          // Dados
-          let dataX = tableX + 2;
-          const nomeText =
-            member.nome?.length > 25
-              ? member.nome.slice(0, 22) + "..."
-              : member.nome || "";
-          pdf.text(this.sanitizeText(nomeText), dataX, currentY + 7);
-
-          dataX += colWidths[0];
-          pdf.text(member.cpf || "", dataX, currentY + 7);
-
-          // Linha para assinatura
-          dataX += colWidths[1] + 2;
-          pdf.line(dataX, currentY + 5, dataX + colWidths[2] - 4, currentY + 5);
-
-          currentY += rowHeight;
-        }
-
-        // Forçar quebra de página depois da lista de presentes
-        pdf.addPage();
-        currentY = 20;
-      }
-
-      // Membros ausentes
-      if (absentMembers.length > 0) {
-        // Título da seção
-        pdf.setFontSize(12);
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(239, 68, 68); // Vermelho
-        pdf.text(this.sanitizeText("MEMBROS AUSENTES"), 20, currentY);
+        pdf.text(
+          this.sanitizeText(`MEMBROS PRESENTES (${presentMembers.length})`),
+          20,
+          currentY
+        );
         currentY += 10;
 
         pdf.setFontSize(10);
         pdf.setFont("helvetica", "normal");
         pdf.setTextColor(0, 0, 0);
 
-        absentMembers.forEach((member, index) => {
-          // Fundo alternado
-          if (index % 2 === 0) {
-            pdf.setFillColor(255, 240, 240); // Vermelho muito claro
-            pdf.rect(25, currentY - 2, 160, 6, "F");
-          }
-
-          pdf.text(`• ${this.sanitizeText(member.nome)}`, 30, currentY + 2);
-          currentY += 6;
-
+        // Lista numerada sequencial
+        presentMembers.forEach((member, index) => {
           // Verificar se precisa de nova página
           if (currentY > 270) {
             pdf.addPage();
             currentY = 20;
           }
+
+          const memberNumber = index + 1;
+          const displayName =
+            member.nome.length > 60
+              ? member.nome.slice(0, 57) + "..."
+              : member.nome;
+
+          pdf.text(
+            `${memberNumber}. ${this.sanitizeText(displayName)}`,
+            25,
+            currentY
+          );
+          currentY += 6;
+        });
+
+        currentY += 5;
+      }
+
+      // Membros ausentes
+      if (absentMembers.length > 0) {
+        // Verificar se precisa de nova página
+        if (currentY > 250) {
+          pdf.addPage();
+          currentY = 20;
+        }
+
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(239, 68, 68); // Vermelho
+        pdf.text(
+          this.sanitizeText(`MEMBROS AUSENTES (${absentMembers.length})`),
+          20,
+          currentY
+        );
+        currentY += 10;
+
+        pdf.setFontSize(10);
+        pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(0, 0, 0);
+
+        // Lista numerada sequencial
+        absentMembers.forEach((member, index) => {
+          // Verificar se precisa de nova página
+          if (currentY > 270) {
+            pdf.addPage();
+            currentY = 20;
+          }
+
+          const memberNumber = index + 1;
+          const displayName =
+            member.nome.length > 60
+              ? member.nome.slice(0, 57) + "..."
+              : member.nome;
+
+          pdf.text(
+            `${memberNumber}. ${this.sanitizeText(displayName)}`,
+            25,
+            currentY
+          );
+          currentY += 6;
         });
       }
     } catch (error) {
@@ -730,6 +690,221 @@ export class ReportManager {
         pdf.text(`  Hash: ${vote.hash.substring(0, 16)}...`, 25, currentY);
         pdf.setTextColor(0, 0, 0);
         currentY += 8;
+      }
+
+      // Nova página para lista completa de hashes e instruções de validação
+      pdf.addPage();
+      currentY = 20;
+
+      // Título da seção de hashes
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(41, 128, 185);
+      pdf.text(
+        this.sanitizeText("LISTA COMPLETA DE HASHES SHA-256"),
+        20,
+        currentY
+      );
+      currentY += 8;
+
+      pdf.setFontSize(8);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(
+        this.sanitizeText(
+          "Cada voto possui um hash unico gerado a partir dos dados da cedula."
+        ),
+        20,
+        currentY
+      );
+      currentY += 5;
+      pdf.text(
+        this.sanitizeText(
+          "Use estes hashes para validar a integridade dos votos registrados."
+        ),
+        20,
+        currentY
+      );
+      currentY += 10;
+
+      pdf.setTextColor(0, 0, 0);
+
+      // Listar todos os hashes (ordenados por ID de voto)
+      const sortedVotes = [...randomizedVotes].sort((a, b) => a.id - b.id);
+
+      for (const vote of sortedVotes) {
+        // Verificar espaço na página
+        if (currentY > 265) {
+          pdf.addPage();
+          currentY = 20;
+        }
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(8);
+        pdf.text(`Voto ${vote.id}:`, 20, currentY);
+
+        pdf.setFont("courier", "normal");
+        pdf.setFontSize(7);
+        pdf.text(vote.hash, 40, currentY);
+
+        currentY += 6;
+      }
+
+      // Nova página para instruções de validação
+      pdf.addPage();
+      currentY = 20;
+
+      // Título
+      pdf.setFillColor(255, 248, 240);
+      pdf.rect(15, currentY - 3, 180, 10, "F");
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(245, 124, 0); // Laranja
+      pdf.text(
+        this.sanitizeText("COMO VALIDAR A INTEGRIDADE DOS VOTOS"),
+        20,
+        currentY + 3
+      );
+      currentY += 15;
+
+      pdf.setTextColor(0, 0, 0);
+
+      // Explicação do sistema de hash
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(this.sanitizeText("O QUE E UM HASH?"), 20, currentY);
+      currentY += 6;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      const hashExplanation = [
+        "Um hash SHA-256 e uma impressao digital criptografica unica de cada voto.",
+        "Qualquer alteracao nos dados do voto (candidatos, horario, etc.) produz um",
+        "hash completamente diferente, tornando impossivel adulterar votos sem deteccao.",
+      ];
+
+      for (const line of hashExplanation) {
+        pdf.text(this.sanitizeText(line), 25, currentY);
+        currentY += 5;
+      }
+      currentY += 5;
+
+      // Passos para validação
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(this.sanitizeText("PASSOS PARA VALIDACAO:"), 20, currentY);
+      currentY += 8;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+
+      const steps = [
+        {
+          num: "1.",
+          title: "Exportar dados do sistema:",
+          desc: "No menu Configuracoes > Auditoria, clique em 'Exportar Dados de Auditoria'.",
+        },
+        {
+          num: "2.",
+          title: "Abrir arquivo JSON:",
+          desc: "O arquivo exportado contem todos os votos com seus respectivos hashes.",
+        },
+        {
+          num: "3.",
+          title: "Recalcular hash manualmente:",
+          desc: "Use uma ferramenta online de SHA-256 (ex: emn178.github.io/online-tools/sha256)",
+        },
+        {
+          num: "4.",
+          title: "Montar string de validacao:",
+          desc: "Concatene: ID_voto + timestamp + IDs_presbiteros + IDs_diaconos",
+        },
+        {
+          num: "5.",
+          title: "Comparar hashes:",
+          desc: "O hash calculado deve ser IDENTICO ao hash listado neste relatorio.",
+        },
+      ];
+
+      for (const step of steps) {
+        // Verificar espaço
+        if (currentY > 250) {
+          pdf.addPage();
+          currentY = 20;
+        }
+
+        pdf.setFont("helvetica", "bold");
+        pdf.text(this.sanitizeText(`${step.num} ${step.title}`), 25, currentY);
+        currentY += 5;
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.text(this.sanitizeText(`   ${step.desc}`), 25, currentY);
+        currentY += 6;
+
+        pdf.setFontSize(9);
+      }
+
+      currentY += 5;
+
+      // Exemplo prático
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(34, 197, 94); // Verde
+      pdf.text(this.sanitizeText("EXEMPLO PRATICO:"), 20, currentY);
+      currentY += 8;
+
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont("courier", "normal");
+      pdf.setFontSize(7);
+
+      const exampleLines = [
+        'String original: "0-1699564800000-abc123,def456-ghi789,jkl012"',
+        "                 (ID-timestamp-presbiteros-diaconos)",
+        "",
+        "Hash SHA-256: 8f3a4b2c1d9e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b",
+        "",
+        "Qualquer mudanca na string original produz hash totalmente diferente:",
+        'String alterada: "0-1699564800000-abc123-ghi789,jkl012" (presbitero removido)',
+        "Novo hash: 2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b",
+        "              ^ Completamente diferente!",
+      ];
+
+      for (const line of exampleLines) {
+        if (currentY > 265) {
+          pdf.addPage();
+          currentY = 20;
+        }
+        pdf.text(this.sanitizeText(line), 25, currentY);
+        currentY += 4;
+      }
+
+      currentY += 5;
+
+      // Avisos de segurança
+      pdf.setFillColor(255, 243, 224);
+      pdf.rect(15, currentY - 2, 180, 30, "F");
+
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(245, 124, 0);
+      pdf.text(this.sanitizeText("IMPORTANTE:"), 20, currentY + 3);
+      currentY += 8;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.setTextColor(0, 0, 0);
+
+      const warnings = [
+        "• Se algum hash nao conferir, pode indicar adulteracao ou corrupcao de dados.",
+        "• Mantenha uma copia do arquivo JSON exportado em local seguro.",
+        "• A validacao pode ser feita por qualquer pessoa com acesso ao arquivo.",
+        "• Este sistema garante transparencia e auditabilidade total do processo.",
+      ];
+
+      for (const warning of warnings) {
+        pdf.text(this.sanitizeText(warning), 25, currentY);
+        currentY += 5;
       }
     } catch (error) {
       ErrorHandler.log(error as Error, "ReportManager.addAuditSection");

@@ -36,19 +36,9 @@
   position: relative;
 }
 
-/* Controles de Zoom para Acessibilidade */
+/* Controles de Zoom - REMOVIDOS (cards responsivos não necessitam zoom) */
 .zoom-controls {
-  position: fixed;
-  top: 2rem;
-  right: 2rem;
-  display: flex;
-  gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  padding: 0.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  display: none; /* Oculto permanentemente */
   border: 2px solid #e5e7eb;
 }
 
@@ -153,27 +143,29 @@
 
 .selection-grid {
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem; /* Reduzido para maximizar espaço */
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0;
-  justify-items: center;
+  padding: 0 1rem;
+  justify-items: stretch;
+  align-items: stretch;
   /* Grid fixo em 2 colunas */
   grid-template-columns: repeat(2, 1fr);
-  margin-top: 1.5rem;
-  /* Altura máxima para garantir que cards caibam sem scroll */
-  max-height: calc(
-    100vh - 280px
-  ); /* Espaço para header, zoom controls e actions */
-  overflow: visible; /* Sem scroll - cards devem caber na tela */
+  margin-top: 1rem;
+  /* Altura calculada: 100vh - header(120px) - footer(140px) - margens(60px) = 380px total */
+  max-height: calc(100vh - 380px);
+  height: calc(100vh - 380px);
+  overflow: hidden; /* Sem scroll */
+  /* Grid auto-rows: divide altura disponível igualmente entre as linhas */
+  grid-auto-rows: 1fr;
 }
 
-/* Ajuste dinâmico dos cards baseado na quantidade */
+/* Cards ocupam 100% do espaço da grid cell */
 .selection-grid .selection-card {
-  /* Altura calculada dinamicamente via CSS para caber todos os cards */
-  max-height: calc((100vh - 280px) / 2 - 1rem); /* 2 linhas máximo */
-  min-height: min(140px, calc((100vh - 280px) / 2 - 1rem));
+  height: 100%;
+  min-height: 100px; /* Mínimo para garantir legibilidade */
+  max-height: 100%; /* Não ultrapassa grid cell */
 }
 
 /* Container específico para seleção - força empilhamento vertical */
@@ -251,27 +243,44 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 1rem 1.5rem 1rem 0; /* Reduzido de 2rem para 1rem/1.5rem */
-  margin-left: 1.5rem; /* Reduzido de 2rem para 1.5rem */
-  gap: 0.5rem;
+  padding: 0.75rem 1rem 0.75rem 0;
+  margin-left: 1rem;
+  gap: 0.25rem;
 }
 
 .selection-name {
-  font-size: 1.25rem; /* Reduzido de 1.5rem para 1.25rem */
+  font-size: clamp(
+    0.9rem,
+    1.5vw,
+    1.25rem
+  ); /* Adaptativo: mín 0.9rem, máx 1.25rem */
   font-weight: 700;
   color: #1e293b;
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.2;
   letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* Máximo 2 linhas */
+  line-clamp: 2; /* Propriedade padrão */
+  -webkit-box-orient: vertical;
 }
 
 .selection-role {
-  font-size: 0.95rem; /* Reduzido de 1.1rem para 0.95rem */
+  font-size: clamp(
+    0.7rem,
+    1.2vw,
+    0.9rem
+  ); /* Adaptativo: mín 0.7rem, máx 0.9rem */
   color: #64748b;
   font-weight: 600;
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .selection-badge {

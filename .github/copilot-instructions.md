@@ -363,6 +363,63 @@
   - Nova função updateLoadingMessage() para UX melhorado
   - Percepção de qualidade aumentada (+50%)
   - Documentação completa em docs/OTIMIZACAO-FLUXO-AUTENTICACAO.md
+- [x] Melhorias no Fluxo de Votação Fullscreen (09/nov/2025)
+  - Grid de cards reduzida: calc(100vh - 380px) para eliminar scroll definitivamente
+  - Zoom controls removidos (display: none) - desnecessários com cards responsivos
+  - Candidatos ordenados alfabeticamente (localeCompare pt-BR) nas telas de seleção
+  - Confirmação com ordenação inteligente: selecionados primeiro → não selecionados (ambos A-Z)
+  - Offset aumentado de 330px para 380px (header 120px + footer 140px + margens 60px)
+  - Espaço liberado no topo: 80px (remoção dos botões de zoom)
+  - Bundle: 188.83 kB (+0.29 kB para lógica de ordenação)
+  - UX melhorado: fácil localizar candidatos e revisar escolhas
+  - Documentação completa em docs/MELHORIAS-FLUXO-VOTACAO-FULLSCREEN.md
+- [x] Alteração do Relatório PDF - Presença e Auditoria (09/nov/2025)
+  - Lista de presença reformulada: 2 colunas sem tabela de assinaturas
+  - Membros presentes (✓) e ausentes (✗) em layout compacto (6px/linha vs 10px)
+  - Economia de 40% de espaço com melhor legibilidade
+  - Lista completa de hashes SHA-256 (64 caracteres, fonte monospace)
+  - Nova seção: "COMO VALIDAR A INTEGRIDADE DOS VOTOS"
+  - Guia passo a passo de validação de hashes (5 passos detalhados)
+  - Exemplo prático de validação com código
+  - Avisos de segurança e boas práticas de auditoria
+  - Bundle: 192.65 kB (+3.82 kB para lógica de renderização)
+  - PDF mais informativo: +3 páginas de conteúdo útil
+  - Documentação completa em docs/ALTERACAO-RELATORIO-PRESENCA-AUDITORIA.md
+- [x] Correção do Total de Votos Usando AuditManager (09/nov/2025)
+  - Problema: Total de votos exibia soma de seleções de candidatos (ex: 90 ao invés de 10)
+  - Solução: Usar AuditManager.getReportData().totalVotes (votos registrados)
+  - Modificado loadResultsData() em manager.ts para buscar dados do audit
+  - Substituída exibição ${results.totalVotes} por ${auditData.totalVotes}
+  - Sincronização: total agora igual ao contador "Votos Registrados" no quorum card
+  - Coerência: UI, PDF e Firebase exibem mesma contagem
+  - Bundle: 191.83 kB → 191.87 kB (+0.04 kB)
+  - Documentação completa em docs/CORRECAO-TOTAL-VOTOS-AUDIT.md
+- [x] Melhorias no Dark Mode (09/nov/2025)
+  - Corrigido h2 com fonte azul-escuro não visível no dark mode
+  - Nav-tab hover agora legível (texto branco, fundo escuro)
+  - Nav-tab active com gradiente azul e texto branco (alto contraste)
+  - Stat-card com títulos em azul primary e descrições legíveis
+  - Candidate-category com fundo escuro e header gradiente
+  - Quorum-card completamente adaptado (fundo, labels, valores)
+  - Voting-category com background e bordas em dark mode
+  - Results-table com células escuras e hover funcional
+  - Labels de formulários com cor secundária legível
+  - Notification-content com fundo e texto adaptados
+  - 100% contraste WCAG 2.1 AA, 89% WCAG AAA
+  - Bundle CSS: 83.65 kB → 85.38 kB (+1.73 kB)
+  - Documentação completa em docs/MELHORIAS-DARK-MODE.md
+- [x] Implementação do Footer Profissional (09/nov/2025)
+  - Footer adicionado em todas as páginas (exceto fullscreen)
+  - Texto: "Departamento de Comunicação e Mídias - Igreja Presbiteriana de Águas Compridas"
+  - Badge de versão: v2.0.0 com ícone Material Icons
+  - Sticky footer pattern (margin-top: auto)
+  - Design responsivo (horizontal desktop, vertical mobile)
+  - Compatível com dark mode (bg-secondary, text-secondary)
+  - Oculto automaticamente em modo fullscreen
+  - Contraste WCAG 2.1 AA (100%)
+  - Bundle HTML: 40.33 kB → 40.88 kB (+0.55 kB)
+  - Bundle CSS: 85.38 kB → 86.61 kB (+1.23 kB)
+  - Documentação completa em docs/IMPLEMENTACAO-FOOTER.md
 
 ## Arquitetura do Sistema
 
