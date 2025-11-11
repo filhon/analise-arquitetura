@@ -1,0 +1,33 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+
+    "members": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["id", "cpf", "name"]
+    },
+
+    "config": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "audit": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+
+      "metadata": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      },
+
+      "$voteId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['id', 'timestamp', 'hash'])"
+      }
+    }
+  }
+}

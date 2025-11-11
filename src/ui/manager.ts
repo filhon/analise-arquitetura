@@ -47,28 +47,13 @@ export class UIManager {
     // Ativar sincronização do Firebase (RealtimeSync)
     RealtimeSync.getInstance().enable();
 
-    console.log("[UIManager] Configurando event listeners...");
     this.setupEventListeners();
-
-    console.log("[UIManager] Configurando navegação de abas...");
     this.setupTabNavigation();
-
-    console.log("[UIManager] Configurando modais...");
     this.setupModals();
-
-    console.log("[UIManager] Configurando listeners de eventos do sistema...");
     this.setupSystemEventListeners();
-
-    console.log("[UIManager] Carregando dados iniciais...");
     await this.loadInitialData();
-
-    console.log("[UIManager] Inicializando preferências...");
     this.initializeDarkMode();
-
-    console.log("[UIManager] Atualizando informações do usuário...");
     this.updateUserInfoOnInit();
-
-    console.log("[UIManager] ✓ Inicialização completa!");
   }
 
   /**
@@ -105,7 +90,7 @@ export class UIManager {
 
       // Frequências harmônicas para um som agradável (acorde maior)
       const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5
-      const duration = 0.3; // 300ms
+      const duration = 1.5; // ✅ 3 segundos (aumentado de 0.3s)
       const now = audioContext.currentTime;
 
       frequencies.forEach((freq, index) => {
@@ -118,10 +103,11 @@ export class UIManager {
         oscillator.type = "sine";
         oscillator.frequency.value = freq;
 
-        // Envelope ADSR suave
+        // ✅ Volume aumentado e envelope ajustado para 3 segundos
         gainNode.gain.setValueAtTime(0, now);
-        gainNode.gain.linearRampToValueAtTime(0.15, now + 0.05); // Attack
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration); // Decay e Release
+        gainNode.gain.linearRampToValueAtTime(0.4, now + 0.1); // Attack mais alto (0.15 → 0.4)
+        gainNode.gain.linearRampToValueAtTime(0.3, now + 1.0); // Sustain por 2.5s
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration); // Release suave
 
         oscillator.start(now + index * 0.05); // Arpejo suave
         oscillator.stop(now + duration + index * 0.05);
@@ -2325,7 +2311,9 @@ export class UIManager {
           role: c.role,
           photoUrl: c.photoUrl,
         }))
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")); // Ordem alfabética
+        .sort((a: { name: string }, b: { name: string }) =>
+          a.name.localeCompare(b.name, "pt-BR")
+        ); // Ordem alfabética
 
       const dia = (results.diaconos || [])
         .map((c: any) => ({
@@ -2334,7 +2322,9 @@ export class UIManager {
           role: c.role,
           photoUrl: c.photoUrl,
         }))
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")); // Ordem alfabética
+        .sort((a: { name: string }, b: { name: string }) =>
+          a.name.localeCompare(b.name, "pt-BR")
+        ); // Ordem alfabética
 
       // Estado local de seleção
       const state = {
@@ -3929,16 +3919,11 @@ export class UIManager {
 
   private async handleZeresima(): Promise<void> {
     try {
-      // Confirmar ação com diálogo personalizado
+      // ETAPA 1: Confirmar reset dos votos
       const confirmReset = await dialogService.confirm({
-        title: "Confirmar Zerésima",
-        message:
-          "Esta ação irá:\n\n" +
-          "• Resetar TODOS os votos registrados\n" +
-          "• Limpar dados de auditoria locais e no Firebase\n" +
-          "• Gerar relatório PDF confirmando zero votos\n\n" +
-          "Esta ação é irreversível. Deseja continuar?",
-        confirmText: "Sim, Resetar Votos",
+        title: "Resetar Votos",
+        message: "Esta ação é irreversível!\n\n" + "Deseja continuar?",
+        confirmText: "Sim",
         cancelText: "Cancelar",
         icon: "warning",
       });
@@ -3949,39 +3934,57 @@ export class UIManager {
 
       NotificationService.info("Resetando todos os votos...");
 
-      // 1. Resetar votos dos membros (Firebase + localStorage)
+      // 1. Obter dados ANTES de resetar (para o relatório)
+      const auditManager = AuditManager.getInstance();
+      const auditDataBeforeReset = await auditManager.getReportData();
+      const totalVotesBeforeReset = auditDataBeforeReset.totalVotes;
+
+      // 2. Resetar votos dos membros (Firebase + localStorage)
       const { VotingManager } = await import("@/modules/voting");
       const votingManager = VotingManager.getInstance();
       await votingManager.resetVotes();
 
-      // 2. Resetar auditoria (Firebase + localStorage)
-      const auditManager = AuditManager.getInstance();
+      // 3. Resetar auditoria (Firebase + localStorage)
       auditManager.clearAllVotes();
 
-      // 3. Aguardar um momento para garantir que os dados foram limpos
+      // 4. Aguardar sincronização
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // 4. Gerar relatório
-      NotificationService.info("Gerando relatório Zerésima...");
+      NotificationService.success("✅ Votos resetados com sucesso!");
 
-      const reportManager = ReportManager.getInstance();
-      const result = await reportManager.generateZeresimaReport();
+      // ETAPA 2: Perguntar se deseja gerar relatório
+      const confirmReport = await dialogService.confirm({
+        title: "Gerar Zerésima",
+        message:
+          `Total de votos registrados: ${totalVotesBeforeReset}.\n` +
+          `Deseja gerar o relatório?`,
+        confirmText: "Sim",
+        cancelText: "Não",
+        icon: "description",
+      });
 
-      if (result.success) {
-        NotificationService.success(
-          "✅ Relatório Zerésima gerado com sucesso! " +
-            "Todos os votos foram resetados."
-        );
+      if (confirmReport) {
+        // Gerar relatório
+        NotificationService.info("Gerando relatório Zerésima...");
 
-        // 5. Atualizar UI - recarregar página para refletir mudanças
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
-      } else {
-        NotificationService.error(
-          result.error || "Erro ao gerar relatório Zerésima"
-        );
+        const reportManager = ReportManager.getInstance();
+        const result = await reportManager.generateZeresimaReport();
+
+        if (result.success) {
+          NotificationService.success(
+            "✅ Relatório Zerésima gerado com sucesso!"
+          );
+        } else {
+          NotificationService.error(
+            result.error || "Erro ao gerar relatório Zerésima"
+          );
+        }
       }
+
+      // 5. Atualizar UI - recarregar página para refletir mudanças
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } catch (error) {
       console.error("Erro ao processar Zerésima:", error);
       NotificationService.error("Erro ao processar relatório Zerésima");

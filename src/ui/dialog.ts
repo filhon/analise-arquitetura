@@ -115,8 +115,8 @@ export class DialogService {
         ${type === "prompt" ? `<input type="text" id="dialog-input" class="custom-dialog-input" placeholder="${placeholder}" autocomplete="off" />` : ""}
       </div>
       <div class="custom-dialog-actions">
-        ${type === "confirm" || type === "prompt" ? `<button class="btn btn-secondary custom-dialog-cancel">${cancelText}</button>` : ""}
-        <button class="btn btn-primary custom-dialog-confirm">${confirmText}</button>
+        ${type === "confirm" || type === "prompt" ? `<button class="btn btn-secondary custom-dialog-cancel"><span class="material-icons md-20">close</span>${cancelText}</button>` : ""}
+        <button class="btn btn-primary custom-dialog-confirm"><span class="material-icons md-20">check</span>${confirmText}</button>
       </div>
     `;
 

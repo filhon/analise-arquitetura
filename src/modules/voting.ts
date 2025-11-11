@@ -165,16 +165,12 @@ export class VotingManager {
       }
 
       // 6. Limpar cache de candidatos para forçar reload
-      console.log("[VotingManager] 🗑️ Limpando cache de candidatos...");
       this.candidatesCache.clear();
-      console.log("[VotingManager] ✅ Cache limpo!");
 
       // 7. Emitir evento
-      console.log("[VotingManager] 📡 Emitindo evento VOTE_CAST...");
       this.eventSystem.emit(EventTypes.VOTE_CAST, { candidateId, memberId });
 
       // 8. Atualizar resultados (debounced)
-      console.log("[VotingManager] 📊 Atualizando resultados...");
       this.updateResults();
 
       // 9. Retornar dados compatíveis (formato antigo)
@@ -183,10 +179,6 @@ export class VotingManager {
         votes: voteResult.data?.votes || 0,
         lastUpdated: new Date(),
       };
-
-      console.log(
-        `[VotingManager] ✅ Voto registrado: ${candidate.nome} agora tem ${votingData.votes} votos`
-      );
 
       return {
         success: true,
@@ -801,16 +793,20 @@ export class VotingManager {
 
       const updatedMembers = members.map((m) => ({
         ...m,
-        votes: m.candidato ? 0 : m.votes, // Zerar apenas candidatos
+        votes: m.candidato ? 0 : m.votes || 0, // ✅ CRÍTICO: Garantir número, nunca undefined
         jaVotou: false,
         votedFor: [],
       }));
 
-      // Salvar via MemberManager para garantir sincronização
+      // Salvar localmente
       localStorage.setItem(StorageKeys.MEMBERS, JSON.stringify(updatedMembers));
-      RealtimeSync.getInstance().syncMembers(updatedMembers);
 
-      console.log("[VotingManager] ✅ Todos os votos foram resetados");
+      // ✅ Aguardar sincronização com Firebase
+      await RealtimeSync.getInstance().syncMembers(updatedMembers);
+
+      console.log(
+        "[VotingManager] ✅ Todos os votos foram resetados (localStorage + Firebase)"
+      );
 
       // Resetar flag de votação encerrada
       this.votingClosed = false;

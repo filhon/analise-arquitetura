@@ -649,7 +649,6 @@ button {
 .user-info .btn-outline:hover {
   background: var(--danger-color);
   border-color: var(--danger-color);
-  color: white;
 }
 
 /* Navigation */
@@ -2635,7 +2634,10 @@ body.dark-mode .voting-category.quorum-blur::after {
 /* Espaçamento entre bloco de estatísticas e gráficos para evitar aparência "colada" */
 #results-charts-wrapper {
   margin-top: 1rem; /* usa o espaçamento padrão do layout */
-  padding-top: 0.5rem;
+  padding: 1.5rem;
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
 }
 
 .chart-row {
@@ -3527,6 +3529,11 @@ body.dark-mode .stat-card p {
   color: var(--text-secondary);
 }
 
+body.dark-mode #results-charts-wrapper {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
 body.dark-mode input,
 body.dark-mode select,
 body.dark-mode textarea {
@@ -3572,6 +3579,13 @@ body.dark-mode .btn-outline {
 
 body.dark-mode .btn-outline:hover:not(:disabled) {
   background: var(--bg-tertiary);
+}
+
+/* Dark mode - User info logout button */
+body.dark-mode .user-info .btn-outline:hover {
+  background: var(--danger-color);
+  border-color: var(--danger-color);
+  color: white;
 }
 
 body.dark-mode .empty-message {
