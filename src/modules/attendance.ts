@@ -154,24 +154,10 @@ export class AttendanceManager {
         this.memberManager.getPresentMembers(),
       ]);
 
-      console.log(
-        "[AttendanceManager.getAttendanceStats] Total de membros carregados:",
-        members.length
-      );
-      console.log(
-        "[AttendanceManager.getAttendanceStats] Membros presentes:",
-        presentMembers.length
-      );
-
       // Apenas Membros Comungantes contam para quórum e estatísticas
       // Não-Comungantes e Visitantes são apenas para registro em ata
       const eligibleMembers = members.filter(
         (m) => m.tipo === "Membro Comungante"
-      );
-
-      console.log(
-        "[AttendanceManager.getAttendanceStats] Membros Comungantes elegíveis:",
-        eligibleMembers.length
       );
 
       const totalMembers = eligibleMembers.length;
@@ -181,13 +167,6 @@ export class AttendanceManager {
       const absentMembers = totalMembers - presentCount;
       const attendanceRate =
         totalMembers > 0 ? (presentCount / totalMembers) * 100 : 0;
-
-      console.log("[AttendanceManager.getAttendanceStats] Resultado:", {
-        totalMembers,
-        presentMembers: presentCount,
-        absentMembers,
-        attendanceRate,
-      });
 
       return {
         totalMembers,

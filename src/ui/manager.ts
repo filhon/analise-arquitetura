@@ -30,6 +30,8 @@ export class UIManager {
   private activeModal: HTMLElement | null = null;
   // Flag para evitar chamadas duplicadas ao fechar fullscreen
   private isClosingFullscreen: boolean = false;
+  // ✅ OTIMIZAÇÃO: Flag para desabilitar event listeners durante votação
+  private isVotingInProgress: boolean = false;
   // Pending attendance toggle awaiting confirmation
   private pendingAttendance: {
     memberId: string;
@@ -61,7 +63,6 @@ export class UIManager {
    * ✅ Método público para ser chamado externamente (ex: app.ts)
    */
   public async openQuorumConfigModal(): Promise<void> {
-    console.log("[UIManager] 📋 Abrindo modal de configuração de quórum...");
     await this.handleConfigQuorum();
   }
 
@@ -121,20 +122,30 @@ export class UIManager {
   }
 
   private setupEventListeners(): void {
+    // ✅ OTIMIZAÇÃO: Debounce do contador de votos (evita chamadas múltiplas)
+    let voteCountUpdateTimeout: number | null = null;
+
     // Audit system - atualizar contador quando voto é registrado
     EventSystem.getInstance().on(EventTypes.VOTE_RECORDED, () => {
-      const votesCountEl = document.getElementById("votes-count");
-      if (votesCountEl) {
-        const auditManager = AuditManager.getInstance();
-        votesCountEl.textContent = String(auditManager.getVotesCount());
+      // Debounce: aguardar 100ms antes de atualizar
+      if (voteCountUpdateTimeout) {
+        clearTimeout(voteCountUpdateTimeout);
       }
+
+      voteCountUpdateTimeout = window.setTimeout(() => {
+        const votesCountEl = document.getElementById("votes-count");
+        if (votesCountEl) {
+          const auditManager = AuditManager.getInstance();
+          votesCountEl.textContent = String(auditManager.getVotesCount());
+        }
+        voteCountUpdateTimeout = null;
+      }, 100);
     });
 
     // Voting closed - mostrar tela de encerramento
     EventSystem.getInstance().on(
       EventTypes.VOTING_CLOSED,
       async (data: any) => {
-        console.log("[UIManager] 🛑 Votação encerrada:", data);
         NotificationService.info(
           `Votação encerrada: ${data.totalVotes} votos registrados de ${data.presentMembers} presentes`
         );
@@ -404,6 +415,14 @@ export class UIManager {
     electionApp.events.on(
       EventTypes.MEMBERS_IMPORTED,
       async (data: { count: number }) => {
+        // ✅ OTIMIZAÇÃO: Ignorar durante votação para não causar lentidão
+        if (this.isVotingInProgress) {
+          console.log(
+            "[UIManager] ⏭️ MEMBERS_IMPORTED ignorado durante votação"
+          );
+          return;
+        }
+
         console.log(
           `[UIManager] 📥 Evento MEMBERS_IMPORTED recebido: ${data.count} membros carregados do Firebase`
         );
@@ -469,6 +488,12 @@ export class UIManager {
 
     // Ouvir atualizações de presença para atualizar contador e status de quórum
     electionApp.events.on(EventTypes.ATTENDANCE_SAVED, async () => {
+      // ✅ OTIMIZAÇÃO: Ignorar durante votação para não causar lentidão
+      if (this.isVotingInProgress) {
+        console.log("[UIManager] ⏭️ ATTENDANCE_SAVED ignorado durante votação");
+        return;
+      }
+
       console.log(
         "[UIManager] Evento ATTENDANCE_SAVED recebido, atualizando UI..."
       );
@@ -492,6 +517,14 @@ export class UIManager {
     electionApp.events.on(
       EventTypes.SYNC_MEMBERS_UPDATED,
       async (members: Member[]) => {
+        // ✅ OTIMIZAÇÃO: Ignorar durante votação para não causar lentidão
+        if (this.isVotingInProgress) {
+          console.log(
+            "[UIManager] ⏭️ SYNC_MEMBERS_UPDATED ignorado durante votação"
+          );
+          return;
+        }
+
         console.log(
           "[UIManager] Evento SYNC_MEMBERS_UPDATED recebido do Firebase:",
           members.length,
@@ -651,13 +684,7 @@ export class UIManager {
   }
 
   private async loadInitialData(): Promise<void> {
-    console.log("[UIManager] Carregando dados de membros...");
     await this.loadMembersData();
-
-    // ✅ CORREÇÃO: Removido updateStats() duplicado
-    // loadMembersData() já chama updateStats() internamente
-
-    console.log("[UIManager] ✓ Dados iniciais carregados!");
   }
 
   // Members
@@ -1332,10 +1359,7 @@ export class UIManager {
 
     try {
       const content = await this.readFileAsText(file);
-      console.log("[UIManager] Conteúdo do CSV:", content);
-
       const result = await electionApp.importMembers(content);
-      console.log("[UIManager] Resultado da importação:", result);
 
       if (result.success) {
         const message =
@@ -1346,16 +1370,8 @@ export class UIManager {
         NotificationService.success(message);
 
         if (result.errors && result.errors.length > 0) {
-          console.warn(
-            "[UIManager] ⚠️ Erros/Avisos na importação:",
-            result.errors
-          );
-          // Mostrar erros ao usuário
-          result.errors.forEach((error) => {
-            console.error(`  - ${error}`);
-          });
           NotificationService.warning(
-            `Importação concluída com ${result.errors.length} aviso(s). Veja o console para detalhes.`
+            `Importação concluída com ${result.errors.length} aviso(s).`
           );
         }
         await this.loadMembersData();
@@ -2188,12 +2204,6 @@ export class UIManager {
     );
     const roleTitle = document.getElementById("fullscreen-role-title");
 
-    console.log("[openFullscreen] Elementos:", {
-      fullscreenView: !!fullscreenView,
-      candidatesGrid: !!candidatesGrid,
-      roleTitle: !!roleTitle,
-    });
-
     if (!fullscreenView || !candidatesGrid || !roleTitle) {
       console.error("[openFullscreen] Elementos não encontrados!");
       return;
@@ -2681,40 +2691,8 @@ export class UIManager {
       })
       .join("");
 
-    // Adicionar event listeners aos botões de voto (mesma lógica da aba Votação)
-    container
-      .querySelectorAll<HTMLButtonElement>(".btn-vote")
-      .forEach((btn) => {
-        btn.addEventListener("click", this.handleVoteAction.bind(this));
-      });
-
-    // Clique na foto também aumenta (tocar na foto = +)
-    container
-      .querySelectorAll<HTMLElement>(".fullscreen-candidate-photo")
-      .forEach((header) => {
-        const card = header.closest(".fullscreen-candidate-card");
-        if (!card) return;
-        const increaseBtn =
-          card.querySelector<HTMLElement>(".btn-vote-increase");
-        header.addEventListener("click", () => {
-          if (increaseBtn && !increaseBtn.hasAttribute("disabled")) {
-            increaseBtn.click();
-          }
-        });
-        // cursor pointer quando habilitado
-        (header as HTMLElement).style.cursor = isQuorumValid
-          ? "pointer"
-          : "not-allowed";
-      });
-
-    // Adicionar event listeners de sincronização/atualização se necessário
-    this.attachFullscreenSyncListeners();
-  }
-
-  private attachFullscreenSyncListeners(): void {
-    // Apenas configurar sincronização em tempo real
-    // Não há controles de interação na projeção
-    console.log("[UIManager] 🎥 Projeção configurada apenas para visualização");
+    // ✅ Projeção configurada apenas para visualização (sem event listeners)
+    // Os votos são atualizados automaticamente via sincronização Firebase
   }
 
   private async handleRemoveCandidate(
@@ -2794,8 +2772,6 @@ export class UIManager {
         diaconoPositions,
         results.quorum.isValid
       );
-
-      console.log("[UIManager] ✓ Dados de votação carregados");
     } catch (error) {
       console.error("[UIManager] Erro ao carregar dados de votação:", error);
       NotificationService.error("Erro ao carregar dados de votação");
@@ -2991,84 +2967,6 @@ export class UIManager {
 
     // Cards agora são apenas para visualização
     // Os votos são atualizados automaticamente quando o ciclo de votação fullscreen for encerrado
-  }
-
-  private async handleVoteAction(e: Event): Promise<void> {
-    e.preventDefault();
-    const button = e.currentTarget as HTMLElement;
-    const candidateId = button.dataset.candidateId;
-    const action = button.dataset.action;
-
-    console.log("[UIManager] 🎯 handleVoteAction:", { candidateId, action });
-
-    if (!candidateId || !action) return;
-
-    // ✅ Verificar se quórum é válido antes de permitir votação
-    const results = await electionApp.getElectionResults();
-    if (!results.quorum.isValid) {
-      NotificationService.warning(
-        "Não é possível votar enquanto o quórum estiver insuficiente"
-      );
-      return;
-    }
-
-    try {
-      // 🎥 PROJEÇÃO: Usar métodos específicos sem validação de eleitor
-      if (action === "increase") {
-        console.log("[UIManager] ➕ Adicionando voto (projeção)...");
-        const result = await electionApp.incrementVoteProjection(candidateId);
-        console.log("[UIManager] Resultado incrementVoteProjection:", result);
-
-        if (result.success) {
-          NotificationService.show("Voto adicionado", "success");
-        } else {
-          NotificationService.error(result.error || "Erro ao adicionar voto");
-          return;
-        }
-      } else if (action === "decrease") {
-        console.log("[UIManager] ➖ Removendo voto (projeção)...");
-        const result = await electionApp.decrementVoteProjection(candidateId);
-        console.log("[UIManager] Resultado decrementVoteProjection:", result);
-
-        if (result.success) {
-          NotificationService.show("Voto removido", "success");
-        } else {
-          NotificationService.error(result.error || "Erro ao remover voto");
-          return;
-        }
-      } else if (action === "reset") {
-        const confirmed = await dialogService.confirm({
-          title: "Resetar Votos",
-          message: "Tem certeza que deseja resetar os votos deste candidato?",
-          confirmText: "Sim, Resetar",
-          cancelText: "Cancelar",
-          icon: "restart_alt",
-        });
-
-        if (!confirmed) {
-          return;
-        }
-
-        console.log("[UIManager] 🔄 Resetando votos (projeção)...");
-        const result = await electionApp.resetVotesProjection(candidateId);
-        console.log("[UIManager] Resultado resetVotesProjection:", result);
-
-        if (result.success) {
-          NotificationService.show("Votos resetados", "success");
-        } else {
-          NotificationService.error(result.error || "Erro ao resetar votos");
-          return;
-        }
-      }
-
-      // Recarregar dados de votação
-      console.log("[UIManager] 🔄 Recarregando dados de votação...");
-      await this.loadVotingData();
-      console.log("[UIManager] ✅ Dados de votação recarregados!");
-    } catch (error) {
-      console.error("[UIManager] Erro ao processar voto:", error);
-      NotificationService.error("Erro ao processar voto");
-    }
   }
 
   private async loadAttendanceData(): Promise<void> {
@@ -3301,6 +3199,9 @@ export class UIManager {
     const confirmBtn = document.getElementById("summary-confirm-btn");
     confirmBtn?.addEventListener("click", async () => {
       try {
+        // ✅ OTIMIZAÇÃO: Desabilitar event listeners durante votação
+        this.isVotingInProgress = true;
+
         // Desabilitar botões para evitar duplo envio
         (confirmBtn as HTMLButtonElement).disabled = true;
         const correctBtn = document.getElementById(
@@ -3339,6 +3240,9 @@ export class UIManager {
         // Tentar reabrir a prévia
         await this.handleStartVoting();
       } finally {
+        // ✅ OTIMIZAÇÃO: Reabilitar event listeners após votação
+        this.isVotingInProgress = false;
+
         // Reabilitar botão
         (confirmBtn as HTMLButtonElement).disabled = false;
         const correctBtn = document.getElementById(
@@ -3352,6 +3256,7 @@ export class UIManager {
   /**
    * Submete votos em sequência de forma ATÔMICA usando transações Firebase
    * Garante que múltiplos usuários possam votar simultaneamente sem perda de dados
+   * ✅ OTIMIZADO: Removido loadInitialState() e retry manual (11/nov/2025)
    */
   private async submitVotesAtomically(
     candidateIds: string[]
@@ -3365,22 +3270,7 @@ export class UIManager {
       };
     }
 
-    // ✅ Sincronizar dados do realtime database apenas na confirmação dos votos
-    try {
-      console.log(
-        "[UIManager] 🔄 Sincronizando dados do Firebase antes da confirmação dos votos..."
-      );
-      await RealtimeSync.getInstance().loadInitialState();
-      console.log("[UIManager] ✅ Dados sincronizados com sucesso");
-    } catch (error) {
-      console.warn(
-        "[UIManager] ⚠️ Erro ao sincronizar dados antes da confirmação:",
-        error
-      );
-      // Continua mesmo com erro de sincronização para não bloquear a votação
-    }
-
-    // ✅ Verificar novamente após sincronização se limite foi atingido
+    // ✅ Verificar limite de votos (sem loadInitialState - dados já sincronizados em tempo real)
     const auditManager = AuditManager.getInstance();
     const totalVotes = auditManager.getVotesCount();
     const quorumData = await votingManager.getQuorumData();
@@ -3393,75 +3283,51 @@ export class UIManager {
       };
     }
 
-    // Usar transações atômicas do Firebase para garantir concorrência segura
+    // ✅ Incrementar votos atomicamente (sem retry manual - offline-queue gerencia)
     const realtimeSync = RealtimeSync.getInstance();
-    const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
     const succeeded: string[] = [];
 
     for (const candidateId of candidateIds) {
-      let attempt = 0;
-      let lastError: any = null;
-      const maxAttempts = 3;
+      try {
+        const result = await realtimeSync.incrementVoteAtomically(candidateId);
 
-      while (attempt < maxAttempts) {
-        attempt += 1;
-        try {
-          console.log(
-            `[submitVotesAtomically] 🔄 Tentativa ${attempt} - Incrementando voto para ${candidateId}...`
-          );
-
-          const result =
-            await realtimeSync.incrementVoteAtomically(candidateId);
-
-          if (result.success) {
-            succeeded.push(candidateId);
-            lastError = null;
-            console.log(
-              `[submitVotesAtomically] ✅ Voto incrementado com sucesso para ${candidateId}`
-            );
-            break;
-          } else {
-            lastError = result.error || "Erro desconhecido";
-            console.warn(
-              `[submitVotesAtomically] tentativa ${attempt} falhou para ${candidateId}: ${lastError}`
-            );
-            if (attempt < maxAttempts)
-              await sleep(500 * Math.pow(2, attempt - 1));
-          }
-        } catch (err) {
-          lastError = err;
+        if (result.success) {
+          succeeded.push(candidateId);
+        } else {
+          // Falha - fazer rollback dos votos já incrementados
           console.error(
-            `[submitVotesAtomically] exceção na tentativa ${attempt} para ${candidateId}`,
-            err
+            `[submitVotesAtomically] ❌ Falha ao incrementar ${candidateId}, iniciando rollback...`
           );
-          if (attempt < maxAttempts)
-            await sleep(500 * Math.pow(2, attempt - 1));
-        }
-      }
 
-      if (lastError) {
-        console.error(
-          `[submitVotesAtomically] falha definitiva em ${candidateId}, iniciando rollback de projeção...`,
-          lastError
-        );
-
-        // Rollback: decrementar votos já incrementados usando transações atômicas
-        for (const succeededId of succeeded) {
-          try {
-            const rollbackResult =
+          for (const succeededId of succeeded) {
+            try {
               await realtimeSync.decrementVoteAtomically(succeededId);
-            if (rollbackResult.success) {
-              console.log(
-                `[submitVotesAtomically] rollback atômico OK para ${succeededId}`
-              );
-            } else {
+            } catch (rbErr) {
               console.warn(
-                `[submitVotesAtomically] rollback atômico falhou para ${succeededId}: ${rollbackResult.error}`
+                `[submitVotesAtomically] ⚠️ Rollback falhou para ${succeededId}:`,
+                rbErr
               );
             }
+          }
+
+          return {
+            success: false,
+            error: result.error || "Falha ao submeter votos",
+          };
+        }
+      } catch (err) {
+        // Exceção - fazer rollback dos votos já incrementados
+        console.error(
+          `[submitVotesAtomically] ❌ Exceção ao incrementar ${candidateId}:`,
+          err
+        );
+
+        for (const succeededId of succeeded) {
+          try {
+            await realtimeSync.decrementVoteAtomically(succeededId);
           } catch (rbErr) {
             console.warn(
-              `[submitVotesAtomically] rollback falhou para ${succeededId}:`,
+              `[submitVotesAtomically] ⚠️ Rollback falhou para ${succeededId}:`,
               rbErr
             );
           }
@@ -3469,7 +3335,7 @@ export class UIManager {
 
         return {
           success: false,
-          error: `Falha ao submeter votos atomicamente: ${lastError}`,
+          error: `Falha ao submeter votos: ${String(err)}`,
         };
       }
     }
@@ -3949,6 +3815,9 @@ export class UIManager {
 
       // 4. Aguardar sincronização
       await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // ✅ NOVO: Atualizar UI da aba de votação imediatamente
+      await this.loadVotingData();
 
       NotificationService.success("✅ Votos resetados com sucesso!");
 

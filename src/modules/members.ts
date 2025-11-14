@@ -297,9 +297,6 @@ export class MemberManager {
         }
       }
 
-      console.log("[CSV Import] Total de novos membros:", newMembers.length);
-      console.log("[CSV Import] Candidatos detectados:", candidatesAdded);
-
       if (newMembers.length > 0) {
         const allMembers = [...members, ...newMembers];
         await this.saveMembers(allMembers);
@@ -310,8 +307,6 @@ export class MemberManager {
         });
 
         // Criar candidatos automaticamente para membros com campo candidato preenchido
-        console.log("[CSV Import] Iniciando criação de candidatos...");
-        // ✅ CORRIGIDO: Candidatos já estão em MEMBERS, apenas limpar cache
         const { VotingManager } = await import("./voting");
         const votingManager = VotingManager.getInstance();
 
@@ -323,16 +318,9 @@ export class MemberManager {
 
         if (candidateCount > 0) {
           votingManager.clearCache();
-          console.log(
-            `[CSV Import] ${candidateCount} candidatos importados, cache limpo`
-          );
         }
 
         // Marcar não-comungantes e visitantes como presentes automaticamente
-        // (Eles não contam para quórum, apenas para registro em ata)
-        console.log(
-          "[CSV Import] Iniciando marcação de membros não-votantes..."
-        );
         const { AttendanceManager } = await import("./attendance");
         const attendanceManager = AttendanceManager.getInstance();
 
@@ -341,22 +329,16 @@ export class MemberManager {
             member.tipo === "Visitante" ||
             member.tipo === "Membro Não-Comungante"
           ) {
-            console.log(
-              `[CSV Import] Marcando como presente (${member.tipo}): ${member.nome}`
-            );
             try {
               await attendanceManager.markPresence(member.id, true);
-              console.log(`[CSV Import] ✓ Membro marcado: ${member.nome}`);
             } catch (error) {
               console.error(
-                `[CSV Import] ✗ Erro ao marcar membro ${member.nome}:`,
+                `[CSV Import] Erro ao marcar membro ${member.nome}:`,
                 error
               );
-              // Não adiciona ao array de errors pois não é crítico
             }
           }
         }
-        console.log("[CSV Import] Marcação de membros não-votantes concluída");
       }
 
       return {
@@ -512,21 +494,7 @@ export class MemberManager {
    * Não remover localStorage aqui - necessário para cache de leitura.
    */
   private async saveMembers(members: Member[]): Promise<void> {
-    console.log("[MemberManager] 💾 Iniciando saveMembers...");
-    // DEBUG: Verificar status do RealtimeSync
-    const sync = RealtimeSync.getInstance();
-    console.log(
-      "[MemberManager][DEBUG] RealtimeSync.isActive:",
-      sync.isActive()
-    );
-    console.log(
-      "[MemberManager][DEBUG] RealtimeSync status:",
-      sync.getStatus()
-    );
-
     const now = new Date().toISOString();
-    // Garantir lastUpdated para cada membro no momento do save
-    // e remover campos undefined (Firebase não aceita undefined)
     const cleanMember = (m: any) => {
       const obj: any = { ...m, lastUpdated: now };
       Object.keys(obj).forEach((k) => {
@@ -537,22 +505,16 @@ export class MemberManager {
     const membersWithTimestamps = members.map(cleanMember);
 
     // 1️⃣ Atualizar memory cache (UI imediata)
-    console.log("[MemberManager] 1️⃣ Atualizando memory cache...");
     this.cache.set("all-members", membersWithTimestamps);
-    console.log("[MemberManager] ✅ Memory cache atualizado!");
 
     // 2️⃣ Atualizar localStorage (cache persistente)
-    console.log("[MemberManager] 2️⃣ Atualizando localStorage...");
     localStorage.setItem(
       StorageKeys.MEMBERS,
       JSON.stringify(membersWithTimestamps)
     );
-    console.log("[MemberManager] ✅ localStorage atualizado!");
 
     // 3️⃣ Sincronizar com Firebase (SSOT)
-    console.log("[MemberManager] 3️⃣ Sincronizando com Firebase...");
     RealtimeSync.getInstance().syncMembers(membersWithTimestamps as any);
-    console.log("[MemberManager] ✅ Sincronização Firebase iniciada!");
   }
 
   async updateMember(

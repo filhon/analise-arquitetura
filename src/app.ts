@@ -63,7 +63,7 @@ export class ElectionApp {
       await this.syncFromFirebaseBeforeRender();
 
       console.log(
-        "[ElectionApp] 🔍 Verificando configuração de quórum no Firebase...",
+        "[ElectionApp] 🔍 Verificando configuração de quórum no Firebase..."
       );
       // Verificar config APÓS sync (garante dados atualizados)
       await this.checkQuorumConfiguration();
@@ -86,7 +86,7 @@ export class ElectionApp {
 
       console.log("[ElectionApp] ✓ Inicialização completa!");
       console.log(
-        `[ElectionApp] 📡 Sincronização: ${RealtimeSync.getInstance().isActive() ? "ATIVA" : "INATIVA"}`,
+        `[ElectionApp] 📡 Sincronização: ${RealtimeSync.getInstance().isActive() ? "ATIVA" : "INATIVA"}`
       );
 
       return { success: true };
@@ -120,10 +120,10 @@ export class ElectionApp {
 
       if (!hasFirebaseConfig) {
         console.log(
-          "[ElectionApp] ⚠️ Nenhuma configuração de quórum no Firebase!",
+          "[ElectionApp] ⚠️ Nenhuma configuração de quórum no Firebase!"
         );
         console.log(
-          "[ElectionApp] 📋 Abrindo modal de configuração automaticamente...",
+          "[ElectionApp] 📋 Abrindo modal de configuração automaticamente..."
         );
 
         // Emitir evento para UI abrir o modal
@@ -134,13 +134,13 @@ export class ElectionApp {
       } else {
         console.log(
           "[ElectionApp] ✓ Configuração de quórum encontrada no Firebase:",
-          firebaseData.config,
+          firebaseData.config
         );
       }
     } catch (error) {
       console.error(
         "[ElectionApp] ✗ Erro ao verificar configuração de quórum:",
-        error,
+        error
       );
       ErrorHandler.log(error as Error, "ElectionApp.checkQuorumConfiguration");
     }
@@ -150,36 +150,36 @@ export class ElectionApp {
     // Eventos de membros
     this.eventSystem.on(
       EventTypes.MEMBERS_IMPORTED,
-      this.handleMembersImported.bind(this),
+      this.handleMembersImported.bind(this)
     );
     this.eventSystem.on(
       EventTypes.MEMBER_ADDED,
-      this.handleMemberAdded.bind(this),
+      this.handleMemberAdded.bind(this)
     );
     this.eventSystem.on(
       EventTypes.MEMBER_UPDATED,
-      this.handleMemberUpdated.bind(this),
+      this.handleMemberUpdated.bind(this)
     );
 
     // Eventos de votação
     this.eventSystem.on(EventTypes.VOTE_CAST, this.handleVoteCast.bind(this));
     this.eventSystem.on(
       EventTypes.CANDIDATE_ADDED,
-      this.handleCandidateAdded.bind(this),
+      this.handleCandidateAdded.bind(this)
     );
     this.eventSystem.on(
       EventTypes.RESULTS_UPDATED,
-      this.handleResultsUpdated.bind(this),
+      this.handleResultsUpdated.bind(this)
     );
 
     // Eventos de presença
     this.eventSystem.on(
       EventTypes.ATTENDANCE_MARKED,
-      this.handleAttendanceMarked.bind(this),
+      this.handleAttendanceMarked.bind(this)
     );
     this.eventSystem.on(
       EventTypes.ATTENDANCE_BULK_UPDATED,
-      this.handleBulkAttendanceUpdate.bind(this),
+      this.handleBulkAttendanceUpdate.bind(this)
     );
 
     // Eventos de erro
@@ -224,7 +224,7 @@ export class ElectionApp {
       // ✅ CRÍTICO: Validar se data existe e tem quorum
       if (!data) {
         console.warn(
-          "[ElectionApp] ⚠️ ConfigData é undefined, ignorando atualização",
+          "[ElectionApp] ⚠️ ConfigData é undefined, ignorando atualização"
         );
         return;
       }
@@ -299,21 +299,21 @@ export class ElectionApp {
         if (!hasLocalMembers) {
           // Caso 1: localStorage vazio → hidratar do Firebase
           console.log(
-            `[ElectionApp] 📦 localStorage vazio - hidratando ${firebaseData.members.length} membros do Firebase`,
+            `[ElectionApp] 📦 localStorage vazio - hidratando ${firebaseData.members.length} membros do Firebase`
           );
           localStorage.setItem(
             StorageKeys.MEMBERS,
-            JSON.stringify(firebaseData.members),
+            JSON.stringify(firebaseData.members)
           );
           membersUpdated = true;
         } else {
           // Caso 2: localStorage tem dados → SEMPRE usar Firebase (SSOT)
           console.log(
-            `[ElectionApp] 🔄 Sobrescrevendo cache local com ${firebaseData.members.length} membros do Firebase (SSOT)`,
+            `[ElectionApp] 🔄 Sobrescrevendo cache local com ${firebaseData.members.length} membros do Firebase (SSOT)`
           );
           localStorage.setItem(
             StorageKeys.MEMBERS,
-            JSON.stringify(firebaseData.members),
+            JSON.stringify(firebaseData.members)
           );
           membersUpdated = true;
         }
@@ -334,21 +334,21 @@ export class ElectionApp {
         if (!hasLocalConfig) {
           // Caso 1: localStorage vazio → hidratar do Firebase
           console.log(
-            "[ElectionApp] 📦 localStorage vazio - hidratando config do Firebase",
+            "[ElectionApp] 📦 localStorage vazio - hidratando config do Firebase"
           );
           localStorage.setItem(
             StorageKeys.CONFIG,
-            JSON.stringify(firebaseData.config),
+            JSON.stringify(firebaseData.config)
           );
           configUpdated = true;
         } else {
           // Caso 2: localStorage tem dados → SEMPRE usar Firebase (SSOT)
           console.log(
-            "[ElectionApp] 🔄 Sobrescrevendo cache local com config do Firebase (SSOT)",
+            "[ElectionApp] 🔄 Sobrescrevendo cache local com config do Firebase (SSOT)"
           );
           localStorage.setItem(
             StorageKeys.CONFIG,
-            JSON.stringify(firebaseData.config),
+            JSON.stringify(firebaseData.config)
           );
           configUpdated = true;
         }
@@ -364,10 +364,10 @@ export class ElectionApp {
           // ✅ Nenhuma config no Firebase nem no localStorage
           // Emitir evento para UIManager abrir modal de configuração
           console.log(
-            "[ElectionApp] ⚠️ Nenhuma configuração encontrada (Firebase e localStorage vazios)",
+            "[ElectionApp] ⚠️ Nenhuma configuração encontrada (Firebase e localStorage vazios)"
           );
           console.log(
-            "[ElectionApp] 📋 Emitindo evento QUORUM_CONFIG_REQUIRED...",
+            "[ElectionApp] 📋 Emitindo evento QUORUM_CONFIG_REQUIRED..."
           );
 
           // Emitir evento após um pequeno delay para garantir que UIManager já inicializou
@@ -379,7 +379,7 @@ export class ElectionApp {
           }, 500);
         } else {
           console.log(
-            "[ElectionApp] ✓ Config encontrada no localStorage (Firebase sync não necessário)",
+            "[ElectionApp] ✓ Config encontrada no localStorage (Firebase sync não necessário)"
           );
         }
       }
@@ -400,7 +400,7 @@ export class ElectionApp {
       // 5️⃣ Log final
       if (membersUpdated || configUpdated) {
         console.log(
-          "[ElectionApp] ✅ Sincronização completa - dados atualizados do Firebase (SSOT)",
+          "[ElectionApp] ✅ Sincronização completa - dados atualizados do Firebase (SSOT)"
         );
         // Emitir evento para UI
         if (membersUpdated) {
@@ -416,11 +416,11 @@ export class ElectionApp {
 
         if (!hasFirebaseMembers && !hasFirebaseConfig) {
           console.log(
-            "[ElectionApp] ℹ️ Firebase vazio - usando dados do localStorage (se existirem)",
+            "[ElectionApp] ℹ️ Firebase vazio - usando dados do localStorage (se existirem)"
           );
         } else {
           console.log(
-            "[ElectionApp] ✅ localStorage já sincronizado com Firebase",
+            "[ElectionApp] ✅ localStorage já sincronizado com Firebase"
           );
         }
       }
@@ -428,11 +428,11 @@ export class ElectionApp {
       console.error("[ElectionApp] ✗ Erro ao sincronizar com Firebase:", error);
       ErrorHandler.log(
         error as Error,
-        "ElectionApp.syncFromFirebaseBeforeRender",
+        "ElectionApp.syncFromFirebaseBeforeRender"
       );
       // Não bloquear inicialização - continuar com dados locais se Firebase falhar
       console.warn(
-        "[ElectionApp] ⚠️ Continuando com dados locais (Firebase indisponível)",
+        "[ElectionApp] ⚠️ Continuando com dados locais (Firebase indisponível)"
       );
     }
   }
@@ -482,7 +482,7 @@ export class ElectionApp {
     memberId: string;
   }): void {
     console.log(
-      `Voto registrado - Candidato: ${data.candidateId}, Membro: ${data.memberId}`,
+      `Voto registrado - Candidato: ${data.candidateId}, Membro: ${data.memberId}`
     );
   }
 
@@ -501,7 +501,7 @@ export class ElectionApp {
   }): void {
     const status = data.present ? "presente" : "ausente";
     console.log(
-      `Presença marcada - Membro: ${data.memberId}, Status: ${status}`,
+      `Presença marcada - Membro: ${data.memberId}, Status: ${status}`
     );
   }
 
@@ -537,7 +537,7 @@ export class ElectionApp {
   }
 
   async importData(
-    jsonData: string,
+    jsonData: string
   ): Promise<{ success: boolean; error?: string }> {
     return await this.reportManager.importData(jsonData);
   }
@@ -551,20 +551,20 @@ export class ElectionApp {
   }
 
   async addMember(
-    member: Omit<Member, "id">,
+    member: Omit<Member, "id">
   ): Promise<{ success: boolean; member?: Member; error?: string }> {
     return await this.memberManager.addMember(member);
   }
 
   async updateMember(
     id: string,
-    updates: Partial<Member>,
+    updates: Partial<Member>
   ): Promise<{ success: boolean; member?: Member; error?: string }> {
     return await this.memberManager.updateMember(id, updates);
   }
 
   async deleteMember(
-    id: string,
+    id: string
   ): Promise<{ success: boolean; error?: string }> {
     return await this.memberManager.deleteMember(id);
   }
@@ -586,35 +586,16 @@ export class ElectionApp {
 
   async castVote(
     candidateId: string,
-    memberId: string,
+    memberId: string
   ): Promise<{ success: boolean; error?: string }> {
     return await this.votingManager.castVote(candidateId, memberId);
   }
 
   async removeVote(
     candidateId: string,
-    memberId: string,
+    memberId: string
   ): Promise<{ success: boolean; error?: string }> {
     return await this.votingManager.removeVote(candidateId, memberId);
-  }
-
-  // 🎥 Métodos para Projeção (sem validação de eleitor)
-  async incrementVoteProjection(
-    candidateId: string,
-  ): Promise<{ success: boolean; error?: string }> {
-    return await this.votingManager.incrementVoteProjection(candidateId);
-  }
-
-  async decrementVoteProjection(
-    candidateId: string,
-  ): Promise<{ success: boolean; error?: string }> {
-    return await this.votingManager.decrementVoteProjection(candidateId);
-  }
-
-  async resetVotesProjection(
-    candidateId: string,
-  ): Promise<{ success: boolean; error?: string }> {
-    return await this.votingManager.resetVotesProjection(candidateId);
   }
 
   async getElectionResults(): Promise<any> {
@@ -623,13 +604,13 @@ export class ElectionApp {
 
   async markAttendance(
     memberId: string,
-    present: boolean = true,
+    present: boolean = true
   ): Promise<{ success: boolean; error?: string }> {
     return await this.attendanceManager.markPresence(memberId, present);
   }
 
   async toggleAttendance(
-    memberId: string,
+    memberId: string
   ): Promise<{ success: boolean; error?: string }> {
     return await this.attendanceManager.togglePresence(memberId);
   }
@@ -651,7 +632,7 @@ export class ElectionApp {
   }
 
   async updateQuorumConfig(
-    config: QuorumConfig,
+    config: QuorumConfig
   ): Promise<{ success: boolean; error?: string }> {
     return await this.votingManager.updateQuorumConfig(config);
   }
@@ -699,7 +680,7 @@ export class ElectionApp {
           quorumConfig.votesRequiredPercentage > 100
         ) {
           errors.push(
-            "Percentual de votos necessários deve estar entre 1 e 100",
+            "Percentual de votos necessários deve estar entre 1 e 100"
           );
         }
       }
@@ -737,7 +718,7 @@ export class ElectionApp {
       RealtimeSync.getInstance().syncMembers(updatedMembers);
 
       console.log(
-        "[ElectionApp] ✅ Eleição resetada: votos e presença zerados",
+        "[ElectionApp] ✅ Eleição resetada: votos e presença zerados"
       );
 
       this.eventSystem.emit(EventTypes.APP_RESET, {

@@ -58,42 +58,24 @@ export class RealtimeSync {
     }
 
     if (this.isEnabled) {
-      console.log("[RealtimeSync] Já está ativado");
       return;
     }
 
     this.isEnabled = true;
     this.setupListeners();
-    console.log(`[RealtimeSync] ✅ Ativado (Session: ${this.sessionId})`);
   }
 
-  /**
-   * Desativar sincronização (modo offline)
-   */
   disable(): void {
     this.isEnabled = false;
     this.removeAllListeners();
-    console.log("[RealtimeSync] ⏸️ Desativado");
   }
 
-  /**
-   * Verificar se está ativo
-   */
   isActive(): boolean {
     return this.isEnabled && isConfigured;
   }
 
-  /**
-   * Sincronizar membros (ÚNICA fonte da verdade)
-   * Contém: dados pessoais, candidatura, presença, votação
-   */
   async syncMembers(members: Member[]): Promise<void> {
-    console.log("[RealtimeSync] 🔄 syncMembers chamado...");
-
     if (!this.isActive()) {
-      console.warn(
-        "[RealtimeSync] ⚠️ Firebase está INATIVO! Sincronização ignorada."
-      );
       return;
     }
 
@@ -114,19 +96,11 @@ export class RealtimeSync {
         updatedBy: this.sessionId,
         timestamp: Date.now(),
       });
-      console.log(
-        `[RealtimeSync] ✅ ${members.length} membros sincronizados com sucesso!`
-      );
     } catch (error) {
-      console.error("[RealtimeSync] ❌ ERRO ao sincronizar membros:", error);
+      console.error("[RealtimeSync] Erro ao sincronizar membros:", error);
     }
   }
 
-  /**
-   * FASE 5.2: Sincronizar configuração completa (quórum + system)
-   * Aceita QuorumConfig (retrocompatível) ou ConfigData completo
-   * PADRÃO: Igual ao members - { data, updatedBy, timestamp }
-   */
   async syncConfig(
     config: QuorumConfig | { quorum: QuorumConfig; system?: any }
   ): Promise<void> {
@@ -134,22 +108,15 @@ export class RealtimeSync {
 
     try {
       const configRef = ref(database, "config");
-
-      // Detectar se é QuorumConfig ou ConfigData
       const configData = "quorum" in config ? config : { quorum: config };
 
-      // ✅ PADRÃO MEMBERS: Wrapper 'data' para consistência
       await set(configRef, {
         data: configData,
         updatedBy: this.sessionId,
         timestamp: Date.now(),
       });
-      console.log("[RealtimeSync] ✓ Configuração sincronizada");
     } catch (error) {
-      console.error(
-        "[RealtimeSync] ✗ Erro ao sincronizar configuração:",
-        error
-      );
+      console.error("[RealtimeSync] Erro ao sincronizar configuração:", error);
     }
   }
 
@@ -169,9 +136,8 @@ export class RealtimeSync {
         updatedBy: this.sessionId,
         timestamp: Date.now(),
       });
-      console.log("[RealtimeSync] ✓ Audit log sincronizado");
     } catch (error) {
-      console.error("[RealtimeSync] ✗ Erro ao sincronizar audit log:", error);
+      console.error("[RealtimeSync] Erro ao sincronizar audit log:", error);
     }
   }
 
@@ -207,10 +173,6 @@ export class RealtimeSync {
         createdBy: this.sessionId,
         createdAt: Date.now(),
       });
-
-      console.log(
-        `[RealtimeSync] ✅ Voto ${vote.id} sincronizado atomicamente`
-      );
 
       // Atualizar metadata em background (não bloqueia)
       this.updateAuditMetadata().catch((err) => {
@@ -257,10 +219,6 @@ export class RealtimeSync {
           lastUpdated: Date.now(),
           version: "2.0",
         });
-
-        console.log(
-          `[RealtimeSync] ✓ Metadata atualizada: ${totalVotes} votos`
-        );
       }
     } catch (error) {
       console.error("[RealtimeSync] ✗ Erro ao atualizar metadata:", error);
@@ -275,7 +233,6 @@ export class RealtimeSync {
    */
   async loadVotesFromFirebase(): Promise<AuditVote[]> {
     if (!this.isActive() || !database) {
-      console.log("[RealtimeSync] ⚠️ Firebase inativo ou não configurado");
       return [];
     }
 
@@ -284,7 +241,6 @@ export class RealtimeSync {
       const snapshot = await get(auditRef);
 
       if (!snapshot.exists()) {
-        console.log("[RealtimeSync] 📭 Nenhum voto encontrado no Firebase");
         return [];
       }
 
@@ -307,10 +263,6 @@ export class RealtimeSync {
 
       // Ordenar por ID
       votes.sort((a, b) => a.id - b.id);
-
-      console.log(
-        `[RealtimeSync] ✅ ${votes.length} votos carregados do Firebase`
-      );
 
       return votes;
     } catch (error) {
@@ -562,23 +514,13 @@ export class RealtimeSync {
             votes: newVotes,
           };
 
-          console.log(
-            `[RealtimeSync] 🔄 Transação: ${candidate.nome} (${candidateId}) - votos: ${currentVotes} → ${newVotes}`
-          );
-
           return updatedMembers;
         }
       );
 
       if (result.committed) {
-        console.log(
-          `[RealtimeSync] ✅ Voto incrementado atomicamente para candidato ${candidateId}`
-        );
         return { success: true };
       } else {
-        console.warn(
-          `[RealtimeSync] ⚠️ Transação abortada para candidato ${candidateId}`
-        );
         return {
           success: false,
           error: "Transação abortada - possível conflito de concorrência",

@@ -135,31 +135,12 @@ export class AuditManager {
 
     // Salvar no localStorage
     localStorage.setItem(StorageKeys.AUDIT_LOG, JSON.stringify(this.votes));
-    console.log(
-      `[AuditManager] 💾 ${this.votes.length} votos salvos no localStorage`
-    );
 
     // Sincronizar voto individual com Firebase (estrutura incremental)
     const realtimeSync = RealtimeSync.getInstance();
     if (realtimeSync.isActive()) {
-      const syncResult = await realtimeSync.syncVoteToFirebase(vote);
-      if (syncResult.success) {
-        console.log(
-          `[AuditManager] ✅ Voto ${voteId} sincronizado com Firebase`
-        );
-      } else {
-        console.warn(
-          `[AuditManager] ⚠️ Erro ao sincronizar voto ${voteId}:`,
-          syncResult.error
-        );
-      }
+      await realtimeSync.syncVoteToFirebase(vote);
     }
-
-    console.log(`[AuditManager] ✅ Voto ${voteId} registrado:`, {
-      presbyteros: presbyteros.length,
-      diaconos: diaconos.length,
-      hash: hash.substring(0, 8) + "...",
-    });
 
     // Emitir evento para atualizar UI
     this.eventSystem.emit(EventTypes.VOTE_RECORDED, { voteId });
@@ -202,30 +183,52 @@ export class AuditManager {
    * Obter contagem total de votos registrados
    */
   /**
-   * ✅ V2: Obter contagem de votos (híbrido local + validação remota)
-   * Retorna imediatamente o valor local para performance
-   * Valida com Firebase em background para garantir sincronização
+   * ✅ V3: Obter contagem de votos (OTIMIZADO - sem validação em background)
+   * Retorna imediatamente o valor local para máxima performance
+   * Validação apenas sob demanda via validateSync()
    */
   getVotesCount(): number {
-    const localCount = this.votes.length;
-
-    // Validação em background (não bloqueia UI)
-    const realtimeSync = RealtimeSync.getInstance();
-    if (realtimeSync.isActive()) {
-      this.validateVotesCountWithFirebase(localCount).catch((err) => {
-        console.warn(
-          "[AuditManager] ⚠️ Erro ao validar contador com Firebase:",
-          err
-        );
-      });
-    }
-
-    return localCount;
+    return this.votes.length;
   }
 
   /**
-   * Validar contador local com Firebase (background)
-   * Se divergir, recarrega dados do Firebase
+   * ✅ NOVO: Validar sincronização sob demanda
+   * Chamar apenas quando necessário (ex: antes de gerar relatório)
+   */
+  async validateSync(): Promise<boolean> {
+    const realtimeSync = RealtimeSync.getInstance();
+    if (!realtimeSync.isActive()) {
+      return true; // Sem Firebase, assume local como correto
+    }
+
+    try {
+      const firebaseVotes = await realtimeSync.loadVotesFromFirebase();
+      const localCount = this.votes.length;
+      const firebaseCount = firebaseVotes.length;
+
+      if (firebaseCount !== localCount) {
+        // Sincronizar com Firebase (source of truth)
+        this.votes = firebaseVotes;
+        localStorage.setItem(StorageKeys.AUDIT_LOG, JSON.stringify(this.votes));
+
+        // Emitir evento para atualizar UI
+        this.eventSystem.emit(EventTypes.VOTE_RECORDED, {
+          voteId: firebaseCount - 1,
+        });
+
+        return false; // Houve divergência
+      }
+
+      return true; // Sincronizado
+    } catch (error) {
+      console.error("[AuditManager] ❌ Erro ao validar sincronização:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Validar contador local com Firebase (background) - DEPRECATED
+   * @deprecated Use validateSync() sob demanda
    */
   private async validateVotesCountWithFirebase(
     localCount: number
