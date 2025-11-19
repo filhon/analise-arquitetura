@@ -33,11 +33,11 @@
 
     <!-- CSS -->
     <link rel="stylesheet" href="/assets/css/candidate-select.css" />
-    <script type="module" crossorigin src="/assets/index-Dbba_0ZQ.js"></script>
+    <script type="module" crossorigin src="/assets/index-BO-2oav3.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/vendor-mpHdot-v.js">
     <link rel="modulepreload" crossorigin href="/assets/firebase-Cfu4eWsv.js">
     <link rel="modulepreload" crossorigin href="/assets/jspdf-CcmqT4Oe.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-BMArFdXE.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-OOXApKm9.css">
   </head>
   <body>
     <!-- Loading Screen -->
@@ -299,6 +299,50 @@
               </tbody>
             </table>
           </div>
+
+          <!-- Pagination Controls -->
+          <div
+            id="members-pagination"
+            class="pagination-container"
+            style="display: none"
+          >
+            <div class="pagination-info">
+              <span id="pagination-info-text">Exibindo 0-0 de 0 membros</span>
+            </div>
+            <div class="pagination-controls">
+              <button
+                id="pagination-first"
+                class="btn btn-sm btn-secondary"
+                title="Primeira página"
+              >
+                <span class="material-icons md-18">first_page</span>
+              </button>
+              <button
+                id="pagination-prev"
+                class="btn btn-sm btn-secondary"
+                title="Página anterior"
+              >
+                <span class="material-icons md-18">chevron_left</span>
+              </button>
+              <span id="pagination-pages" class="pagination-pages"
+                >Página 1 de 1</span
+              >
+              <button
+                id="pagination-next"
+                class="btn btn-sm btn-secondary"
+                title="Próxima página"
+              >
+                <span class="material-icons md-18">chevron_right</span>
+              </button>
+              <button
+                id="pagination-last"
+                class="btn btn-sm btn-secondary"
+                title="Última página"
+              >
+                <span class="material-icons md-18">last_page</span>
+              </button>
+            </div>
+          </div>
         </section>
 
         <!-- Candidates Tab -->
@@ -480,6 +524,28 @@
 
           <div class="attendance-list" id="attendance-list">
             <!-- Dynamic content -->
+          </div>
+
+          <!-- Pagination Controls -->
+          <div id="attendance-pagination" class="pagination-container" style="display: none;">
+            <div class="pagination-info">
+              <span id="attendance-pagination-info-text">Exibindo 0-0 de 0 membros</span>
+            </div>
+            <div class="pagination-controls">
+              <button id="attendance-pagination-first" class="btn btn-sm btn-secondary" title="Primeira página">
+                <span class="material-icons md-18">first_page</span>
+              </button>
+              <button id="attendance-pagination-prev" class="btn btn-sm btn-secondary" title="Página anterior">
+                <span class="material-icons md-18">chevron_left</span>
+              </button>
+              <span id="attendance-pagination-pages" class="pagination-pages">Página 1 de 1</span>
+              <button id="attendance-pagination-next" class="btn btn-sm btn-secondary" title="Próxima página">
+                <span class="material-icons md-18">chevron_right</span>
+              </button>
+              <button id="attendance-pagination-last" class="btn btn-sm btn-secondary" title="Última página">
+                <span class="material-icons md-18">last_page</span>
+              </button>
+            </div>
           </div>
         </section>
 

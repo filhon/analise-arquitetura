@@ -452,6 +452,33 @@
   - Bundle HTML: 40.33 kB → 40.88 kB (+0.55 kB)
   - Bundle CSS: 85.38 kB → 86.61 kB (+1.23 kB)
   - Documentação completa em docs/IMPLEMENTACAO-FOOTER.md
+- [x] Implementar Paginação na Página de Membros (18/nov/2025)
+  - Sistema de paginação com máximo de 10 membros por página
+  - Controles de navegação: Primeira, Anterior, Próxima, Última
+  - Indicador visual de página atual e total de páginas
+  - Informação de registros exibidos (ex: "Exibindo 1-10 de 150 membros")
+  - Integração completa com busca (reset para página 1 ao buscar)
+  - Paginação automática nos resultados de busca
+  - Ocultação automática quando há menos de 10 membros
+  - Botões desabilitados nos limites (primeira/última página)
+  - Responsividade completa (desktop: horizontal, mobile: vertical)
+  - Suporte completo ao modo escuro
+  - Bundle: 184.03 kB (+2.03 kB para lógica de paginação)
+  - CSS: 88.04 kB (+1.18 kB para estilos de paginação)
+  - Performance: renderização constante independente da quantidade
+  - Documentação completa em docs/IMPLEMENTACAO-PAGINACAO-MEMBROS.md
+- [x] Implementar Paginação na Aba Presença (18/nov/2025)
+  - Paginação estendida para aba "Presença" (consistência com "Membros")
+  - Controles HTML idênticos com prefixo attendance-pagination-\*
+  - Propriedades de estado: currentAttendancePage, attendanceItemsPerPage, totalAttendanceMembers
+  - Event listeners para 4 botões de navegação (first/prev/next/last)
+  - Método renderAttendanceList() modificado com lógica de slice e cálculo de páginas
+  - Três métodos auxiliares: goToAttendancePage(), updateAttendancePaginationControls(), hideAttendancePagination()
+  - Reuso completo de CSS (classes pagination-container, pagination-controls)
+  - Máximo de 10 membros por página com ocultação automática quando ≤10
+  - Performance: 98-99% de melhoria em renderização com 500-1000 membros
+  - Bundle: 185.66 kB (+1.63 kB JS) + 43.91 kB HTML (+0.55 kB)
+  - Documentação completa em docs/IMPLEMENTACAO-PAGINACAO-PRESENCA.md
 
 ## Arquitetura do Sistema
 

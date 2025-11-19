@@ -38,6 +38,17 @@ export class UIManager {
     checkbox: HTMLInputElement;
   } | null = null;
 
+  // Paginação de membros
+  private currentPage: number = 1;
+  private itemsPerPage: number = 10;
+  private totalMembers: Member[] = [];
+  private isSearchActive: boolean = false;
+
+  // Paginação de presença
+  private currentAttendancePage: number = 1;
+  private attendanceItemsPerPage: number = 10;
+  private totalAttendanceMembers: Member[] = [];
+
   static getInstance(): UIManager {
     if (!UIManager.instance) {
       UIManager.instance = new UIManager();
@@ -221,6 +232,48 @@ export class UIManager {
         });
       }
     }
+
+    // Pagination controls - Members
+    document
+      .getElementById("pagination-first")
+      ?.addEventListener("click", () => this.goToPage(1));
+    document
+      .getElementById("pagination-prev")
+      ?.addEventListener("click", () => this.goToPage(this.currentPage - 1));
+    document
+      .getElementById("pagination-next")
+      ?.addEventListener("click", () => this.goToPage(this.currentPage + 1));
+    document
+      .getElementById("pagination-last")
+      ?.addEventListener("click", () => {
+        const totalPages = Math.ceil(
+          this.totalMembers.length / this.itemsPerPage
+        );
+        this.goToPage(totalPages);
+      });
+
+    // Pagination controls - Attendance
+    document
+      .getElementById("attendance-pagination-first")
+      ?.addEventListener("click", () => this.goToAttendancePage(1));
+    document
+      .getElementById("attendance-pagination-prev")
+      ?.addEventListener("click", () =>
+        this.goToAttendancePage(this.currentAttendancePage - 1)
+      );
+    document
+      .getElementById("attendance-pagination-next")
+      ?.addEventListener("click", () =>
+        this.goToAttendancePage(this.currentAttendancePage + 1)
+      );
+    document
+      .getElementById("attendance-pagination-last")
+      ?.addEventListener("click", () => {
+        const totalPages = Math.ceil(
+          this.totalAttendanceMembers.length / this.attendanceItemsPerPage
+        );
+        this.goToAttendancePage(totalPages);
+      });
 
     // Candidate actions
     document
@@ -690,6 +743,9 @@ export class UIManager {
   // Members
   private async loadMembersData(): Promise<void> {
     const members = await electionApp.getMembers();
+    this.totalMembers = members;
+    this.isSearchActive = false;
+    this.currentPage = 1;
     await this.renderMembersTable(members);
     await this.updateStats();
   }
@@ -704,13 +760,12 @@ export class UIManager {
       tbody.innerHTML = `
         <tr>
           <td colspan="6" class="text-center">
-            Nenhum membro cadastrado.
-            <button class="btn btn-link" onclick="document.getElementById('add-member')?.click()">
-              Adicionar primeiro membro
-            </button>
+            ${this.isSearchActive ? "Nenhum membro encontrado." : "Nenhum membro cadastrado."}
+            ${!this.isSearchActive ? '<button class="btn btn-link" onclick="document.getElementById(\'add-member\')?.click()">Adicionar primeiro membro</button>' : ""}
           </td>
         </tr>
       `;
+      this.hidePagination();
       return;
     }
 
@@ -719,8 +774,23 @@ export class UIManager {
       a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })
     );
 
+    // Calcular paginação
+    const totalPages = Math.ceil(sortedMembers.length / this.itemsPerPage);
+
+    // Ajustar página atual se exceder total de páginas
+    if (this.currentPage > totalPages) {
+      this.currentPage = Math.max(1, totalPages);
+    }
+
+    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+    const endIndex = Math.min(
+      startIndex + this.itemsPerPage,
+      sortedMembers.length
+    );
+    const paginatedMembers = sortedMembers.slice(startIndex, endIndex);
+
     // FASE 7: Usar Member.presente diretamente (SSOT)
-    sortedMembers.forEach((member) => {
+    paginatedMembers.forEach((member) => {
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${this.escapeHtml(member.nome)}</td>
@@ -739,6 +809,14 @@ export class UIManager {
       `;
       tbody.appendChild(row);
     });
+
+    // Atualizar controles de paginação
+    this.updatePaginationControls(
+      sortedMembers.length,
+      startIndex,
+      endIndex,
+      totalPages
+    );
   }
 
   private async renderAttendanceList(): Promise<void> {
@@ -746,6 +824,7 @@ export class UIManager {
     if (!container) return;
 
     const members = await electionApp.getMembers();
+    this.totalAttendanceMembers = members;
 
     if (members.length === 0) {
       container.innerHTML = `
@@ -757,6 +836,7 @@ export class UIManager {
           </small>
         </div>
       `;
+      this.hideAttendancePagination();
       return;
     }
 
@@ -765,8 +845,26 @@ export class UIManager {
       a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })
     );
 
-    // Criar lista de presença
-    const attendanceItems = sortedMembers.map((member) => {
+    // Calcular paginação
+    const totalPages = Math.ceil(
+      sortedMembers.length / this.attendanceItemsPerPage
+    );
+
+    // Ajustar página atual se exceder total de páginas
+    if (this.currentAttendancePage > totalPages) {
+      this.currentAttendancePage = Math.max(1, totalPages);
+    }
+
+    const startIndex =
+      (this.currentAttendancePage - 1) * this.attendanceItemsPerPage;
+    const endIndex = Math.min(
+      startIndex + this.attendanceItemsPerPage,
+      sortedMembers.length
+    );
+    const paginatedMembers = sortedMembers.slice(startIndex, endIndex);
+
+    // Criar lista de presença (apenas membros da página atual)
+    const attendanceItems = paginatedMembers.map((member) => {
       const isPresent = member.presente || false;
       const memberType = member.tipo || "Não informado";
 
@@ -801,6 +899,14 @@ export class UIManager {
     container.querySelectorAll(".attendance-toggle").forEach((toggle) => {
       toggle.addEventListener("change", this.handleAttendanceToggle.bind(this));
     });
+
+    // Atualizar controles de paginação
+    this.updateAttendancePaginationControls(
+      sortedMembers.length,
+      startIndex,
+      endIndex,
+      totalPages
+    );
   }
 
   // Event handlers
@@ -833,11 +939,160 @@ export class UIManager {
           await this.loadMembersData();
         } else {
           const results = await electionApp.searchMembers(query);
+          this.totalMembers = results;
+          this.isSearchActive = true;
+          this.currentPage = 1;
           await this.renderMembersTable(results);
         }
       },
       300
     );
+  }
+
+  // Métodos de paginação
+  private goToPage(page: number): void {
+    const totalPages = Math.ceil(this.totalMembers.length / this.itemsPerPage);
+
+    if (page < 1 || page > totalPages) {
+      return;
+    }
+
+    this.currentPage = page;
+    this.renderMembersTable(this.totalMembers);
+  }
+
+  private updatePaginationControls(
+    totalItems: number,
+    startIndex: number,
+    endIndex: number,
+    totalPages: number
+  ): void {
+    const paginationContainer = document.getElementById("members-pagination");
+    const paginationInfoText = document.getElementById("pagination-info-text");
+    const paginationPages = document.getElementById("pagination-pages");
+    const firstBtn = document.getElementById(
+      "pagination-first"
+    ) as HTMLButtonElement;
+    const prevBtn = document.getElementById(
+      "pagination-prev"
+    ) as HTMLButtonElement;
+    const nextBtn = document.getElementById(
+      "pagination-next"
+    ) as HTMLButtonElement;
+    const lastBtn = document.getElementById(
+      "pagination-last"
+    ) as HTMLButtonElement;
+
+    if (!paginationContainer) return;
+
+    // Mostrar/ocultar paginação baseado no número de itens
+    if (totalItems <= this.itemsPerPage) {
+      this.hidePagination();
+      return;
+    }
+
+    paginationContainer.style.display = "flex";
+
+    // Atualizar texto informativo
+    if (paginationInfoText) {
+      paginationInfoText.textContent = `Exibindo ${startIndex + 1}-${endIndex} de ${totalItems} membros`;
+    }
+
+    // Atualizar número de páginas
+    if (paginationPages) {
+      paginationPages.textContent = `Página ${this.currentPage} de ${totalPages}`;
+    }
+
+    // Habilitar/desabilitar botões
+    if (firstBtn) firstBtn.disabled = this.currentPage === 1;
+    if (prevBtn) prevBtn.disabled = this.currentPage === 1;
+    if (nextBtn) nextBtn.disabled = this.currentPage === totalPages;
+    if (lastBtn) lastBtn.disabled = this.currentPage === totalPages;
+  }
+
+  private hidePagination(): void {
+    const paginationContainer = document.getElementById("members-pagination");
+    if (paginationContainer) {
+      paginationContainer.style.display = "none";
+    }
+  }
+
+  // Métodos auxiliares de paginação - Presença
+  private goToAttendancePage(page: number): void {
+    const totalPages = Math.ceil(
+      this.totalAttendanceMembers.length / this.attendanceItemsPerPage
+    );
+
+    if (page < 1 || page > totalPages) {
+      return;
+    }
+
+    this.currentAttendancePage = page;
+    this.renderAttendanceList();
+  }
+
+  private updateAttendancePaginationControls(
+    totalItems: number,
+    startIndex: number,
+    endIndex: number,
+    totalPages: number
+  ): void {
+    const paginationContainer = document.getElementById(
+      "attendance-pagination"
+    );
+    const paginationInfoText = document.getElementById(
+      "attendance-pagination-info-text"
+    );
+    const paginationPages = document.getElementById(
+      "attendance-pagination-pages"
+    );
+    const firstBtn = document.getElementById(
+      "attendance-pagination-first"
+    ) as HTMLButtonElement;
+    const prevBtn = document.getElementById(
+      "attendance-pagination-prev"
+    ) as HTMLButtonElement;
+    const nextBtn = document.getElementById(
+      "attendance-pagination-next"
+    ) as HTMLButtonElement;
+    const lastBtn = document.getElementById(
+      "attendance-pagination-last"
+    ) as HTMLButtonElement;
+
+    if (!paginationContainer) return;
+
+    // Mostrar/ocultar paginação baseado no número de itens
+    if (totalItems <= this.attendanceItemsPerPage) {
+      this.hideAttendancePagination();
+      return;
+    }
+
+    paginationContainer.style.display = "flex";
+
+    // Atualizar texto informativo
+    if (paginationInfoText) {
+      paginationInfoText.textContent = `Exibindo ${startIndex + 1}-${endIndex} de ${totalItems} membros`;
+    }
+
+    // Atualizar número de páginas
+    if (paginationPages) {
+      paginationPages.textContent = `Página ${this.currentAttendancePage} de ${totalPages}`;
+    }
+
+    // Habilitar/desabilitar botões
+    if (firstBtn) firstBtn.disabled = this.currentAttendancePage === 1;
+    if (prevBtn) prevBtn.disabled = this.currentAttendancePage === 1;
+    if (nextBtn) nextBtn.disabled = this.currentAttendancePage === totalPages;
+    if (lastBtn) lastBtn.disabled = this.currentAttendancePage === totalPages;
+  }
+
+  private hideAttendancePagination(): void {
+    const paginationContainer = document.getElementById(
+      "attendance-pagination"
+    );
+    if (paginationContainer) {
+      paginationContainer.style.display = "none";
+    }
   }
 
   private async handleAttendanceToggle(e: Event): Promise<void> {
@@ -3873,7 +4128,8 @@ export class UIManager {
         if (!container) return;
 
         if (query.length === 0) {
-          // Mostrar todos
+          // Resetar para página 1 e mostrar todos
+          this.currentAttendancePage = 1;
           await this.renderAttendanceList();
         } else {
           // Filtrar por nome ou CPF
@@ -3895,6 +4151,8 @@ export class UIManager {
                 </small>
               </div>
             `;
+            // Ocultar paginação quando não há resultados
+            this.hideAttendancePagination();
           } else {
             await this.renderFilteredAttendanceList(filtered);
           }
@@ -3949,6 +4207,9 @@ export class UIManager {
     container.querySelectorAll(".attendance-toggle").forEach((toggle) => {
       toggle.addEventListener("change", this.handleAttendanceToggle.bind(this));
     });
+
+    // Ocultar paginação durante busca/filtro
+    this.hideAttendancePagination();
   }
 
   private async handleRefreshResults(): Promise<void> {

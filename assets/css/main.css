@@ -1042,14 +1042,34 @@ body.dark-mode .exit-fullscreen-btn .material-icons {
   grid-template-rows: auto auto;
   gap: 1.5rem;
   align-items: start;
+  /* Altura calculada: 100vh - header(80px) - footer(140px) - margens(60px) = 280px total */
+  max-height: calc(100vh - 280px);
+  height: auto;
+  overflow-y: auto;
+  padding: 1rem 2rem 1rem 2rem;
 }
 
 .fullscreen-candidates-grid.summary-mode .preview-section {
   margin: 0;
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 340px);
+}
+
+.fullscreen-candidates-grid.summary-mode .preview-section h2 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.fullscreen-candidates-grid.summary-mode .preview-section h2::after {
+  width: 40px;
+  height: 2px;
+  margin: 0.5rem auto 0;
 }
 
 .fullscreen-candidates-grid.summary-mode .preview-actions {
   grid-column: 1 / -1; /* Botões ocupam toda a largura */
+  margin-top: 0.5rem;
 }
 
 .preview-section h2 {
@@ -1061,6 +1081,10 @@ body.dark-mode .exit-fullscreen-btn .material-icons {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+.fullscreen-candidates-grid.summary-mode .preview-row {
+  gap: 0.75rem;
 }
 
 /* Preview Section - Design Moderno e Atrativo */
@@ -1147,6 +1171,14 @@ body.dark-mode .exit-fullscreen-btn .material-icons {
   backdrop-filter: blur(5px);
 }
 
+/* Cards compactados no summary-mode */
+.fullscreen-candidates-grid.summary-mode .preview-card {
+  padding: 0.75rem 1rem;
+  min-height: 80px;
+  gap: 1rem;
+  border-radius: 12px;
+}
+
 .preview-card::before {
   content: "";
   position: absolute;
@@ -1221,6 +1253,13 @@ body.dark-mode .preview-card:hover {
   transition: all 0.3s ease;
 }
 
+/* Foto menor no summary-mode */
+.fullscreen-candidates-grid.summary-mode .preview-photo img {
+  width: 60px;
+  height: 60px;
+  border: 2px solid #fff;
+}
+
 .preview-card:hover .preview-photo img {
   transform: scale(1.05);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
@@ -1235,6 +1274,12 @@ body.dark-mode .preview-card:hover {
   letter-spacing: -0.01em;
 }
 
+/* Fonte menor no summary-mode */
+.fullscreen-candidates-grid.summary-mode .preview-name {
+  font-size: 0.95rem;
+  margin-bottom: 0.15rem;
+}
+
 .preview-role {
   font-size: 0.9rem;
   color: var(--text-secondary);
@@ -1243,6 +1288,12 @@ body.dark-mode .preview-card:hover {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   opacity: 0.8;
+}
+
+/* Cargo menor no summary-mode */
+.fullscreen-candidates-grid.summary-mode .preview-role {
+  font-size: 0.75rem;
+  letter-spacing: 0.3px;
 }
 
 /* Estilos para candidatos votados e não votados no resumo */
@@ -1753,6 +1804,96 @@ body.dark-mode .preview-card:hover {
 
 .text-center {
   text-align: center;
+}
+
+/* Pagination */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  margin-top: 1rem;
+  gap: 1rem;
+}
+
+.pagination-info {
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pagination-pages {
+  padding: 0 1rem;
+  color: var(--gray-700);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  min-width: 120px;
+  text-align: center;
+}
+
+.pagination-controls .btn {
+  min-width: 40px;
+  height: 40px;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-controls .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Dark mode pagination */
+body.dark-mode .pagination-container {
+  background: var(--dark-surface);
+  border: 1px solid var(--dark-border);
+}
+
+body.dark-mode .pagination-info {
+  color: var(--dark-text-secondary);
+}
+
+body.dark-mode .pagination-pages {
+  color: var(--dark-text-primary);
+}
+
+/* Responsive pagination */
+@media (max-width: 768px) {
+  .pagination-container {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .pagination-info {
+    order: 2;
+  }
+
+  .pagination-controls {
+    order: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .pagination-pages {
+    padding: 0 0.5rem;
+    min-width: 100px;
+    font-size: 0.813rem;
+  }
+
+  .pagination-controls .btn {
+    min-width: 36px;
+    height: 36px;
+  }
 }
 
 /* Toggle Switch */
