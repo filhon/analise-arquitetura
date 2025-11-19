@@ -427,6 +427,37 @@ export class MemberManager {
     return result;
   }
 
+  /**
+   * Formatar nome próprio seguindo padrão brasileiro:
+   * - Primeira letra de cada palavra maiúscula
+   * - Conectivos (da, das, de, do, dos) em minúsculo
+   */
+  private formatName(name: string): string {
+    if (!name) return name;
+
+    const conectivos = ["da", "das", "de", "do", "dos"];
+
+    return name
+      .trim()
+      .toLowerCase()
+      .split(" ")
+      .map((word, index) => {
+        // Primeira palavra sempre com inicial maiúscula
+        if (index === 0) {
+          return word.charAt(0).toUpperCase() + word.slice(1);
+        }
+
+        // Conectivos em minúsculo
+        if (conectivos.includes(word)) {
+          return word;
+        }
+
+        // Demais palavras com inicial maiúscula
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      })
+      .join(" ");
+  }
+
   private mapCSVToMember(
     headers: string[],
     values: string[]
@@ -438,7 +469,7 @@ export class MemberManager {
 
       switch (header) {
         case "nome":
-          memberData.nome = value;
+          memberData.nome = this.formatName(value);
           break;
         case "tipo":
           // Só adicionar tipo se não for vazio
