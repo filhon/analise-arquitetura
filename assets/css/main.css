@@ -4224,6 +4224,17 @@ body.dark-mode .login-card {
   pointer-events: none;
 }
 
+/* ✅ Inputs dentro de .input-wrapper com ícone */
+.input-wrapper input {
+  padding-left: 3rem !important;
+}
+
+/* ✅ Inputs dentro de .input-wrapper com ícone E botão de toggle (senha) */
+.input-wrapper input[type="password"],
+.input-wrapper input[type="text"].password-input {
+  padding-right: 3rem !important;
+}
+
 .login-form input {
   width: 100%;
   padding: 0.875rem 1rem 0.875rem 3rem;
