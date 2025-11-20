@@ -10,11 +10,13 @@
 ## 🎯 Objetivo da Análise
 
 **Problema Reportado:**
+
 - Voto simultâneo em duas telas levou **mais de 1 minuto** para ser computado
 - Voto foi salvo corretamente no Firebase Realtime Database
 - Performance atual é **inviável** para uso em produção
 
 **Meta de Performance:**
+
 - Reduzir tempo de registro de voto para **máximo de 1,5 segundo**
 
 ---
@@ -58,6 +60,7 @@ VOTE_RECORDED event → UI atualizada
 **Localização:** `realtime-sync.ts:513-577` → `incrementVoteAtomically()`
 
 **Problema:**
+
 ```typescript
 // manager.ts:3636 - submitVotesAtomically()
 for (const candidateId of candidateIds) {
@@ -67,6 +70,7 @@ for (const candidateId of candidateIds) {
 ```
 
 **O que acontece em CADA transação:**
+
 1. Firebase lê **TODO** o array `members/data` (~500-1000 membros)
 2. Busca o candidato específico no array (findIndex)
 3. Incrementa +1 voto
@@ -74,11 +78,13 @@ for (const candidateId of candidateIds) {
 5. Firebase valida conflitos de concorrência
 
 **Tempo estimado:**
+
 - 1 transação: ~300-500ms (rede + processamento)
 - Voto típico: 5-7 candidatos (Presbíteros + Diáconos)
 - **Total: 1,5s - 3,5s APENAS para incrementar votos**
 
 **Impacto de Concorrência:**
+
 - Com 2+ usuários votando simultaneamente:
   - Transações retentam automaticamente (runTransaction retry)
   - Cada retry lê NOVAMENTE todo o array
@@ -91,6 +97,7 @@ for (const candidateId of candidateIds) {
 **Localização:** `realtime-sync.ts:148-187` → `getNextVoteIdAtomic()`
 
 **Problema:**
+
 ```typescript
 // Transação para obter próximo ID de voto
 await runTransaction(metadataRef, (currentData) => {
@@ -100,6 +107,7 @@ await runTransaction(metadataRef, (currentData) => {
 ```
 
 **Tempo estimado:**
+
 - 1 transação: ~200-400ms
 - Raramente conflita (path diferente de members/data)
 
@@ -112,12 +120,14 @@ await runTransaction(metadataRef, (currentData) => {
 **Localização:** `realtime-sync.ts:193-231` → `syncVoteToFirebase()`
 
 **Problema:**
+
 ```typescript
 const voteRef = ref(database, `audit/${vote.id}`);
 await set(voteRef, { id, timestamp, presbyteros, diaconos, hash, ... });
 ```
 
 **Tempo estimado:**
+
 - 1 escrita: ~100-200ms (pequeno payload)
 
 **Impacto:** Baixo (não tem retry automático)
@@ -126,12 +136,12 @@ await set(voteRef, { id, timestamp, presbyteros, diaconos, hash, ... });
 
 ## 📈 Tempo Total Atual (Estimado)
 
-| Operação | Tempo (Best Case) | Tempo (Worst Case - Concorrência) |
-|----------|-------------------|----------------------------------|
-| 5x incrementVoteAtomically() | 1,5s - 2,5s | 10s - 60s+ |
-| 1x getNextVoteIdAtomic() | 200-400ms | 500ms - 1s |
-| 1x syncVoteToFirebase() | 100-200ms | 200-300ms |
-| **TOTAL** | **1,8s - 3,1s** | **10,7s - 61,3s+** |
+| Operação                     | Tempo (Best Case) | Tempo (Worst Case - Concorrência) |
+| ---------------------------- | ----------------- | --------------------------------- |
+| 5x incrementVoteAtomically() | 1,5s - 2,5s       | 10s - 60s+                        |
+| 1x getNextVoteIdAtomic()     | 200-400ms         | 500ms - 1s                        |
+| 1x syncVoteToFirebase()      | 100-200ms         | 200-300ms                         |
+| **TOTAL**                    | **1,8s - 3,1s**   | **10,7s - 61,3s+**                |
 
 **Conclusão:** Sistema atual **NÃO ATENDE** meta de 1,5s, especialmente com múltiplos usuários.
 
@@ -142,6 +152,7 @@ await set(voteRef, { id, timestamp, presbyteros, diaconos, hash, ... });
 ### **SOLUÇÃO 1: Paralelização de Transações (CRÍTICA - 60% ganho)**
 
 **Problema Atual:**
+
 ```typescript
 // ❌ Sequencial: espera cada transação terminar
 for (const candidateId of candidateIds) {
@@ -150,20 +161,23 @@ for (const candidateId of candidateIds) {
 ```
 
 **Solução:**
+
 ```typescript
 // ✅ Paralelo: todas as transações ao mesmo tempo
-const promises = candidateIds.map(id => 
+const promises = candidateIds.map((id) =>
   realtimeSync.incrementVoteAtomically(id)
 );
 const results = await Promise.all(promises);
 ```
 
 **Ganho de Performance:**
+
 - Antes: 5 transações × 500ms = **2,5s**
 - Depois: 5 transações paralelas = **~600ms** (limitado pela mais lenta)
 - **Redução: 60% - 75%**
 
 **Risco:**
+
 - ✅ BAIXO: Firebase runTransaction() já gerencia conflitos automaticamente
 - ✅ Rollback continua funcionando (Promise.all rejeita se uma falhar)
 
@@ -172,6 +186,7 @@ const results = await Promise.all(promises);
 ### **SOLUÇÃO 2: Estrutura de Dados Otimizada (CRÍTICA - 80% ganho)**
 
 **Problema Atual:**
+
 ```typescript
 // ❌ Transação lê/escreve ARRAY INTEIRO (500-1000 itens)
 const membersRef = ref(database, "members/data");
@@ -181,6 +196,7 @@ await runTransaction(membersRef, (members: Member[]) => {
 ```
 
 **Solução: Estrutura por Candidato Individual**
+
 ```typescript
 // ✅ Transação lê/escreve APENAS 1 candidato
 const candidateVoteRef = ref(database, `votes/${candidateId}`);
@@ -190,6 +206,7 @@ await runTransaction(candidateVoteRef, (currentVotes: number | null) => {
 ```
 
 **Nova Estrutura Firebase:**
+
 ```
 /votes/
   ├─ {candidateId1}: 42          ← Contador de votos (integer)
@@ -205,27 +222,29 @@ await runTransaction(candidateVoteRef, (currentVotes: number | null) => {
 ```
 
 **Ganho de Performance:**
+
 - Antes: Lê/escreve ~50KB (array completo)
 - Depois: Lê/escreve ~4 bytes (integer)
 - **Redução de payload: 99,99%**
 - **Redução de tempo: ~80%** (500ms → 100ms por transação)
 
 **Migração:**
+
 ```typescript
 // Script de migração (executar uma vez)
 async function migrateVotesToNewStructure() {
-  const members = await get(ref(db, 'members/data'));
+  const members = await get(ref(db, "members/data"));
   const votes = {};
-  
-  members.forEach(member => {
+
+  members.forEach((member) => {
     if (member.votes) {
       votes[member.id] = member.votes;
       delete member.votes; // Remover do objeto Member
     }
   });
-  
-  await set(ref(db, 'votes'), votes);
-  await set(ref(db, 'members/data'), members);
+
+  await set(ref(db, "votes"), votes);
+  await set(ref(db, "members/data"), members);
 }
 ```
 
@@ -234,34 +253,38 @@ async function migrateVotesToNewStructure() {
 ### **SOLUÇÃO 3: Batch de Auditoria (SECUNDÁRIA - 20% ganho)**
 
 **Problema Atual:**
+
 ```typescript
 // ❌ Cada voto faz 2 chamadas Firebase
-await getNextVoteIdAtomic();      // 1. Transação em /metadata
-await syncVoteToFirebase(vote);    // 2. Escrita em /audit/{id}
+await getNextVoteIdAtomic(); // 1. Transação em /metadata
+await syncVoteToFirebase(vote); // 2. Escrita em /audit/{id}
 ```
 
 **Solução: Transação Única**
+
 ```typescript
 // ✅ Uma única transação combina ID + escrita
 await runTransaction(metadataRef, (metadata) => {
   const nextId = metadata.totalVotes || 0;
-  
+
   // Incrementar contador
   metadata.totalVotes = nextId + 1;
-  
+
   // Salvar voto diretamente na transação
   metadata[`vote_${nextId}`] = { ...voteData };
-  
+
   return metadata;
 });
 ```
 
 **Ganho de Performance:**
+
 - Antes: 2 chamadas × 200ms = **400ms**
 - Depois: 1 chamada = **200ms**
 - **Redução: 50%**
 
 **Alternativa (se transação complexa causar problemas):**
+
 - Mover `syncVoteToFirebase()` para background (não esperar)
 - Usuario vê confirmação instantânea
 - Voto sincroniza em background (99,9% de sucesso)
@@ -273,13 +296,14 @@ await runTransaction(metadataRef, (metadata) => {
 **Problema:** UI dispara evento `VOTE_RECORDED` que chama `getVotesCount()` múltiplas vezes
 
 **Solução:**
+
 ```typescript
 // manager.ts:151 - Já implementado parcialmente
 let voteCountUpdateTimeout: number | null = null;
 
 EventSystem.getInstance().on(EventTypes.VOTE_RECORDED, () => {
   if (voteCountUpdateTimeout) clearTimeout(voteCountUpdateTimeout);
-  
+
   voteCountUpdateTimeout = window.setTimeout(() => {
     // Atualizar contador APENAS após 100ms de silêncio
     updateVoteCounter();
@@ -336,6 +360,7 @@ EventSystem.getInstance().on(EventTypes.VOTE_RECORDED, () => {
 ## 🎬 Decisão Requerida
 
 ### **Opção A: Quick Fix (RECOMENDADO PARA URGÊNCIA)**
+
 - ✅ Implementar apenas FASE 1 (Paralelização)
 - ✅ Ganho: 60% (2,5s → 1s)
 - ✅ Risco: BAIXO
@@ -343,6 +368,7 @@ EventSystem.getInstance().on(EventTypes.VOTE_RECORDED, () => {
 - ✅ **Atinge meta de 1,5s**
 
 ### **Opção B: Solução Completa (RECOMENDADO PARA LONGO PRAZO)**
+
 - ✅ Implementar FASE 1 + FASE 2
 - ✅ Ganho: 90% (2,5s → 250ms)
 - ⚠️ Risco: MÉDIO (requer migração)
@@ -350,6 +376,7 @@ EventSystem.getInstance().on(EventTypes.VOTE_RECORDED, () => {
 - ✅ **Sistema 10x mais rápido**
 
 ### **Opção C: Híbrido (EQUILIBRADO)**
+
 - ✅ Implementar FASE 1 agora (1h)
 - ✅ Testar em produção com usuários reais
 - ✅ Implementar FASE 2 após validação (4-6h)
@@ -358,14 +385,15 @@ EventSystem.getInstance().on(EventTypes.VOTE_RECORDED, () => {
 
 ## 📊 Comparativo de Performance Estimado
 
-| Cenário | Tempo Atual | Após FASE 1 | Após FASE 2 |
-|---------|-------------|-------------|-------------|
-| **1 usuário votando** | 2,5s - 3s | 1,0s - 1,2s ✅ | 250ms - 400ms 🚀 |
-| **2 usuários simultâneos** | 10s - 60s ❌ | 2s - 3s ⚠️ | 300ms - 500ms ✅ |
-| **5 usuários simultâneos** | 30s - 120s ❌ | 5s - 8s ⚠️ | 400ms - 800ms ✅ |
-| **10 usuários simultâneos** | 60s - 300s ❌ | 10s - 15s ❌ | 600ms - 1,2s ✅ |
+| Cenário                     | Tempo Atual   | Após FASE 1    | Após FASE 2      |
+| --------------------------- | ------------- | -------------- | ---------------- |
+| **1 usuário votando**       | 2,5s - 3s     | 1,0s - 1,2s ✅ | 250ms - 400ms 🚀 |
+| **2 usuários simultâneos**  | 10s - 60s ❌  | 2s - 3s ⚠️     | 300ms - 500ms ✅ |
+| **5 usuários simultâneos**  | 30s - 120s ❌ | 5s - 8s ⚠️     | 400ms - 800ms ✅ |
+| **10 usuários simultâneos** | 60s - 300s ❌ | 10s - 15s ❌   | 600ms - 1,2s ✅  |
 
 **Legenda:**
+
 - ✅ Atende meta (< 1,5s)
 - ⚠️ Aceitável (< 5s)
 - ❌ Inviável (> 5s)
@@ -375,6 +403,7 @@ EventSystem.getInstance().on(EventTypes.VOTE_RECORDED, () => {
 ## 🔒 Considerações de Segurança
 
 ✅ **Todas as soluções mantêm:**
+
 - Atomicidade (transações Firebase)
 - Integridade de dados (hashes SHA-256)
 - Auditoria completa (logs imutáveis)
@@ -382,6 +411,7 @@ EventSystem.getInstance().on(EventTypes.VOTE_RECORDED, () => {
 - Autorização (Security Rules)
 
 ✅ **Nenhuma solução compromete:**
+
 - Sincronização multi-dispositivo
 - Recuperação de erros (rollback)
 - Prevenção de votos duplicados
