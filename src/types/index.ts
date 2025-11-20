@@ -20,7 +20,7 @@ export interface Member {
   readonly candidato?: CandidateRole | null;
   readonly photoUrl?: string;
   readonly photoThumbUrl?: string;
-  readonly votes?: number;
+  // ❌ REMOVIDO: votes?: number (agora em /candidates/votes/{id})
   readonly isElected?: boolean;
 
   // Campos de presença
@@ -38,8 +38,9 @@ export interface Member {
 
 /**
  * Membro que é candidato (tem campo candidato preenchido)
+ * ✅ ATUALIZADO: Removido votes (agora em /candidates/votes/{id})
  */
-export type CandidateMember = Required<Pick<Member, "candidato" | "votes">> &
+export type CandidateMember = Required<Pick<Member, "candidato">> &
   Member & {
     candidato: CandidateRole; // override para garantir non-null
   };
@@ -321,9 +322,9 @@ export function memberToCandidate(member: Member): Candidate | null {
   return {
     id: member.id,
     name: member.nome,
-    role: member.candidato,
+    role: member.candidato!,
     photoUrl: member.photoUrl,
-    votes: member.votes || 0,
+    votes: 0, // ✅ Votos devem ser carregados de /candidates/votes/ via VotingManager.getCandidates()
     isElected: member.isElected || false,
   };
 }

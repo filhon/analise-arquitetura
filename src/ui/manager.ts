@@ -36,6 +36,7 @@ export class UIManager {
   private pendingAttendance: {
     memberId: string;
     checkbox: HTMLInputElement;
+    memberData?: Member; // ✅ Cachear dados do membro para validação rápida
   } | null = null;
 
   // Paginação de membros
@@ -1123,6 +1124,7 @@ export class UIManager {
         checkbox.checked = !checkbox.checked; // Revert
         NotificationService.error(result.error || "Erro ao atualizar presença");
       } else {
+        // ✅ Atualizar classes CSS do item imediatamente
         const attendanceItem = checkbox.closest(
           ".attendance-item"
         ) as HTMLElement;
@@ -1138,7 +1140,9 @@ export class UIManager {
           statusText.textContent = "Ausente";
         }
 
+        // ✅ Atualizar estatísticas e re-renderizar lista
         await this.updateStats();
+        await this.renderAttendanceList();
       }
     } catch (error) {
       checkbox.checked = !checkbox.checked; // Revert
@@ -1161,7 +1165,7 @@ export class UIManager {
             <form id="attendance-confirm-form">
               <div class="form-group">
                 <label for="attendance-first-name">Digite o primeiro nome do membro</label>
-                <input id="attendance-first-name" name="firstName" type="text" required class="form-input" placeholder="Digite o primeiro nome" autocomplete="off" />
+                <input id="attendance-first-name" name="firstName" type="text" required class="form-input" placeholder="Digite o primeiro nome" autocomplete="off" data-focus-target />
                 <small class="field-hint" id="attendance-hint">Digite o nome <strong id="attendance-expected-name"></strong></small>
               </div>
               <div class="modal-actions">
@@ -1192,9 +1196,7 @@ export class UIManager {
   }
 
   private async openAttendanceConfirmModal(): Promise<void> {
-    this.showModal("attendance-confirm-modal");
-
-    // Buscar o membro para pegar o primeiro nome
+    // Buscar o membro para pegar o primeiro nome ANTES de mostrar o modal
     if (this.pendingAttendance) {
       try {
         const members = await electionApp.getMembers();
@@ -1203,6 +1205,9 @@ export class UIManager {
         );
 
         if (member) {
+          // ✅ Cachear dados do membro no pendingAttendance
+          this.pendingAttendance.memberData = member;
+
           // Extrair primeiro nome
           const firstName = member.nome.trim().split(/\s+/)[0];
 
@@ -1219,15 +1224,25 @@ export class UIManager {
       }
     }
 
-    // Limpar campo e focar
+    // Limpar campo antes de mostrar o modal
     const input = document.getElementById(
       "attendance-first-name"
     ) as HTMLInputElement | null;
     if (input) {
       input.value = "";
       input.removeAttribute("aria-invalid");
-      requestAnimationFrame(() => input.focus());
     }
+
+    // ✅ Mostrar modal
+    this.showModal("attendance-confirm-modal");
+
+    // ✅ Focar no input após o modal estar visível
+    requestAnimationFrame(() => {
+      const inputElement = document.getElementById(
+        "attendance-first-name"
+      ) as HTMLInputElement | null;
+      inputElement?.focus();
+    });
   }
 
   // Handler do submit do modal: valida o primeiro nome e marca presença
@@ -1253,9 +1268,8 @@ export class UIManager {
     }
 
     try {
-      // Obter membro para verificar nome
-      const members = await electionApp.getMembers();
-      const member = members.find((m) => m.id === memberId);
+      // ✅ Usar dados cacheados do membro para validação instantânea
+      const member = this.pendingAttendance.memberData;
       if (!member) {
         NotificationService.error("Membro não encontrado");
         this.closeAllModals();
@@ -1298,7 +1312,7 @@ export class UIManager {
         } catch (err) {
           /* ignore */
         }
-        // Atualizar UI
+        // ✅ Atualizar UI
         const attendanceItem = checkbox.closest(
           ".attendance-item"
         ) as HTMLElement;
@@ -1314,7 +1328,9 @@ export class UIManager {
           statusText.textContent = "Presente";
         }
 
+        // ✅ Atualizar estatísticas e re-renderizar lista
         await this.updateStats();
+        await this.renderAttendanceList();
         NotificationService.success("Presença confirmada");
       }
     } catch (error) {

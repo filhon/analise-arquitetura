@@ -679,14 +679,15 @@ export class ElectionApp {
       });
 
       // 3. Verificar integridade de candidatos
-      const candidates = await this.memberManager.getCandidatesByRole();
+      const candidateMembers = await this.memberManager.getCandidatesByRole();
       checks.push({
         name: "Candidatos",
         status: "OK",
-        message: `${candidates.length} candidatos registrados`,
+        message: `${candidateMembers.length} candidatos registrados`,
       });
 
-      // 4. Verificar soma de votos
+      // 4. Verificar soma de votos (carrega de /candidates/votes/)
+      const candidates = await this.votingManager.getCandidates();
       const totalVotes = candidates.reduce((sum, c) => sum + (c.votes || 0), 0);
       const voters = await this.memberManager.getVoters();
       checks.push({

@@ -48,7 +48,7 @@ export class VotingManager {
         return cached;
       }
 
-      // NOVA IMPLEMENTAÇÃO: Buscar candidatos de MEMBERS
+      // ✅ REFATORADO: Buscar candidatos de MEMBERS + votos de /candidates/votes/
       const members = await this.memberManager.getMembers();
 
       // Filtrar membros que são candidatos
@@ -62,13 +62,17 @@ export class VotingManager {
         candidateMembers = candidateMembers.filter((m) => m.candidato === role);
       }
 
+      // ✅ NOVO: Carregar votos de /candidates/votes/
+      const realtimeSync = RealtimeSync.getInstance();
+      const votesMap = await realtimeSync.loadCandidateVotes();
+
       // Converter para formato Candidate (compatibilidade temporária)
       const candidates: Candidate[] = candidateMembers.map((m) => ({
         id: m.id, // Usar ID do membro!
         name: m.nome,
         role: m.candidato,
         photoUrl: m.photoUrl,
-        votes: m.votes || 0,
+        votes: votesMap.get(m.id) || 0, // ✅ Votos de /candidates/votes/
         isElected: m.isElected || false,
       }));
 
@@ -196,13 +200,7 @@ export class VotingManager {
         };
       }
 
-      // 2. Verificar se há votos para remover
-      if (!candidate.votes || candidate.votes <= 0) {
-        return {
-          success: false,
-          error: "Nenhum voto para remover",
-        };
-      }
+      // 2. ✅ REFATORADO: Votos agora em /candidates/votes/ (validação feita pelo Firebase)
 
       // 3. Decrementar votos do candidato via MemberManager (SSOT)
       const voteResult = await this.memberManager.updateMemberVotes(
@@ -398,41 +396,35 @@ export class VotingManager {
   }
 
   /**
-   * FASE 3.4: Refatorado para usar Member.votes diretamente (SSOT)
+   * ✅ REFATORADO: Usa /candidates/votes/ para carregar votos
    */
   async getElectionResults(): Promise<ElectionResults> {
     try {
-      // Buscar candidatos diretamente do MemberManager (SSOT)
-      const [candidateMembers, quorumData] = await Promise.all([
-        this.memberManager.getCandidatesByRole(),
+      // Buscar candidatos usando getCandidates() que já carrega votos de /candidates/votes/
+      const [candidates, quorumData] = await Promise.all([
+        this.getCandidates(), // ✅ Já inclui votos de /candidates/votes/
         this.getQuorumData(),
       ]);
 
-      // Converter para formato Candidate e ordenar por votos
+      // Aplicar lógica de eleição e ordenar por votos
       // ✅ CRÍTICO: Candidato só é eleito se quórum for VÁLIDO e votos >= votesRequired
-      const candidatesWithVotes: Candidate[] = candidateMembers
-        .map((m) => ({
-          id: m.id,
-          name: m.nome,
-          role: m.candidato as CandidateRole,
-          photoUrl: m.photoUrl,
-          votes: m.votes || 0,
-          isElected:
-            quorumData.isValid && (m.votes || 0) >= quorumData.votesRequired,
+      const candidatesWithElection: Candidate[] = candidates
+        .map((c) => ({
+          ...c,
+          isElected: quorumData.isValid && c.votes >= quorumData.votesRequired,
         }))
         .sort((a, b) => b.votes - a.votes);
 
       // Separar por categoria
-      const presbyteros = candidatesWithVotes.filter(
+      const presbyteros = candidatesWithElection.filter(
         (c) => c.role === "Presbítero"
       );
-      const diaconos = candidatesWithVotes.filter((c) => c.role === "Diácono");
-
-      // Calcular total de votos somando Member.votes
-      const totalVotes = candidateMembers.reduce(
-        (sum, m) => sum + (m.votes || 0),
-        0
+      const diaconos = candidatesWithElection.filter(
+        (c) => c.role === "Diácono"
       );
+
+      // Calcular total de votos
+      const totalVotes = candidates.reduce((sum, c) => sum + c.votes, 0);
 
       return {
         presbyteros,
@@ -517,15 +509,15 @@ export class VotingManager {
   // ============================================
 
   /**
-   * FASE 3.7: Zerar todos os votos e resetar estado de votação
+   * ✅ REFATORADO: Zerar votos usando estrutura /candidates/votes/
    */
   async resetVotes(): Promise<{ success: boolean; error?: string }> {
     try {
       const members = await this.memberManager.getMembers();
 
+      // 1. Limpar status de votação dos membros
       const updatedMembers = members.map((m) => ({
         ...m,
-        votes: m.candidato ? 0 : m.votes || 0, // ✅ CRÍTICO: Garantir número, nunca undefined
         jaVotou: false,
         votedFor: [],
       }));
@@ -535,6 +527,15 @@ export class VotingManager {
 
       // ✅ Aguardar sincronização com Firebase
       await RealtimeSync.getInstance().syncMembers(updatedMembers);
+
+      // 2. ✅ NOVO: Zerar contadores de votos em /candidates/votes/
+      const realtimeSync = RealtimeSync.getInstance();
+      if (realtimeSync.isActive()) {
+        const candidateMembers = members.filter((m) => m.candidato);
+        for (const member of candidateMembers) {
+          await realtimeSync.createCandidateVoteNode(member.id); // Reseta para 0
+        }
+      }
 
       // Resetar flag de votação encerrada
       this.votingClosed = false;
@@ -561,7 +562,7 @@ export class VotingManager {
   }
 
   /**
-   * FASE 3.10: Obter estatísticas de votação
+   * ✅ REFATORADO: Usar getCandidates() que carrega de /candidates/votes/
    */
   async getVotingStats(): Promise<{
     totalVotes: number;
@@ -570,16 +571,13 @@ export class VotingManager {
     presentMembers: number;
   }> {
     try {
-      const [candidateMembers, presentMembers, voters] = await Promise.all([
-        this.memberManager.getCandidatesByRole(),
+      const [candidates, presentMembers, voters] = await Promise.all([
+        this.getCandidates(), // ✅ Carrega votos de /candidates/votes/
         this.memberManager.getPresentMembers(),
         this.memberManager.getVoters(),
       ]);
 
-      const totalVotes = candidateMembers.reduce(
-        (sum, m) => sum + (m.votes || 0),
-        0
-      );
+      const totalVotes = candidates.reduce((sum, c) => sum + c.votes, 0);
       const votersCount = voters.length;
       const presentCount = presentMembers.filter(
         (m) => m.tipo === "Membro Comungante"

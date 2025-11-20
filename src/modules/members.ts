@@ -519,6 +519,46 @@ export class MemberManager {
 
     // 3️⃣ Sincronizar com Firebase (SSOT)
     RealtimeSync.getInstance().syncMembers(membersWithTimestamps as any);
+
+    // 4️⃣ ✅ NOVO: Sincronizar candidatos em estrutura otimizada
+    await this.syncCandidates(membersWithTimestamps);
+  }
+
+  /**
+   * ✅ NOVO: Sincronizar candidatos com estrutura /candidates/*
+   * Chamado automaticamente após saveMembers()
+   */
+  private async syncCandidates(members: Member[]): Promise<void> {
+    const realtimeSync = RealtimeSync.getInstance();
+    if (!realtimeSync.isActive()) {
+      return; // Firebase desativado
+    }
+
+    try {
+      // Iterar sobre todos os membros
+      for (const member of members) {
+        if (member.candidato && member.candidato !== null) {
+          // Membro é candidato: sincronizar com /candidates/active/ e criar /votes/ se não existir
+          await realtimeSync.syncCandidateActive(member.id, {
+            nome: member.nome,
+            tipo: member.candidato,
+            photoUrl: member.photoUrl,
+          });
+
+          // Verificar se já existe nó de votos (não sobrescrever votos existentes)
+          const votesMap = await realtimeSync.loadCandidateVotes();
+          if (!votesMap.has(member.id)) {
+            await realtimeSync.createCandidateVoteNode(member.id);
+          }
+        } else {
+          // Membro NÃO é candidato: remover de /candidates/* se existir
+          await realtimeSync.removeCandidateNodes(member.id);
+        }
+      }
+    } catch (error) {
+      console.error("[MemberManager] Erro ao sincronizar candidatos:", error);
+      // Não bloquear saveMembers() por erro de sincronização
+    }
   }
 
   async updateMember(

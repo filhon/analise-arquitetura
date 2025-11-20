@@ -341,7 +341,12 @@ export class ReportManager {
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(0, 0, 0);
 
-    candidates.forEach((candidate, index) => {
+    // ✅ Ordenar candidatos alfabeticamente
+    const sortedCandidates = [...candidates].sort((a, b) =>
+      a.name.localeCompare(b.name, "pt-BR")
+    );
+
+    sortedCandidates.forEach((candidate, index) => {
       const statusColor = candidate.isElected ? [34, 197, 94] : [239, 68, 68];
 
       // Fundo alternado para melhor leitura
@@ -389,11 +394,16 @@ export class ReportManager {
 
       // Membros presentes
       if (presentMembers.length > 0) {
+        // ✅ Ordenar membros presentes alfabeticamente
+        const sortedPresent = [...presentMembers].sort((a, b) =>
+          a.nome.localeCompare(b.nome, "pt-BR")
+        );
+
         pdf.setFontSize(12);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(34, 197, 94); // Verde
         pdf.text(
-          this.sanitizeText(`MEMBROS PRESENTES (${presentMembers.length})`),
+          this.sanitizeText(`MEMBROS PRESENTES (${sortedPresent.length})`),
           20,
           currentY
         );
@@ -404,7 +414,7 @@ export class ReportManager {
         pdf.setTextColor(0, 0, 0);
 
         // Lista numerada sequencial
-        presentMembers.forEach((member, index) => {
+        sortedPresent.forEach((member, index) => {
           // Verificar se precisa de nova página
           if (currentY > 270) {
             pdf.addPage();
@@ -436,11 +446,16 @@ export class ReportManager {
           currentY = 20;
         }
 
+        // ✅ Ordenar membros ausentes alfabeticamente
+        const sortedAbsent = [...absentMembers].sort((a, b) =>
+          a.nome.localeCompare(b.nome, "pt-BR")
+        );
+
         pdf.setFontSize(12);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(239, 68, 68); // Vermelho
         pdf.text(
-          this.sanitizeText(`MEMBROS AUSENTES (${absentMembers.length})`),
+          this.sanitizeText(`MEMBROS AUSENTES (${sortedAbsent.length})`),
           20,
           currentY
         );
@@ -451,7 +466,7 @@ export class ReportManager {
         pdf.setTextColor(0, 0, 0);
 
         // Lista numerada sequencial
-        absentMembers.forEach((member, index) => {
+        sortedAbsent.forEach((member, index) => {
           // Verificar se precisa de nova página
           if (currentY > 270) {
             pdf.addPage();
@@ -560,12 +575,17 @@ export class ReportManager {
       const diáconos = auditData.statistics.filter((s) => s.role === "Diácono");
 
       if (presbíteros.length > 0) {
+        // ✅ Ordenar presbíteros alfabeticamente
+        const sortedPresbiteros = [...presbíteros].sort((a, b) =>
+          a.name.localeCompare(b.name, "pt-BR")
+        );
+
         pdf.setFont("helvetica", "bold");
         pdf.text(this.sanitizeText("Presbiteros:"), 25, currentY);
         currentY += 5;
         pdf.setFont("helvetica", "normal");
 
-        for (const stat of presbíteros) {
+        for (const stat of sortedPresbiteros) {
           pdf.text(
             `  • ${this.sanitizeText(stat.name)}: ${stat.votes} votos (${stat.percentage}%)`,
             25,
@@ -577,12 +597,17 @@ export class ReportManager {
       }
 
       if (diáconos.length > 0) {
+        // ✅ Ordenar diáconos alfabeticamente
+        const sortedDiaconos = [...diáconos].sort((a, b) =>
+          a.name.localeCompare(b.name, "pt-BR")
+        );
+
         pdf.setFont("helvetica", "bold");
         pdf.text(this.sanitizeText("Diaconos:"), 25, currentY);
         currentY += 5;
         pdf.setFont("helvetica", "normal");
 
-        for (const stat of diáconos) {
+        for (const stat of sortedDiaconos) {
           pdf.text(
             `  • ${this.sanitizeText(stat.name)}: ${stat.votes} votos (${stat.percentage}%)`,
             25,
@@ -642,10 +667,10 @@ export class ReportManager {
           currentY = 20;
         }
 
-        // ID e timestamp
+        // ✅ ID do voto (sem timestamp para preservar anonimato)
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(9);
-        const voteHeader = `Voto ${vote.id} - ${new Date(vote.timestamp).toLocaleString("pt-BR")}`;
+        const voteHeader = `Voto ${vote.id}`;
         pdf.text(this.sanitizeText(voteHeader), 20, currentY);
         currentY += 5;
 
