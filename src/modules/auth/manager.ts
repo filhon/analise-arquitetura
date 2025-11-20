@@ -52,21 +52,14 @@ export class AuthManager {
       return;
     }
 
-    console.log("[AuthManager] 🔐 Inicializando autenticação Firebase...");
-
     // Escutar mudanças no estado de autenticação
     this.authStateUnsubscribe = onAuthStateChanged(
       auth,
       async (firebaseUser) => {
-        console.log("[AuthManager] 📡 onAuthStateChanged chamado:", {
-          loggedIn: !!firebaseUser,
-          email: firebaseUser?.email,
-        });
 
         if (firebaseUser) {
           // Usuário logado
           const user = await this.firebaseUserToUser(firebaseUser);
-          console.log("[AuthManager] ✅ Usuário autenticado:", user.email);
 
           this.setState({
             isAuthenticated: true,
@@ -79,8 +72,6 @@ export class AuthManager {
           this.listenToFirestoreChanges(firebaseUser.uid);
         } else {
           // Usuário não logado
-          console.log("[AuthManager] ❌ Nenhum usuário autenticado");
-
           // Parar de escutar mudanças no Firestore
           if (this.firestoreUnsubscribe) {
             this.firestoreUnsubscribe();
@@ -143,7 +134,6 @@ export class AuthManager {
             }
 
             if (needsUpdate) {
-              console.log("📡 Dados do usuário atualizados do Firestore");
               this.setState({
                 user: updatedUser,
               });

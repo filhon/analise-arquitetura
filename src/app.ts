@@ -40,54 +40,38 @@ export class ElectionApp {
 
   async initialize(): Promise<{ success: boolean; error?: string }> {
     if (this.isInitialized) {
-      console.log("[ElectionApp] Já inicializado, pulando...");
       return { success: true };
     }
 
     try {
-      console.log("[ElectionApp] Executando migração automática...");
       // Migrar dados antigos para formato unificado
       autoMigrate();
 
-      console.log("[ElectionApp] Configurando listeners de eventos...");
       // Configurar listeners de eventos
       this.setupEventListeners();
 
-      console.log("[ElectionApp] Ativando sincronização em tempo real...");
       // ✅ CORREÇÃO CRÍTICA: Ativar Firebase ANTES de tentar ler dados
       RealtimeSync.getInstance().enable();
 
-      console.log("[ElectionApp] � Sincronizando com Firebase (SSOT)...");
       // ✅ CRÍTICO: SEMPRE sincronizar com Firebase ANTES de renderizar
       // Firebase é Single Source of Truth - dados locais podem estar desatualizados
       await this.syncFromFirebaseBeforeRender();
 
-      console.log(
-        "[ElectionApp] 🔍 Verificando configuração de quórum no Firebase..."
-      );
       // Verificar config APÓS sync (garante dados atualizados)
       await this.checkQuorumConfiguration();
 
-      console.log("[ElectionApp] Carregando dados iniciais...");
       // Carregar dados iniciais (agora garantidamente atualizados do Firebase)
       await this.loadInitialData();
 
-      console.log("[ElectionApp] Configurando listeners de sincronização...");
       // Configurar listeners de sincronização (Firebase já está ativo)
       this.setupSyncListeners();
 
       this.isInitialized = true;
 
-      console.log("[ElectionApp] Emitindo evento APP_INITIALIZED...");
       this.eventSystem.emit(EventTypes.APP_INITIALIZED, {
         timestamp: new Date(),
         message: "Sistema inicializado com sucesso",
       });
-
-      console.log("[ElectionApp] ✓ Inicialização completa!");
-      console.log(
-        `[ElectionApp] 📡 Sincronização: ${RealtimeSync.getInstance().isActive() ? "ATIVA" : "INATIVA"}`
-      );
 
       return { success: true };
     } catch (error) {
@@ -119,23 +103,12 @@ export class ElectionApp {
       const hasFirebaseConfig = !!firebaseData.config;
 
       if (!hasFirebaseConfig) {
-        console.log(
-          "[ElectionApp] ⚠️ Nenhuma configuração de quórum no Firebase!"
-        );
-        console.log(
-          "[ElectionApp] 📋 Abrindo modal de configuração automaticamente..."
-        );
 
         // Emitir evento para UI abrir o modal
         this.eventSystem.emit(EventTypes.QUORUM_CONFIG_REQUIRED, {
           reason: "no_config_on_firebase",
           source: "checkQuorum",
         });
-      } else {
-        console.log(
-          "[ElectionApp] ✓ Configuração de quórum encontrada no Firebase:",
-          firebaseData.config
-        );
       }
     } catch (error) {
       console.error(
@@ -196,7 +169,6 @@ export class ElectionApp {
     // Escutar atualizações de membros vindas do Firebase
     // Agora todos os dados (presença, votos, candidatura) estão centralizados no Member
     this.eventSystem.on(EventTypes.SYNC_MEMBERS_UPDATED, (data: Member[]) => {
-      console.log("[ElectionApp] 🔄 Membros atualizados remotamente");
 
       // ✅ Firebase é SSOT: Salvar no localStorage apenas como cache
       // Managers usam localStorage como cache read-only
@@ -219,7 +191,6 @@ export class ElectionApp {
 
     // Escutar atualizações de configurações vindas do Firebase
     this.eventSystem.on(EventTypes.SYNC_CONFIG_UPDATED, (data: ConfigData) => {
-      console.log("[ElectionApp] 🔄 Configurações atualizadas remotamente");
 
       // ✅ CRÍTICO: Validar se data existe e tem quorum
       if (!data) {
@@ -240,8 +211,6 @@ export class ElectionApp {
         this.eventSystem.emit(EventTypes.QUORUM_UPDATED, data.quorum);
       }
     });
-
-    console.log("[ElectionApp] 👂 Listeners de sincronização configurados");
   }
 
   private async loadInitialData(): Promise<void> {
@@ -273,20 +242,9 @@ export class ElectionApp {
    */
   private async syncFromFirebaseBeforeRender(): Promise<void> {
     try {
-      console.log("[ElectionApp] 📡 Conectando ao Firebase (SSOT)...");
 
       // 1️⃣ Carregar dados ATUAIS do Firebase
       const firebaseData = await RealtimeSync.getInstance().loadInitialState();
-
-      // 🐛 DEBUG: Verificar o que Firebase retornou
-      console.log("[ElectionApp] 🐛 DEBUG firebaseData:", {
-        members: firebaseData.members
-          ? `${firebaseData.members.length} items`
-          : null,
-        config: firebaseData.config ? "exists" : null,
-        membersType: typeof firebaseData.members,
-        configType: typeof firebaseData.config,
-      });
 
       let membersUpdated = false;
       let configUpdated = false;
@@ -298,9 +256,6 @@ export class ElectionApp {
 
         if (!hasLocalMembers) {
           // Caso 1: localStorage vazio → hidratar do Firebase
-          console.log(
-            `[ElectionApp] 📦 localStorage vazio - hidratando ${firebaseData.members.length} membros do Firebase`
-          );
           localStorage.setItem(
             StorageKeys.MEMBERS,
             JSON.stringify(firebaseData.members)
@@ -308,17 +263,12 @@ export class ElectionApp {
           membersUpdated = true;
         } else {
           // Caso 2: localStorage tem dados → SEMPRE usar Firebase (SSOT)
-          console.log(
-            `[ElectionApp] 🔄 Sobrescrevendo cache local com ${firebaseData.members.length} membros do Firebase (SSOT)`
-          );
           localStorage.setItem(
             StorageKeys.MEMBERS,
             JSON.stringify(firebaseData.members)
           );
           membersUpdated = true;
         }
-      } else {
-        console.log("[ElectionApp] ℹ️ Firebase não tem membros cadastrados");
       }
 
       // 3️⃣ Sincronizar CONFIGURAÇÃO
@@ -333,9 +283,6 @@ export class ElectionApp {
 
         if (!hasLocalConfig) {
           // Caso 1: localStorage vazio → hidratar do Firebase
-          console.log(
-            "[ElectionApp] 📦 localStorage vazio - hidratando config do Firebase"
-          );
           localStorage.setItem(
             StorageKeys.CONFIG,
             JSON.stringify(firebaseData.config)
@@ -343,9 +290,6 @@ export class ElectionApp {
           configUpdated = true;
         } else {
           // Caso 2: localStorage tem dados → SEMPRE usar Firebase (SSOT)
-          console.log(
-            "[ElectionApp] 🔄 Sobrescrevendo cache local com config do Firebase (SSOT)"
-          );
           localStorage.setItem(
             StorageKeys.CONFIG,
             JSON.stringify(firebaseData.config)
@@ -353,7 +297,6 @@ export class ElectionApp {
           configUpdated = true;
         }
       } else {
-        console.log("[ElectionApp] ℹ️ Firebase não tem configuração de quórum");
 
         // ✅ CORREÇÃO: Verificar se localStorage também está vazio
         const localConfig = localStorage.getItem(StorageKeys.CONFIG);
@@ -363,12 +306,6 @@ export class ElectionApp {
         if (!hasLocalConfig) {
           // ✅ Nenhuma config no Firebase nem no localStorage
           // Emitir evento para UIManager abrir modal de configuração
-          console.log(
-            "[ElectionApp] ⚠️ Nenhuma configuração encontrada (Firebase e localStorage vazios)"
-          );
-          console.log(
-            "[ElectionApp] 📋 Emitindo evento QUORUM_CONFIG_REQUIRED..."
-          );
 
           // Emitir evento após um pequeno delay para garantir que UIManager já inicializou
           setTimeout(() => {
@@ -377,31 +314,22 @@ export class ElectionApp {
               source: "firebase_sync",
             });
           }, 500);
-        } else {
-          console.log(
-            "[ElectionApp] ✓ Config encontrada no localStorage (Firebase sync não necessário)"
-          );
         }
       }
 
       // 4️⃣ Recarregar managers se houver atualizações
       if (membersUpdated) {
-        console.log("[ElectionApp] 🔃 Recarregando managers de membros...");
         await this.memberManager.loadFromStorage();
         await this.attendanceManager.loadFromStorage();
         await this.votingManager.loadFromStorage();
       }
 
       if (configUpdated) {
-        console.log("[ElectionApp] 🔃 Recarregando manager de configuração...");
         await this.votingManager.loadFromStorage();
       }
 
       // 5️⃣ Log final
       if (membersUpdated || configUpdated) {
-        console.log(
-          "[ElectionApp] ✅ Sincronização completa - dados atualizados do Firebase (SSOT)"
-        );
         // Emitir evento para UI
         if (membersUpdated) {
           this.eventSystem.emit(EventTypes.MEMBERS_IMPORTED, {
@@ -463,7 +391,6 @@ export class ElectionApp {
     count: number;
     errors?: string[];
   }): void {
-    console.log(`${data.count} membros importados`);
     if (data.errors && data.errors.length > 0) {
       console.warn("Erros na importação:", data.errors);
     }
@@ -716,10 +643,6 @@ export class ElectionApp {
 
       localStorage.setItem(StorageKeys.MEMBERS, JSON.stringify(updatedMembers));
       RealtimeSync.getInstance().syncMembers(updatedMembers);
-
-      console.log(
-        "[ElectionApp] ✅ Eleição resetada: votos e presença zerados"
-      );
 
       this.eventSystem.emit(EventTypes.APP_RESET, {
         timestamp: new Date(),

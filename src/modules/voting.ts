@@ -45,15 +45,8 @@ export class VotingManager {
       const cacheKey = role || "all";
       const cached = this.candidatesCache.get(cacheKey);
       if (cached) {
-        console.log(
-          `[VotingManager.getCandidates] ⚡ Retornando ${cached.length} candidatos do cache (key: ${cacheKey})`
-        );
         return cached;
       }
-
-      console.log(
-        `[VotingManager.getCandidates] 🔄 Cache vazio, buscando de MEMBERS (key: ${cacheKey})`
-      );
 
       // NOVA IMPLEMENTAÇÃO: Buscar candidatos de MEMBERS
       const members = await this.memberManager.getMembers();
@@ -81,10 +74,6 @@ export class VotingManager {
 
       // Cachear resultado
       this.candidatesCache.set(cacheKey, candidates);
-
-      console.log(
-        `[DEBUG VotingManager.getCandidates] ${candidates.length} candidatos carregados de MEMBERS`
-      );
 
       return candidates;
     } catch (error) {
@@ -242,10 +231,6 @@ export class VotingManager {
         votes: voteResult.data?.votes || 0,
         lastUpdated: new Date(),
       };
-
-      console.log(
-        `[VotingManager] ✅ Voto removido: ${candidate.nome} agora tem ${votingData.votes} votos`
-      );
 
       return {
         success: true,
@@ -498,7 +483,6 @@ export class VotingManager {
   }
 
   clearCache(): void {
-    console.log("[VotingManager] 🧹 Cache de candidatos limpo");
     console.trace("[VotingManager] Stack trace do clearCache:");
     this.candidatesCache.clear();
   }
@@ -552,10 +536,6 @@ export class VotingManager {
       // ✅ Aguardar sincronização com Firebase
       await RealtimeSync.getInstance().syncMembers(updatedMembers);
 
-      console.log(
-        "[VotingManager] ✅ Todos os votos foram resetados (localStorage + Firebase)"
-      );
-
       // Resetar flag de votação encerrada
       this.votingClosed = false;
 
@@ -578,7 +558,6 @@ export class VotingManager {
    */
   reopenVoting(): void {
     this.votingClosed = false;
-    console.log("[VotingManager] 🔄 Votação reaberta");
   }
 
   /**

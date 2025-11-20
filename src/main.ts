@@ -12,11 +12,7 @@ function migrateStorageV2() {
   try {
     const obsoleteKey = "ELECTION_APP_CANDIDATES";
     if (localStorage.getItem(obsoleteKey)) {
-      console.log("[Migration] Removendo storage obsoleto:", obsoleteKey);
       localStorage.removeItem(obsoleteKey);
-      console.log(
-        "[Migration] ✓ Storage CANDIDATES removido - agora usa apenas MEMBERS"
-      );
     }
   } catch (error) {
     console.warn("[Migration] Erro ao remover storage obsoleto:", error);
@@ -26,8 +22,6 @@ function migrateStorageV2() {
 // Inicializar aplicação quando DOM estiver carregado
 document.addEventListener("DOMContentLoaded", async () => {
   try {
-    console.log("[Main] 🚀 Inicializando aplicação...");
-
     // Executar migração de storage ANTES de qualquer inicialização
     migrateStorageV2();
 
@@ -41,27 +35,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     const authManager = AuthManager.getInstance();
 
     // Aguardar determinação do estado de autenticação
-    console.log(
-      "[Main] ⏳ Aguardando determinação do estado de autenticação..."
-    );
     await waitForAuthState(authManager);
 
     const currentUser = authManager.getCurrentUser();
-    console.log("[Main] 📋 Estado de autenticação determinado:", {
-      hasUser: !!currentUser,
-      email: currentUser?.email,
-    });
 
     if (!currentUser) {
       // Usuário não autenticado - mostrar tela de login
-      console.log("[Main] 🔐 Exibindo tela de login...");
       showLoginScreen();
       return;
     }
 
     // Usuário autenticado - inicializar aplicação diretamente
     // (loading-screen já está visível, não há "piscada" da tela de login)
-    console.log("[Main] ✅ Usuário autenticado, carregando aplicação...");
     updateLoadingMessage("Carregando aplicação...");
     await initializeApplication();
   } catch (error) {
@@ -96,34 +81,17 @@ function updateLoadingMessage(message: string): void {
 function waitForAuthState(authManager: AuthManager): Promise<void> {
   const state = authManager.getState();
 
-  console.log("[waitForAuthState] Estado inicial:", {
-    isLoading: state.isLoading,
-    isAuthenticated: state.isAuthenticated,
-    hasUser: !!state.user,
-  });
-
   // Se já temos um estado determinado (autenticado ou não), resolver imediatamente
   if (!state.isLoading) {
-    console.log(
-      "[waitForAuthState] ✅ Estado já determinado, resolvendo imediatamente"
-    );
     return Promise.resolve();
   }
-
-  console.log("[waitForAuthState] ⏳ Aguardando mudança de estado...");
 
   // Aguardar mudança de estado com timeout
   return Promise.race([
     new Promise<void>((resolve) => {
       const unsubscribe = authManager.subscribe((newState) => {
-        console.log("[waitForAuthState] 📡 Novo estado recebido:", {
-          isLoading: newState.isLoading,
-          isAuthenticated: newState.isAuthenticated,
-          hasUser: !!newState.user,
-        });
 
         if (!newState.isLoading) {
-          console.log("[waitForAuthState] ✅ Estado determinado via listener");
           unsubscribe();
           resolve();
         }

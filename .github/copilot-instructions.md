@@ -479,6 +479,19 @@
   - Performance: 98-99% de melhoria em renderização com 500-1000 membros
   - Bundle: 185.66 kB (+1.63 kB JS) + 43.91 kB HTML (+0.55 kB)
   - Documentação completa em docs/IMPLEMENTACAO-PAGINACAO-PRESENCA.md
+- [x] Implementar Botão de Sincronização de Votos (19/nov/2025)
+  - Novo método público `reloadFromFirebase()` no AuditManager
+  - Força recarregamento de votos diretamente do Firebase
+  - Interface na página de Configurações (botão Sincronizar)
+  - Dialog de confirmação antes da ação
+  - Validação de Firebase ativo antes de sincronizar
+  - Atualização automática de UI via evento VOTE_RECORDED
+  - Notificações de sucesso/erro/warning
+  - Tratamento robusto de erros (try/catch duplo)
+  - Recarrega página de votação automaticamente se ativa
+  - Resolve discrepâncias entre localStorage e Firebase
+  - Bundle: 190.29 kB (impacto desprezível: +1.2 kB)
+  - Documentação completa em docs/IMPLEMENTACAO-BOTAO-SINCRONIZACAO-VOTOS.md
 
 ## Arquitetura do Sistema
 

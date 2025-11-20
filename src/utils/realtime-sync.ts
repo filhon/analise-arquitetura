@@ -149,6 +149,57 @@ export class RealtimeSync {
    * @param vote - Voto completo com id, timestamp, candidatos e hash
    * @returns Promise com sucesso/erro
    */
+  /**
+   * ✅ NOVO: Obter próximo ID de voto usando transação atômica
+   * Elimina race conditions garantindo atomicidade na leitura e escrita
+   *
+   * @returns Promise com próximo ID disponível
+   */
+  async getNextVoteIdAtomic(): Promise<number> {
+    if (!this.isActive() || !database) {
+      throw new Error("Firebase não configurado ou inativo");
+    }
+
+    try {
+      const metadataRef = ref(database, "audit/metadata");
+
+      let nextId = 0;
+
+      // Usar transação atômica para ler e incrementar contador
+      await runTransaction(metadataRef, (currentData) => {
+        if (currentData === null) {
+          // Primeira vez: inicializar metadata
+          nextId = 0;
+          return {
+            totalVotes: 1,
+            lastUpdated: Date.now(),
+            version: "2.0",
+          };
+        }
+
+        // Calcular próximo ID
+        nextId = currentData.totalVotes || 0;
+
+        // Incrementar contador atomicamente
+        return {
+          ...currentData,
+          totalVotes: nextId + 1,
+          lastUpdated: Date.now(),
+        };
+      });
+
+      console.log(`[RealtimeSync] ✅ Próximo ID atômico obtido: ${nextId}`);
+      return nextId;
+    } catch (error) {
+      console.error("[RealtimeSync] ❌ Erro em transação atômica:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * ✅ ATUALIZADO: Sincronizar voto usando ID obtido atomicamente
+   * Agora recebe o ID já calculado pela transação
+   */
   async syncVoteToFirebase(
     vote: AuditVote
   ): Promise<{ success: boolean; error?: string }> {
@@ -174,11 +225,9 @@ export class RealtimeSync {
         createdAt: Date.now(),
       });
 
-      // Atualizar metadata em background (não bloqueia)
-      this.updateAuditMetadata().catch((err) => {
-        console.warn("[RealtimeSync] ⚠️ Erro ao atualizar metadata:", err);
-      });
-
+      console.log(
+        `[RealtimeSync] ✅ Voto ${vote.id} sincronizado com Firebase`
+      );
       return { success: true };
     } catch (error) {
       console.error(

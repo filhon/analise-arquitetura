@@ -66,6 +66,7 @@ export class UIManager {
     this.setupSystemEventListeners();
     await this.loadInitialData();
     this.initializeDarkMode();
+    this.initializeBulkAttendanceToggle();
     this.updateUserInfoOnInit();
   }
 
@@ -87,6 +88,16 @@ export class UIManager {
     if (isDarkMode) {
       document.body.classList.add("dark-mode");
       if (toggle) toggle.checked = true;
+    }
+  }
+
+  private initializeBulkAttendanceToggle(): void {
+    // Sempre iniciar desmarcado ao carregar a página
+    const toggle = document.getElementById(
+      "bulk-attendance-toggle"
+    ) as HTMLInputElement;
+    if (toggle) {
+      toggle.checked = false;
     }
   }
 
@@ -431,6 +442,21 @@ export class UIManager {
       .getElementById("dark-mode-toggle")
       ?.addEventListener("change", this.handleDarkModeToggle.bind(this));
 
+    // Setup bulk attendance toggle
+    document
+      .getElementById("bulk-attendance-toggle")
+      ?.addEventListener("change", this.handleBulkAttendanceToggle.bind(this));
+
+    // Setup delete all members button
+    document
+      .getElementById("delete-all-members-btn")
+      ?.addEventListener("click", this.handleDeleteAllMembers.bind(this));
+
+    // Setup sync votes button
+    document
+      .getElementById("sync-votes-btn")
+      ?.addEventListener("click", this.handleSyncVotes.bind(this));
+
     // Setup toggle de senha no modal de usuário
     const toggleUserPassword = document.getElementById("toggle-user-password");
     const userPasswordInput = document.getElementById(
@@ -470,9 +496,6 @@ export class UIManager {
       async (data: { count: number }) => {
         // ✅ OTIMIZAÇÃO: Ignorar durante votação para não causar lentidão
         if (this.isVotingInProgress) {
-          console.log(
-            "[UIManager] ⏭️ MEMBERS_IMPORTED ignorado durante votação"
-          );
           return;
         }
 
@@ -487,25 +510,16 @@ export class UIManager {
         const currentTab = this.getCurrentTab();
 
         if (currentTab === "members") {
-          console.log("[UIManager] 🔄 Recarregando aba Membros...");
           await this.loadMembersData();
         } else if (currentTab === "candidates") {
-          console.log("[UIManager] 🔄 Recarregando aba Candidatos...");
           await this.loadCandidatesData();
         } else if (currentTab === "attendance") {
-          console.log("[UIManager] 🔄 Recarregando aba Presença...");
           await this.loadAttendanceData();
         } else if (currentTab === "voting") {
-          console.log("[UIManager] 🔄 Recarregando aba Votação...");
           await this.loadVotingData();
         } else if (currentTab === "results") {
-          console.log("[UIManager] 🔄 Recarregando aba Resultados...");
           await this.loadResultsData();
         }
-
-        console.log(
-          "[UIManager] ✅ UI atualizada com dados carregados do Firebase"
-        );
       }
     );
 
@@ -526,30 +540,19 @@ export class UIManager {
       // 4. Candidato deixou de ser candidato
       // 5. Tipo de candidato mudou (Presbítero ↔ Diácono)
       await this.loadCandidatesData();
-
-      console.log("[UIManager] ✓ Aba Candidatos sincronizada");
     });
 
     // Ouvir deleção de membros para sincronizar a aba de Candidatos
     electionApp.events.on(EventTypes.MEMBER_DELETED, async () => {
-      console.log(
-        "[UIManager] Evento MEMBER_DELETED recebido, sincronizando..."
-      );
       await this.loadCandidatesData();
-      console.log("[UIManager] ✓ Aba Candidatos sincronizada");
     });
 
     // Ouvir atualizações de presença para atualizar contador e status de quórum
     electionApp.events.on(EventTypes.ATTENDANCE_SAVED, async () => {
       // ✅ OTIMIZAÇÃO: Ignorar durante votação para não causar lentidão
       if (this.isVotingInProgress) {
-        console.log("[UIManager] ⏭️ ATTENDANCE_SAVED ignorado durante votação");
         return;
       }
-
-      console.log(
-        "[UIManager] Evento ATTENDANCE_SAVED recebido, atualizando UI..."
-      );
 
       // ✅ CORREÇÃO: Usar debounce para atualizar estatísticas
       this.debouncedUpdateStats();
@@ -562,8 +565,6 @@ export class UIManager {
       } else if (currentTab === "voting") {
         await this.loadVotingData();
       }
-
-      console.log("[UIManager] ✓ Contador de presença e quórum atualizados");
     });
 
     // ✅ CRÍTICO: Ouvir sincronização remota do Firebase para atualizar quórum
@@ -572,9 +573,6 @@ export class UIManager {
       async (members: Member[]) => {
         // ✅ OTIMIZAÇÃO: Ignorar durante votação para não causar lentidão
         if (this.isVotingInProgress) {
-          console.log(
-            "[UIManager] ⏭️ SYNC_MEMBERS_UPDATED ignorado durante votação"
-          );
           return;
         }
 
@@ -602,24 +600,16 @@ export class UIManager {
         } else if (currentTab === "results") {
           await this.loadResultsData();
         }
-
-        console.log("[UIManager] ✓ UI sincronizada com dados do Firebase");
       }
     );
 
     // Ouvir sincronização de configurações do Firebase
     electionApp.events.on(EventTypes.SYNC_CONFIG_UPDATED, async () => {
-      console.log(
-        "[UIManager] Evento SYNC_CONFIG_UPDATED recebido do Firebase"
-      );
-
       // Recarregar aba de votação se estiver ativa (para atualizar quórum)
       const currentTab = this.getCurrentTab();
       if (currentTab === "voting") {
         await this.loadVotingData();
       }
-
-      console.log("[UIManager] ✓ Configurações sincronizadas com Firebase");
     });
 
     // ✅ NOVO: Ouvir quando configuração de quórum é necessária
@@ -629,12 +619,6 @@ export class UIManager {
         console.log(
           "[UIManager] 📋 Evento QUORUM_CONFIG_REQUIRED recebido:",
           data
-        );
-        console.log(
-          "[UIManager] ⚠️ Nenhuma configuração de quórum encontrada!"
-        );
-        console.log(
-          "[UIManager] 🔓 Abrindo modal de configuração automaticamente..."
         );
 
         // Abrir modal de configuração de quórum
@@ -1739,6 +1723,143 @@ export class UIManager {
     }
   }
 
+  private async handleBulkAttendanceToggle(e: Event): Promise<void> {
+    const checkbox = e.target as HTMLInputElement;
+    const markAsPresent = checkbox.checked;
+
+    const action = markAsPresent ? "marcar" : "desmarcar";
+    const confirmed = await dialogService.confirm({
+      title: `${markAsPresent ? "Marcar" : "Desmarcar"} Presença em Massa`,
+      message: `Tem certeza que deseja ${action} a presença de TODOS os membros? Esta ação será sincronizada com o Firebase.`,
+      confirmText: "Sim, continuar",
+      cancelText: "Cancelar",
+      icon: "how_to_reg",
+    });
+
+    if (!confirmed) {
+      // Reverter o toggle se cancelado
+      checkbox.checked = !markAsPresent;
+      return;
+    }
+
+    try {
+      const members = await electionApp.getMembers();
+      let updatedCount = 0;
+
+      for (const member of members) {
+        const result = await electionApp.markAttendance(
+          member.id,
+          markAsPresent
+        );
+        if (result.success) {
+          updatedCount++;
+        }
+      }
+
+      NotificationService.success(
+        `Presença ${markAsPresent ? "marcada" : "desmarcada"} para ${updatedCount} membros`
+      );
+
+      // Recarregar dados
+      await this.loadAttendanceData();
+    } catch (error) {
+      console.error("Error in bulk attendance toggle:", error);
+      NotificationService.error("Erro ao atualizar presença em massa");
+      // Reverter o toggle em caso de erro
+      checkbox.checked = !markAsPresent;
+    }
+  }
+
+  private async handleDeleteAllMembers(): Promise<void> {
+    const confirmed = await dialogService.confirm({
+      title: "⚠️ ATENÇÃO: Exclusão Total",
+      message:
+        "Você está prestes a EXCLUIR PERMANENTEMENTE todos os membros do sistema. Esta ação é IRREVERSÍVEL e será sincronizada com o Firebase. Todos os dados de membros, candidatos e votos serão perdidos. Deseja realmente continuar?",
+      confirmText: "Sim, excluir tudo",
+      cancelText: "Cancelar",
+      icon: "delete_forever",
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    // Segunda confirmação para ações críticas
+    const doubleConfirmed = await dialogService.confirm({
+      title: "Confirmação Final",
+      message:
+        "Esta é sua última chance. Confirme novamente que deseja excluir TODOS os membros permanentemente.",
+      confirmText: "Confirmar exclusão",
+      cancelText: "Cancelar",
+      icon: "warning",
+    });
+
+    if (!doubleConfirmed) {
+      return;
+    }
+
+    try {
+      const members = await electionApp.getMembers();
+      const totalMembers = members.length;
+
+      if (totalMembers === 0) {
+        NotificationService.info("Não há membros para excluir");
+        return;
+      }
+
+      // Excluir todos os membros
+      let deletedCount = 0;
+      for (const member of members) {
+        const result = await electionApp.deleteMember(member.id);
+        if (result.success) {
+          deletedCount++;
+        }
+      }
+
+      NotificationService.success(
+        `${deletedCount} de ${totalMembers} membros excluídos com sucesso`
+      );
+
+      // Recarregar todas as páginas que dependem de membros
+      await this.loadInitialData();
+    } catch (error) {
+      console.error("Error deleting all members:", error);
+      NotificationService.error("Erro ao excluir membros");
+    }
+  }
+
+  /**
+   * Forçar sincronização de votos com Firebase
+   */
+  private async handleSyncVotes(): Promise<void> {
+    const confirmed = await dialogService.confirm({
+      title: "Sincronizar Votos",
+      message:
+        "Esta ação forçará o recarregamento de todos os votos do Firebase, substituindo qualquer dado local. Use apenas se houver discrepância entre o contador local e o Firebase. Deseja continuar?",
+      confirmText: "Sim, sincronizar",
+      cancelText: "Cancelar",
+      icon: "cloud_sync",
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const auditManager = AuditManager.getInstance();
+      await auditManager.reloadFromFirebase();
+
+      // Atualizar UI se estiver na página de votação
+      const currentTab = this.getCurrentTab();
+      if (currentTab === "voting") {
+        await this.loadVotingData();
+      }
+    } catch (error) {
+      console.error("[UIManager] Erro ao sincronizar votos:", error);
+      NotificationService.error("Erro ao sincronizar com Firebase");
+    }
+  }
+
   private async handleExport(): Promise<void> {
     try {
       const result = await electionApp.exportData();
@@ -2050,8 +2171,12 @@ export class UIManager {
       // Buscar todos os candidatos e separar por cargo
       const allCandidates = await electionApp.getCandidates();
 
-      const presbyteros = allCandidates.filter((c) => c.role === "Presbítero");
-      const diaconos = allCandidates.filter((c) => c.role === "Diácono");
+      const presbyteros = allCandidates
+        .filter((c) => c.role === "Presbítero")
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      const diaconos = allCandidates
+        .filter((c) => c.role === "Diácono")
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
       // Renderizar Presbíteros
       const presbyterosList = document.getElementById("presbyteros-list");
@@ -2368,15 +2493,6 @@ export class UIManager {
           if (form) {
             form.dataset.photoUrl = photoUrl;
             form.dataset.photoThumbUrl = thumbBase64;
-            console.log(
-              "[DEBUG handlePhotoUpload] Foto carregada (base64 fallback):",
-              {
-                fileSize: file.size,
-                fileType: file.type,
-                photoUrlLength: photoUrl.length,
-                photoThumbUrlLength: thumbBase64.length,
-              }
-            );
           }
         } catch (thumbErr) {
           // Se falhar ao gerar thumb, ainda salvar a imagem completa
@@ -2822,9 +2938,6 @@ export class UIManager {
   private async closeFullscreen(): Promise<void> {
     // Prevenir chamadas duplicadas
     if (this.isClosingFullscreen) {
-      console.log(
-        "[UIManager] Fechamento já em andamento, ignorando chamada duplicada"
-      );
       return;
     }
 
@@ -2986,16 +3099,12 @@ export class UIManager {
 
   private async loadVotingData(): Promise<void> {
     try {
-      console.log("[UIManager] Carregando dados de votação...");
-
       // Carregar quórum, candidatos e configuração
       const [results, candidates, quorumConfig] = await Promise.all([
         electionApp.getElectionResults(),
         electionApp.getCandidates(),
         electionApp.getQuorumConfig(),
       ]);
-
-      console.log("[UIManager] Dados de quórum recebidos:", results.quorum);
 
       // Renderizar status do quórum
       this.renderQuorumStatus(results.quorum);
@@ -3226,12 +3335,8 @@ export class UIManager {
 
   private async loadAttendanceData(): Promise<void> {
     try {
-      console.log("[UIManager] Recarregando dados de presença...");
-
       // ✅ CORREÇÃO: Renderizar lista específica de presença ao invés da tabela de membros
       await this.renderAttendanceList();
-
-      console.log("[UIManager] ✓ Dados de presença recarregados");
     } catch (error) {
       console.error("[UIManager] Erro ao recarregar dados de presença:", error);
     }
@@ -3316,7 +3421,7 @@ export class UIManager {
                 </thead>
                 <tbody>
                   ${allCandidates
-                    .sort((a, b) => b.votes - a.votes)
+                    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
                     .map(
                       (candidate) => `
                       <tr>
@@ -3345,8 +3450,6 @@ export class UIManager {
           `;
         }
       }
-
-      console.log("[UIManager] ✓ Resultados carregados");
 
       // Inicializar/atualizar charts (import dinâmico para evitar carregar em testes)
       try {
@@ -3720,11 +3823,6 @@ export class UIManager {
     if (editingId) {
       // ✅ ARQUITETURA UNIFICADA: MODO EDIÇÃO - Atualizar membro diretamente
       // O editingId É o member.id - não há base separada de candidatos
-      console.log("[DEBUG handleCandidateSubmit] Atualizando candidato:", {
-        editingId,
-        hasPhotoUrl: !!photoUrl,
-        photoUrlLength: photoUrl?.length,
-      });
 
       // Preparar updates
       const updates: any = {};
@@ -3754,9 +3852,6 @@ export class UIManager {
 
       if (updateResult.success) {
         NotificationService.show("Candidato adicionado com sucesso", "success");
-        console.log(
-          `[UIManager] Membro ${memberId} marcado como candidato ${role}`
-        );
       } else {
         NotificationService.show(
           updateResult.error || "Erro ao adicionar candidato",
@@ -3780,11 +3875,9 @@ export class UIManager {
   private async handleConfigQuorum(): Promise<void> {
     try {
       // ✅ CRÍTICO: Forçar carregamento do Firebase antes de abrir modal
-      console.log("[UIManager] Carregando configuração do Firebase...");
       const firebaseData = await RealtimeSync.getInstance().loadInitialState();
 
       if (firebaseData.config) {
-        console.log("[UIManager] ✓ Configuração sincronizada do Firebase");
         localStorage.setItem(
           StorageKeys.CONFIG,
           JSON.stringify(firebaseData.config)

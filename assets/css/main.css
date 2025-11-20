@@ -3603,6 +3603,13 @@ body.dark-mode .voting-category.quorum-blur::after {
   margin: 0;
 }
 
+.setting-item .btn {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 /* Dark mode transitions */
 .app-container,
 .app-header,

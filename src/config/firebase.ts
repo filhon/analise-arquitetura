@@ -44,48 +44,32 @@ let firestore: Firestore | null = null;
 
 if (isConfigured) {
   try {
-    console.log("🔧 Inicializando Firebase com config:", {
-      projectId: firebaseConfig.projectId,
-      authDomain: firebaseConfig.authDomain,
-      hasApiKey: !!firebaseConfig.apiKey,
-    });
 
     app = initializeApp(firebaseConfig);
     database = getDatabase(app);
     auth = getAuth(app);
     firestore = getFirestore(app);
 
-    console.log("✅ Firebase App inicializado");
-    console.log("✅ Firebase Database inicializado");
-    console.log("✅ Firebase Auth inicializado");
-    console.log("✅ Firebase Firestore inicializado");
-
     // Inicializar Functions
     try {
       functions = getFunctions(app);
-      console.log("✅ Firebase Functions inicializado");
     } catch (err) {
-      console.warn("⚠️ Não foi possível inicializar Firebase Functions:", err);
+      console.warn("Não foi possível inicializar Firebase Functions:", err);
     }
 
     // Inicializar Storage se houver bucket configurado
     try {
       storage = getStorage(app);
-      console.log("✅ Firebase Storage inicializado");
-      console.log(`📦 Storage bucket: ${firebaseConfig.storageBucket}`);
     } catch (err) {
-      console.warn("⚠️ Não foi possível inicializar Firebase Storage:", err);
+      console.warn("Não foi possível inicializar Firebase Storage:", err);
     }
-    console.log("✅ Firebase inicializado com sucesso!");
-    console.log(`📡 Database URL: ${firebaseConfig.databaseURL}`);
-    console.log(`🔐 Authentication habilitado`);
   } catch (error) {
-    console.error("❌ Erro ao inicializar Firebase:", error);
+    console.error("Erro ao inicializar Firebase:", error);
   }
 } else {
-  console.warn("⚠️ Firebase não configurado!");
-  console.warn("📝 Abra src/config/firebase.ts e adicione suas credenciais");
-  console.warn("📚 Veja docs/CONFIGURACAO-FIREBASE-PASSO-A-PASSO.md");
+  console.warn("Firebase não configurado!");
+  console.warn("Abra src/config/firebase.ts e adicione suas credenciais");
+  console.warn("Veja docs/CONFIGURACAO-FIREBASE-PASSO-A-PASSO.md");
 }
 
 export { app, database, storage, auth, functions, firestore, isConfigured };

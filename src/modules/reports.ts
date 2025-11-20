@@ -1087,12 +1087,6 @@ export class ReportManager {
     const cpf2 = generateValidCPF("123.456.789");
     const cpf3 = generateValidCPF("987.654.321");
 
-    console.log("[Template CSV] CPFs gerados e validados:", {
-      cpf1,
-      cpf2,
-      cpf3,
-    });
-
     const exampleData = [
       [
         "João Silva",

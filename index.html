@@ -1123,6 +1123,58 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-icon">
+                  <span class="material-icons md-24">how_to_reg</span>
+                </div>
+                <div class="setting-text">
+                  <h4>Marcar Presença em Massa</h4>
+                  <p>Marcar ou desmarcar presença de todos os membros</p>
+                </div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="bulk-attendance-toggle" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-icon">
+                  <span class="material-icons md-24">delete_forever</span>
+                </div>
+                <div class="setting-text">
+                  <h4>Excluir Todos os Membros</h4>
+                  <p>Remove permanentemente todos os membros do sistema</p>
+                </div>
+              </div>
+              <button class="btn btn-danger" id="delete-all-members-btn">
+                <span class="material-icons md-18">delete_sweep</span>
+                Excluir Todos
+              </button>
+            </div>
+
+            <!-- Sincronizar Votos com Firebase -->
+            <div class="setting-item">
+              <div class="setting-content">
+                <div class="setting-icon">
+                  <span class="material-icons md-24">sync</span>
+                </div>
+                <div class="setting-text">
+                  <h4>Sincronizar Votos com Firebase</h4>
+                  <p>
+                    Força recarregamento dos votos do Firebase (resolve
+                    discrepâncias)
+                  </p>
+                </div>
+              </div>
+              <button class="btn btn-primary" id="sync-votes-btn">
+                <span class="material-icons md-18">cloud_sync</span>
+                Sincronizar
+              </button>
+            </div>
           </div>
         </div>
       </div>

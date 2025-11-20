@@ -16,6 +16,7 @@ import { EventTypes, StorageKeys } from "@/types";
 import { EventSystem } from "@/utils/events";
 import { RealtimeSync } from "@/utils/realtime-sync";
 import { MemberManager } from "./members";
+import { NotificationService } from "@/ui/notifications";
 import { database } from "@/config/firebase";
 import { ref, get } from "firebase/database";
 
@@ -109,9 +110,31 @@ export class AuditManager {
    * @param diaconos IDs dos candidatos a Diácono selecionados
    * @returns ID do voto registrado
    */
+  /**
+   * ✅ ATUALIZADO: Registrar voto usando transação atômica do Firebase
+   * Elimina race conditions ao obter ID de forma atômica
+   */
   async recordVote(presbyteros: string[], diaconos: string[]): Promise<number> {
-    // Calcular próximo ID disponível (pode vir do Firebase ou local)
-    const voteId = await this.getNextVoteId();
+    const realtimeSync = RealtimeSync.getInstance();
+    let voteId: number;
+
+    // Obter próximo ID de forma atômica (Firebase Transaction)
+    if (realtimeSync.isActive()) {
+      try {
+        voteId = await realtimeSync.getNextVoteIdAtomic();
+        console.log(`[AuditManager] ✅ ID atômico obtido: ${voteId}`);
+      } catch (error) {
+        console.error(
+          "[AuditManager] ❌ Erro ao obter ID atômico, usando fallback local:",
+          error
+        );
+        voteId = this.votes.length;
+      }
+    } else {
+      // Fallback: usar tamanho do array local
+      voteId = this.votes.length;
+    }
+
     const timestamp = new Date().toISOString();
 
     // Gerar hash SHA-256 para integridade
@@ -137,7 +160,6 @@ export class AuditManager {
     localStorage.setItem(StorageKeys.AUDIT_LOG, JSON.stringify(this.votes));
 
     // Sincronizar voto individual com Firebase (estrutura incremental)
-    const realtimeSync = RealtimeSync.getInstance();
     if (realtimeSync.isActive()) {
       await realtimeSync.syncVoteToFirebase(vote);
     }
@@ -189,6 +211,47 @@ export class AuditManager {
    */
   getVotesCount(): number {
     return this.votes.length;
+  }
+
+  /**
+   * ✅ NOVO: Forçar recarregamento dos votos do Firebase
+   * Útil para resolver discrepâncias entre cache local e Firebase
+   */
+  async reloadFromFirebase(): Promise<void> {
+    const realtimeSync = RealtimeSync.getInstance();
+    if (!realtimeSync.isActive()) {
+      NotificationService.getInstance().show(
+        "Firebase não está ativo. Não há dados para recarregar.",
+        "warning"
+      );
+      return;
+    }
+
+    try {
+      const firebaseVotes = await realtimeSync.loadVotesFromFirebase();
+      this.votes = firebaseVotes;
+      localStorage.setItem(StorageKeys.AUDIT_LOG, JSON.stringify(this.votes));
+
+      // Notificar UI para atualizar contadores
+      EventSystem.getInstance().emit(EventTypes.VOTE_RECORDED, {
+        voteId: firebaseVotes.length > 0 ? firebaseVotes.length - 1 : 0,
+      });
+
+      NotificationService.getInstance().show(
+        `Sincronizado com Firebase: ${firebaseVotes.length} votos carregados`,
+        "success"
+      );
+
+      console.log(
+        `[AuditManager] ✅ Recarregado do Firebase: ${firebaseVotes.length} votos`
+      );
+    } catch (error) {
+      console.error("[AuditManager] ❌ Erro ao recarregar do Firebase:", error);
+      NotificationService.getInstance().show(
+        "Erro ao sincronizar com Firebase",
+        "error"
+      );
+    }
   }
 
   /**
@@ -543,45 +606,39 @@ export class AuditManager {
       if (realtimeSync.isActive()) {
         try {
           const firebaseVotes = await realtimeSync.loadVotesFromFirebase();
+          console.log(
+            `[AuditManager] 🔥 ${firebaseVotes.length} votos carregados do Firebase`
+          );
 
-          if (firebaseVotes.length > 0) {
-            console.log(
-              `[AuditManager] 🔥 ${firebaseVotes.length} votos carregados do Firebase`
+          // ✅ CORREÇÃO: Firebase é SEMPRE a fonte da verdade
+          // Independente de quantidade, usar dados do Firebase
+          this.votes = firebaseVotes;
+
+          if (localVotes.length !== firebaseVotes.length) {
+            console.warn(
+              `[AuditManager] ⚠️ Sincronização: localStorage tinha ${localVotes.length} votos, Firebase tem ${firebaseVotes.length}`
             );
-
-            // Merge: usar Firebase como fonte da verdade
-            // Se Firebase tem mais votos, usar Firebase
-            if (firebaseVotes.length >= localVotes.length) {
-              this.votes = firebaseVotes;
-              console.log(
-                `[AuditManager] ✅ Usando ${firebaseVotes.length} votos do Firebase (mais completo)`
-              );
-            } else {
-              // Se local tem mais, manter local mas avisar
-              this.votes = localVotes;
-              console.warn(
-                `[AuditManager] ⚠️ localStorage tem mais votos (${localVotes.length}) que Firebase (${firebaseVotes.length})`
-              );
-            }
-
-            // Atualizar localStorage com dados mesclados
-            localStorage.setItem(
-              StorageKeys.AUDIT_LOG,
-              JSON.stringify(this.votes)
-            );
-          } else {
-            // Firebase vazio, usar local
-            this.votes = localVotes;
           }
+
+          // Atualizar localStorage com dados do Firebase
+          localStorage.setItem(
+            StorageKeys.AUDIT_LOG,
+            JSON.stringify(this.votes)
+          );
+
+          console.log(
+            `[AuditManager] ✅ Usando ${firebaseVotes.length} votos do Firebase (fonte da verdade)`
+          );
         } catch (error) {
           console.warn(
-            "[AuditManager] ⚠️ Erro ao carregar do Firebase, usando localStorage:",
+            "[AuditManager] ⚠️ Erro ao carregar do Firebase, usando localStorage como fallback:",
             error
           );
           this.votes = localVotes;
         }
       } else {
         // Firebase inativo, usar local
+        console.log("[AuditManager] ⚠️ Firebase inativo, usando localStorage");
         this.votes = localVotes;
       }
 

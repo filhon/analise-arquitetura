@@ -136,9 +136,6 @@ export class MemberManager {
           const { VotingManager } = await import("./voting");
           const votingManager = VotingManager.getInstance();
           votingManager.clearCache();
-          console.log(
-            "[MemberManager] ✅ Cache limpo ANTES de adicionar (candidato detectado)"
-          );
         } catch (error) {
           ErrorHandler.log(
             error as Error,
@@ -152,10 +149,6 @@ export class MemberManager {
 
       // Emitir evento (cache já limpo se for candidato)
       this.eventSystem.emit(EventTypes.MEMBER_ADDED, newMember);
-
-      console.log(
-        `[MemberManager] ✅ Membro adicionado e evento emitido: ${newMember.nome}`
-      );
 
       // Marcar não-comungantes e visitantes como presentes automaticamente
       // (Eles não contam para quórum, apenas para registro em ata)
@@ -276,16 +269,10 @@ export class MemberManager {
               : undefined,
           };
 
-          console.log(`[CSV Import] Membro criado linha ${i}:`, member);
           newMembers.push(member);
           membersAdded++;
 
           if (member.candidato) {
-            console.log(
-              `[CSV Import] Membro é candidato:`,
-              member.nome,
-              member.candidato
-            );
             candidatesAdded++;
           }
         } catch (error) {
@@ -367,14 +354,6 @@ export class MemberManager {
       Validator.required(member.tipo),
     ];
 
-    console.log(`[CSV Import] Validando membro:`, {
-      nome: member.nome,
-      cpf: member.cpf,
-      email: member.email,
-      hasCpf: !!member.cpf,
-      hasEmail: !!member.email,
-    });
-
     // Validar que apenas Membros Comungantes podem ser candidatos
     if (member.candidato && member.tipo !== "Membro Comungante") {
       return {
@@ -385,21 +364,15 @@ export class MemberManager {
 
     if (member.cpf && member.cpf.trim() !== "") {
       const cpfValidation = Validator.cpf(member.cpf);
-      console.log(`[CSV Import] Validação CPF "${member.cpf}":`, cpfValidation);
       validations.push(cpfValidation);
     }
 
     if (member.email && member.email.trim() !== "") {
       const emailValidation = Validator.email(member.email);
-      console.log(
-        `[CSV Import] Validação Email "${member.email}":`,
-        emailValidation
-      );
       validations.push(emailValidation);
     }
 
     const result = Validator.combine(...validations);
-    console.log(`[CSV Import] Resultado validação final:`, result);
     return result;
   }
 
@@ -609,9 +582,6 @@ export class MemberManager {
                   new File([blob], `upload_${Date.now()}.png`)
                 );
                 processedUpdates.photoUrl = url;
-                console.log(
-                  "[MemberManager] Foto enviada para Storage durante updateMember"
-                );
               } catch (err) {
                 console.warn(
                   "[MemberManager] Upload para Storage falhou, mantendo base64:",
@@ -647,9 +617,6 @@ export class MemberManager {
           const { VotingManager } = await import("./voting");
           const votingManager = VotingManager.getInstance();
           votingManager.clearCache();
-          console.log(
-            "[MemberManager] ✅ Cache limpo ANTES de salvar (candidato detectado)"
-          );
         } catch (error) {
           ErrorHandler.log(
             error as Error,
@@ -695,10 +662,6 @@ export class MemberManager {
       // Emitir evento (listeners verão dados atualizados e cache limpo)
       this.eventSystem.emit(EventTypes.MEMBER_UPDATED, updatedMember);
 
-      console.log(
-        `[MemberManager] ✅ Membro atualizado e evento emitido: ${updatedMember.nome}`
-      );
-
       return {
         success: true,
         data: updatedMember,
@@ -731,9 +694,6 @@ export class MemberManager {
           const { VotingManager } = await import("./voting");
           const votingManager = VotingManager.getInstance();
           votingManager.clearCache();
-          console.log(
-            "[MemberManager] ✅ Cache limpo ANTES de deletar (candidato detectado)"
-          );
         } catch (votingError) {
           ErrorHandler.log(
             votingError as Error,
@@ -781,10 +741,6 @@ export class MemberManager {
 
       // Emitir evento (cache já limpo)
       this.eventSystem.emit(EventTypes.MEMBER_DELETED, id);
-
-      console.log(
-        `[MemberManager] ✅ Membro deletado e evento emitido: ${memberToDelete?.nome || id}`
-      );
 
       return {
         success: true,
@@ -873,15 +829,7 @@ export class MemberManager {
         m.id === memberId ? updatedMember : m
       );
 
-      console.log(
-        `[MemberManager] 💾 Salvando membros atualizados... (${member.nome}: ${currentVotes} → ${newVotes})`
-      );
       await this.saveMembers(updatedMembers);
-      console.log("[MemberManager] ✅ Membros salvos com sucesso!");
-
-      console.log(
-        `[MemberManager] ✅ Votos atualizados: ${member.nome} (${currentVotes} → ${newVotes})`
-      );
 
       return { success: true, data: updatedMember };
     } catch (error) {
@@ -934,10 +882,6 @@ export class MemberManager {
 
       await this.saveMembers(updatedMembers);
 
-      console.log(
-        `[MemberManager] ✅ Membro marcado como votou: ${member.nome}`
-      );
-
       return { success: true, data: updatedMember };
     } catch (error) {
       ErrorHandler.log(error as Error, "MemberManager.markMemberVoted");
@@ -979,10 +923,6 @@ export class MemberManager {
         present: nowPresent,
         timestamp: now,
       });
-
-      console.log(
-        `[MemberManager] ✅ Presença alternada: ${member.nome} (${member.presente} → ${nowPresent})`
-      );
 
       return { success: true, data: updatedMember };
     } catch (error) {
