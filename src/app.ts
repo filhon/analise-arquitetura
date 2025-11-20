@@ -103,7 +103,6 @@ export class ElectionApp {
       const hasFirebaseConfig = !!firebaseData.config;
 
       if (!hasFirebaseConfig) {
-
         // Emitir evento para UI abrir o modal
         this.eventSystem.emit(EventTypes.QUORUM_CONFIG_REQUIRED, {
           reason: "no_config_on_firebase",
@@ -169,7 +168,6 @@ export class ElectionApp {
     // Escutar atualizações de membros vindas do Firebase
     // Agora todos os dados (presença, votos, candidatura) estão centralizados no Member
     this.eventSystem.on(EventTypes.SYNC_MEMBERS_UPDATED, (data: Member[]) => {
-
       // ✅ Firebase é SSOT: Salvar no localStorage apenas como cache
       // Managers usam localStorage como cache read-only
       localStorage.setItem(StorageKeys.MEMBERS, JSON.stringify(data));
@@ -191,7 +189,6 @@ export class ElectionApp {
 
     // Escutar atualizações de configurações vindas do Firebase
     this.eventSystem.on(EventTypes.SYNC_CONFIG_UPDATED, (data: ConfigData) => {
-
       // ✅ CRÍTICO: Validar se data existe e tem quorum
       if (!data) {
         console.warn(
@@ -242,63 +239,38 @@ export class ElectionApp {
    */
   private async syncFromFirebaseBeforeRender(): Promise<void> {
     try {
+      console.log("[ElectionApp] 🔄 Sincronizando com Firebase (SSOT)...");
 
-      // 1️⃣ Carregar dados ATUAIS do Firebase
+      // 1️⃣ Carregar dados ATUAIS do Firebase (SEMPRE)
       const firebaseData = await RealtimeSync.getInstance().loadInitialState();
 
       let membersUpdated = false;
       let configUpdated = false;
 
-      // 2️⃣ Sincronizar MEMBROS
+      // 2️⃣ Sincronizar MEMBROS - Firebase é SEMPRE a fonte da verdade
       if (firebaseData.members && firebaseData.members.length > 0) {
-        const localMembers = localStorage.getItem(StorageKeys.MEMBERS);
-        const hasLocalMembers = localMembers && localMembers !== "[]";
-
-        if (!hasLocalMembers) {
-          // Caso 1: localStorage vazio → hidratar do Firebase
-          localStorage.setItem(
-            StorageKeys.MEMBERS,
-            JSON.stringify(firebaseData.members)
-          );
-          membersUpdated = true;
-        } else {
-          // Caso 2: localStorage tem dados → SEMPRE usar Firebase (SSOT)
-          localStorage.setItem(
-            StorageKeys.MEMBERS,
-            JSON.stringify(firebaseData.members)
-          );
-          membersUpdated = true;
-        }
+        // SEMPRE sobrescrever localStorage com dados do Firebase
+        localStorage.setItem(
+          StorageKeys.MEMBERS,
+          JSON.stringify(firebaseData.members)
+        );
+        membersUpdated = true;
+        console.log(
+          `[ElectionApp] ✅ ${firebaseData.members.length} membros sincronizados do Firebase`
+        );
       }
 
-      // 3️⃣ Sincronizar CONFIGURAÇÃO
+      // 3️⃣ Sincronizar CONFIGURAÇÃO - Firebase é SEMPRE a fonte da verdade
       if (firebaseData.config) {
-        const localConfig = localStorage.getItem(StorageKeys.CONFIG);
-        const hasLocalConfig =
-          localConfig && localConfig !== "undefined" && localConfig !== "null";
-
-        // ✅ CORREÇÃO CRÍTICA: firebaseData.config agora retorna ConfigData completo
-        // Estrutura: { quorum: QuorumConfig, system: SystemConfig }
-        // Não precisa mais criar wrapper manualmente!
-
-        if (!hasLocalConfig) {
-          // Caso 1: localStorage vazio → hidratar do Firebase
-          localStorage.setItem(
-            StorageKeys.CONFIG,
-            JSON.stringify(firebaseData.config)
-          );
-          configUpdated = true;
-        } else {
-          // Caso 2: localStorage tem dados → SEMPRE usar Firebase (SSOT)
-          localStorage.setItem(
-            StorageKeys.CONFIG,
-            JSON.stringify(firebaseData.config)
-          );
-          configUpdated = true;
-        }
+        // SEMPRE sobrescrever localStorage com dados do Firebase
+        localStorage.setItem(
+          StorageKeys.CONFIG,
+          JSON.stringify(firebaseData.config)
+        );
+        configUpdated = true;
+        console.log("[ElectionApp] ✅ Configuração sincronizada do Firebase");
       } else {
-
-        // ✅ CORREÇÃO: Verificar se localStorage também está vazio
+        // ✅ Nenhuma config no Firebase - verificar se localStorage também está vazio
         const localConfig = localStorage.getItem(StorageKeys.CONFIG);
         const hasLocalConfig =
           localConfig && localConfig !== "undefined" && localConfig !== "null";
@@ -328,29 +300,17 @@ export class ElectionApp {
         await this.votingManager.loadFromStorage();
       }
 
-      // 5️⃣ Log final
-      if (membersUpdated || configUpdated) {
-        // Emitir evento para UI
-        if (membersUpdated) {
-          this.eventSystem.emit(EventTypes.MEMBERS_IMPORTED, {
-            count: firebaseData.members?.length || 0,
-          });
-        }
-      } else {
-        // ✅ CORREÇÃO: Mensagem mais clara sobre estado real
-        const hasFirebaseMembers =
-          firebaseData.members && firebaseData.members.length > 0;
-        const hasFirebaseConfig = !!firebaseData.config;
+      // 5️⃣ Emitir eventos se houve atualizações
+      if (membersUpdated) {
+        this.eventSystem.emit(EventTypes.MEMBERS_IMPORTED, {
+          count: firebaseData.members?.length || 0,
+        });
+      }
 
-        if (!hasFirebaseMembers && !hasFirebaseConfig) {
-          console.log(
-            "[ElectionApp] ℹ️ Firebase vazio - usando dados do localStorage (se existirem)"
-          );
-        } else {
-          console.log(
-            "[ElectionApp] ✅ localStorage já sincronizado com Firebase"
-          );
-        }
+      if (!membersUpdated && !configUpdated) {
+        console.log(
+          "[ElectionApp] ℹ️ Firebase vazio - usando dados locais (se existirem)"
+        );
       }
     } catch (error) {
       console.error("[ElectionApp] ✗ Erro ao sincronizar com Firebase:", error);
@@ -396,49 +356,43 @@ export class ElectionApp {
     }
   }
 
-  private handleMemberAdded(member: Member): void {
-    console.log(`Membro adicionado: ${member.nome}`);
+  private handleMemberAdded(_member: Member): void {
+    // Membro adicionado com sucesso
   }
 
-  private handleMemberUpdated(member: Member): void {
-    console.log(`Membro atualizado: ${member.nome}`);
+  private handleMemberUpdated(_member: Member): void {
+    // Membro atualizado com sucesso
   }
 
-  private handleVoteCast(data: {
+  private handleVoteCast(_data: {
     candidateId: string;
     memberId: string;
   }): void {
-    console.log(
-      `Voto registrado - Candidato: ${data.candidateId}, Membro: ${data.memberId}`
-    );
+    // Voto registrado com sucesso
   }
 
-  private handleCandidateAdded(candidate: Candidate): void {
-    console.log(`Candidato adicionado: ${candidate.name} (${candidate.role})`);
+  private handleCandidateAdded(_candidate: Candidate): void {
+    // Candidato adicionado com sucesso
   }
 
-  private handleResultsUpdated(results: any): void {
-    console.log("Resultados atualizados:", results);
+  private handleResultsUpdated(_results: any): void {
+    // Resultados atualizados
   }
 
-  private handleAttendanceMarked(data: {
+  private handleAttendanceMarked(_data: {
     memberId: string;
     present: boolean;
     timestamp: Date;
   }): void {
-    const status = data.present ? "presente" : "ausente";
-    console.log(
-      `Presença marcada - Membro: ${data.memberId}, Status: ${status}`
-    );
+    // Presença marcada com sucesso
   }
 
   private handleBulkAttendanceUpdate(data: {
     updated: number;
     errors?: string[];
   }): void {
-    console.log(`${data.updated} presenças atualizadas em lote`);
     if (data.errors && data.errors.length > 0) {
-      console.warn("Erros na atualização:", data.errors);
+      console.warn("Erros na atualização em lote:", data.errors);
     }
   }
 

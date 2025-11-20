@@ -1,13 +1,3 @@
-/**
- * Sistema de Sincronização em Tempo Real com Firebase
- *
- * Sincroniza dados entre múltiplos dispositivos automaticamente:
- * - Membros
- * - Presença (Attendance)
- * - Votos
- * - Configuração de Quórum
- */
-
 import { database, isConfigured } from "@/config/firebase";
 import {
   ref,

@@ -824,8 +824,25 @@ export class UIManager {
       return;
     }
 
+    // ✅ NOVO: Filtrar apenas membros AUSENTES (ocultar presentes)
+    const absentMembers = members.filter((m) => !m.presente);
+
+    if (absentMembers.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <span class="material-icons md-48">check_circle</span>
+          <p>Todos os membros estão presentes!</p>
+          <small style="color: var(--gray-500); margin-top: 0.5rem;">
+            Use a busca para localizar um membro específico
+          </small>
+        </div>
+      `;
+      this.hideAttendancePagination();
+      return;
+    }
+
     // Ordenar membros por ordem alfabética (nome)
-    const sortedMembers = [...members].sort((a, b) =>
+    const sortedMembers = [...absentMembers].sort((a, b) =>
       a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })
     );
 
@@ -4221,11 +4238,12 @@ export class UIManager {
         if (!container) return;
 
         if (query.length === 0) {
-          // Resetar para página 1 e mostrar todos
+          // Resetar para página 1 e mostrar apenas ausentes
           this.currentAttendancePage = 1;
           await this.renderAttendanceList();
         } else {
-          // Filtrar por nome ou CPF
+          // ✅ NOVO: Filtrar por nome, CPF ou email (incluindo PRESENTES)
+          // Permite localizar membros presentes via busca
           const filtered = members.filter((m) => {
             const nameMatch = m.nome.toLowerCase().includes(query);
             const cpfMatch = m.cpf?.toLowerCase().includes(query) || false;
